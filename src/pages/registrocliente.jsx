@@ -110,7 +110,7 @@ const RegistroCliente = () => {
           <ul>
             <li><a href="/">Preguntas Frecuentes</a></li>
             <li><a href="/">Política de Privacidad</a></li>
-            <li><a href="/">Términos y Condiciones</a></li>
+            <li><a href="/">Luca Bonadero  DJ</a></li>
           </ul>
         </div>
       </footer>
@@ -122,6 +122,7 @@ const RegistroCliente = () => {
         </div>
       </div>
     </div>
+
   );
 };
 
