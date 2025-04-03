@@ -37,6 +37,12 @@ body {
     display: flex;
     flex-direction: column;
 }
+h1 {
+    font-size: 2.5rem;
+    font-weight: 600;
+    color: #000000;
+    margin-bottom: 20px;
+}
 
 
 /****************************************************************************************
