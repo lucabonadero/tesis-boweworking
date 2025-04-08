@@ -1,0 +1,12 @@
+[33m9caad4b[m[33m ([m[1;36mHEAD[m[33m)[m HEAD@{0}: pull origin bonadero --rebase (pick): pruebabonacci
+[33mb07bfb7[m[33m ([m[1;31morigin/bonadero[m[33m)[m HEAD@{1}: pull origin bonadero --rebase (start): checkout b07bfb7995752b2042b286525402eaec85bf94f5
+[33m50bd95d[m[33m ([m[1;32mbonadero[m[33m, [m[1;32mbackup-bonadero[m[33m)[m HEAD@{2}: checkout: moving from backup-bonadero to bonadero
+[33m50bd95d[m[33m ([m[1;32mbonadero[m[33m, [m[1;32mbackup-bonadero[m[33m)[m HEAD@{3}: checkout: moving from bonadero to backup-bonadero
+[33m50bd95d[m[33m ([m[1;32mbonadero[m[33m, [m[1;32mbackup-bonadero[m[33m)[m HEAD@{4}: checkout: moving from 50bd95d11ad7ce8f8992a336a9c5b2e04b25fd0c to bonadero
+[33m50bd95d[m[33m ([m[1;32mbonadero[m[33m, [m[1;32mbackup-bonadero[m[33m)[m HEAD@{5}: checkout: moving from bonadero to 50bd95d
+[33m50bd95d[m[33m ([m[1;32mbonadero[m[33m, [m[1;32mbackup-bonadero[m[33m)[m HEAD@{6}: rebase (abort): returning to refs/heads/bonadero
+[33m388c1de[m HEAD@{7}: pull origin bonadero --rebase (pick): pruebabonacci
+[33mb07bfb7[m[33m ([m[1;31morigin/bonadero[m[33m)[m HEAD@{8}: pull origin bonadero --rebase (start): checkout b07bfb7995752b2042b286525402eaec85bf94f5
+[33m50bd95d[m[33m ([m[1;32mbonadero[m[33m, [m[1;32mbackup-bonadero[m[33m)[m HEAD@{9}: commit: Avances en el home
+[33md693795[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m, [m[1;32mmain[m[33m)[m HEAD@{10}: checkout: moving from main to bonadero
+[33md693795[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m, [m[1;32mmain[m[33m)[m HEAD@{11}: clone: from https://github.com/lucabonadero/tesis-boweworking.git
