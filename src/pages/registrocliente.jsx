@@ -2,6 +2,7 @@ import "../styles/registrocliente.css";
 import Header from "../components/header.jsx";
 import React from "react";
 import Footer from "../components/footer.jsx";
+import Carousel from '../components/carrusel.jsx';
 
 export default function RegistroCliente() {
   return (
@@ -31,49 +32,46 @@ export default function RegistroCliente() {
                 <div className="form__group">
                   <label htmlFor="space">Espacio a reservar:</label>
                   <select id="space" name="space">
-                    <option value="small-office">Oficina pequeña</option>
-                    <option value="medium-office">Oficina mediana</option>
-                    <option value="large-office">Oficina grande</option>
+                    <option value="planta-baja">Planta Baja</option>
+                    <option value="oficina-individual">Oficina Individual</option>
+                    <option value="sala-de-reuniones">Sala de Reuniones</option>
+                    <option value="terraza">Terraza</option>
                   </select>
                 </div>
                 <div className="form__group">
                   <label htmlFor="fecha">Fecha y Hora de la Visita:</label>
                   <input type="datetime-local" id="fecha" name="fecha" required />
                 </div>
-                <div className="form__group">
-                  <label htmlFor="duracion">Tiempo de la Reserva:</label>
-                  <select id="duracion" name="duracion">
-                    <option value="one-hour">1hs</option>
-                    <option value="two-hours">2hs</option>
-                    <option value="three-hours">3hs</option>
-                  </select>
-                </div>
-                <div className="form__group">
-                  <label htmlFor="business">Empresa:</label>
-                  <div className="business__container">
-                    <label className="business__label" htmlFor="mayor">
-                      ¿La reserva es para una Empresa?
-                    </label>
+                <div className="form__group--horizontal">
+                  <div className="form__group">
+                    <label htmlFor="duracion">Tiempo de la Reserva:</label>
+                    <select id="duracion" name="duracion">
+                      <option value="one-hour">1hs</option>
+                      <option value="two-hours">2hs</option>
+                      <option value="three-hours">3hs</option>
+                    </select>
+                  </div>
+
+                  <div className="form__group">
+                    <label htmlFor="cantidad">Cantidad de personas:</label>
                     <input
-                      className="business__checkbox"
-                      type="checkbox"
-                      id="mayor"
-                      name="edad"
-                      value="mayor"
+                      type="number"
+                      id="cantidad"
+                      name="cantidad"
+                      min="1"
+                      defaultValue="1"
+                      required
                     />
                   </div>
                 </div>
+
                 <div className="form__group">
                   <input type="submit" value="Reservar" />
                 </div>
               </form>
             </div>
 
-            <div className="image__carousel">
-              <button className="carousel__btn">❮</button>
-              <img src="./src/assets/frentebowe.jpg" alt="Bo WeWorking" />
-              <button className="carousel__btn">❯</button>
-            </div>
+            <Carousel />
           </div>
         </div>
       </main>
