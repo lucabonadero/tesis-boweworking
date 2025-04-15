@@ -59,21 +59,24 @@
   
   .hero__content {
     position: absolute;
-    top: 5%;
-    left: 50%;
-    color: rgb(0, 0, 0);
-    text-align: top left;
+    top: 10%;
+    left: 8%;
+    right: 8%;
+    width: 1500px;
     display: flex;
-    align-items: center;
-    gap: 2rem;
-    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;  /* 👈 Alinea verticalmente el h1 y el box en el centro */
+    flex-wrap: nowrap;    /* 👈 NO PERMITE que los elementos se bajen */
+    color: rgb(0, 0, 0);
+    
   }
   
   .hero__content h1 {
     font-size: 4rem;
     font-weight: bold;
-    max-width: 600px;
     line-height: 1.2;
+    max-width: none;      /* 👈 asegurate de no limitarlo innecesariamente */
+    white-space: nowrap; /* 🚀 ESTO FUERZA A QUE NO SE CORTE EN LÍNEA NUEVA */
   }
   
   .highlight {
@@ -84,7 +87,7 @@
   .hero__box {
     border: 2px solid rgb(204, 201, 201);
     padding: 1rem 1.5rem;
-    max-width: 350px;
+    max-width: 400px;
     color: rgb(0, 0, 0);
     font-size: 1.1rem;
   }
@@ -136,6 +139,16 @@
     overflow: hidden;
     width: 280px;
     box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    display: flex;
+    flex-direction: column;
+    height: 100%; /* importante */
+  }
+  .card-content{
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding-bottom: 1rem;
   }
   
   .card img {
@@ -162,11 +175,12 @@
     margin-top: 1rem;
   }
   
-  .space-link a {
-    text-decoration: none;
-    color: #000;
-    font-weight: 500;
-    transition: color 0.3s;
+  .space-link {
+    display: flex;
+    justify-content: space-between; /* ⬅️ cambio clave */
+    align-items: center;
+    margin: 1rem 0.7rem 0; /* para que respete el margen lateral del párrafo */
+    margin-bottom: 0.5rem;
   }
   
   .space-link a:hover {
@@ -218,6 +232,7 @@
   /* IMAGEN DESTACADA */
   .imagen__destacada {
     padding: 4rem 0;
+    margin-bottom: 50px;
   }
   
   .imagen__destacada img {
@@ -229,15 +244,17 @@
   
   .cta__final-wrapper {
     display: flex;
-    justify-content: center;
+    justify-content: space-between;
     align-items: flex-start;
     gap: 4rem;
     flex-wrap: wrap;
     max-width: 1000px;
     margin: 0 auto;
+    margin-bottom: 100px;
   }
   
   .cta__final h2 {
+    text-align: left;
     font-size: 2.5rem;
     font-weight: bold;
     line-height: 1.3;
