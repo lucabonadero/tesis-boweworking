@@ -10,7 +10,7 @@ export default function Header() {
         <ul className="header__links">
           <li><a href="/">Home</a></li>
           <li><a href="registro">Reservar</a></li>
-          <li><a href="">Espacios</a></li>
+          <li><a href="espacios">Espacios</a></li>
           <li><a href="">Acerca de Nosotros</a></li>
         </ul>
       </div>
