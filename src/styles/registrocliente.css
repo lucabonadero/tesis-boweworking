@@ -102,6 +102,7 @@
     align-items: center;
     margin: 0 auto;
     width: 100%;
+    margin-bottom: 100px;
 } 
 
 /****************************************************************************************
@@ -114,7 +115,6 @@
     color: white;
     padding: 40px 60px;
     font-family: 'Urbanist', sans-serif;
-    margin-top: 100px;
 }
 
 .footer__top {
@@ -132,29 +132,44 @@
 
 .footer__bo {
     max-width: 400px;
+    margin-bottom: 50px;
 }
 
 .footer__contacts {
-    min-height: 30%;
-}
-
-.footer__social {
-    align-items: center;
-}
+    display: flex;
+    justify-content: space-between; /* Espacio entre social y links */
+    align-items: center; /* Centra verticalmente si hay diferencia de altura */
+    width: 1250px;
+  }
   
-.footer__social i {
+  .footer__social i {
     margin-right: 10px;
-    font-size: 20px;
-    background: rgba(255, 255, 255, 0.2);
-    padding: 8px;
+    font-size: 1.2rem;
+    color: white;
+    background-color: rgba(255, 255, 255, 0.2);
     border-radius: 50%;
-    cursor: pointer;
-}
-
-.footer__links {
-    align-items: center;
-    font-size: 14px;
-}
+    padding: 10px;
+    transition: background-color 0.3s;
+  }
+  
+  .footer__social i:hover {
+    background-color: rgba(255, 255, 255, 0.4);
+  }
+  
+  .footer__links {
+    display: flex;
+    gap: 1.5rem;
+  }
+  
+  .footer__links a {
+    color: white;
+    text-decoration: none;
+    transition: color 0.3s;
+  }
+  
+  .footer__links a:hover {
+    color: #ffd;
+  }
   
 .footer__cards {
     display: flex;
@@ -174,6 +189,7 @@
   
 .footer__card h4 {
     margin-bottom: 8px;
+    color: #ffffff;
 }
   
 .footer__card a {
@@ -182,7 +198,11 @@
     font-weight: bold;
     color: #ffffff;
 }
-  
+
+.footer__card p {
+    color: #ffffff;
+}
+
 
 
 /****************************************************************************************
@@ -209,7 +229,6 @@
 }
 
 .form__group label {
-    display: block;
     margin-bottom: 6px;
     padding-left: 5px;
 }
