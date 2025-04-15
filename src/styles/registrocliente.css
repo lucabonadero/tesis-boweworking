@@ -1,26 +1,45 @@
 /******************************************** General ********************************************/
+@font-face {
+    font-family: Inter;
+    src: url('../assets/fonts/Poppins-Light.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+}
 
 
 /****************************************************************************************
 ****************************************************************************************
 ****************************************************************************************
 ******************************************** Header ********************************************/
-
-.header{
+/* Header */
+.header {
     display: flex;
     justify-content: space-between;
-}
-
-.logo{
-    height: 90px;
-    /* alineacion sobre eje secundario dado por flex-align */
     align-items: center;
-    margin: 15px 0 0 10px;
+    padding: 10px 20px;
 }
 
-.header .header__links {
+.logo {
+    height: 90px;
+    margin-left: 10px;
+}
+
+.header__logo-text {
+    font-size: 24px;
+    font-weight: bold;
+    color: #6d6b6b;
+    margin-left: 10px;
+}
+
+/* Centramos los enlaces */
+.header__links {
     display: flex;
-    font-size: 20px;
+    font-weight: bold;
+    font-size: 18px;
+    justify-content: center;
+    flex-grow: 1;
+    margin: 0;
+    gap: 40px; /* Más espacio entre enlaces */
 }
 
 .header__links li {
@@ -28,24 +47,45 @@
 }
 
 .header__links a {
-    float: left;
-    color: #1a1a1a;
-    text-align: center;
-    padding: 40px 20px;
+    color: #5e5c5c;
     text-decoration: none;
-    font-size: 20px;
+    font-size: 18px;
+    position: relative;
+    padding: 10px 0; /* Reducimos padding para que el subrayado sea justo */
+}
+
+/* Enlace activo */
+.header__links .active {
+    font-weight: bold;
+}
+
+/* Subrayado */
+.header__links a::after {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 0;
+    height: 3px;
+    background-color: black;
+    transition: width 0.3s ease;
+}
+
+/* Hover o activo: subrayado visible */
+.header__links a:hover::after,
+.header__links .active::after {
+    width: 100%;
 }
 
 .header__links a:hover {
-    background-color: #ddd;
-    color: black;
+    color: #1a1a1a;
 }
 
-.header .toggle__btn {
-    font-size: 2.5rem;
-    cursor: pointer;
-    display: none;
-    padding: 20px 20px;
+/* Responsivo */
+@media (max-width: 768px) {
+    .header__links {
+        display: none;
+    }
 }
 
 /****************************************************************************************
@@ -122,11 +162,11 @@
 }
   
 .footer__card {
-    background-color: #f9bebe;
+    background-color: #FCCABB;
     padding: 20px;
     border-radius: 8px;
     width: 200px;
-    color: #444;
+    color: #ffffff;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
@@ -140,7 +180,7 @@
     margin-top: auto;
     text-decoration: none;
     font-weight: bold;
-    color: #444;
+    color: #ffffff;
 }
   
 
