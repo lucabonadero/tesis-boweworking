@@ -12,9 +12,7 @@ export default function Index () {
       <section className="hero">
   <div className="hero__overlay">
     <div className="hero__content">
-      <h1>
-        Encontrá el mejor lugar para <span className="highlight">Trabajar</span>
-      </h1>
+    <h1>Encontrá el mejor<br /> lugar para <span className="highlight">Trabajar</span></h1>
       <div className="hero__box">
         <p>Su productividad  está influenciada por el lugar donde trabaja.<br />
         ¡Busque el mejor lugar para trabajar!</p>
@@ -37,16 +35,16 @@ export default function Index () {
             <p>Escritorios individuales, espacio para eventos, reuniones, clases</p>
             <div className="space-link">
               <a href="#">Ver más</a>
-              <span className="arrow">➔</span>
+              <span className="arrow">➝</span>
             </div>
           </div>
           <div className="card">
             <img src="./src/assets/primerpiso.png" alt="Primer Piso" />
             <h3>Primer Piso</h3>
-            <p>Oficina equipada para reuniones, con proyector disponible y opción de alquiler mensual.</p>
+            <p>Oficinas equipadas para reuniones, con proyector disponible y opción de alquiler mensual.</p>
             <div className="space-link">
               <a href="#">Ver más</a>
-              <span className="arrow">➔</span>
+              <span className="arrow">➝</span>
             </div>
           </div>
           <div className="card">
@@ -55,7 +53,7 @@ export default function Index () {
             <p>Espacio libre, coworking</p>
             <div className="space-link">
               <a href="#">Ver más</a>
-              <span className="arrow">➔</span>
+              <span className="arrow">➝</span>
             </div>
           </div>
         </div>
