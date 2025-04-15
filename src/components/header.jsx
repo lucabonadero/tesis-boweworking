@@ -4,7 +4,7 @@ export default function Header() {
   return (
     <header>
       <div className="header">
-        <a href="index.html">
+        <a href="/">
           <img className="logo" src="./src/assets/logoblanco.png" alt="Logo" />
         </a>
         <ul className="header__links">
