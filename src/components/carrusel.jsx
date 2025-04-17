@@ -4,7 +4,7 @@ import img2 from '../assets/plantabajadim.png';
 import img3 from '../assets/salareunionesdim.png';
 import img4 from '../assets/terrazardadim.png';
 
-import '../styles/registrocliente.css'; // Asegurate de importar el CSS
+import styles from '../styles/registrocliente.module.css'; // Asegurate de importar el CSS
 
 export default function Carousel() {
   const images = [img1, img2, img3, img4];
@@ -20,9 +20,9 @@ export default function Carousel() {
   }, []);
 
   return (
-    <div className="carousel__container">
+    <div className={styles.carousel__container}>
       <div
-        className="carousel__slider"
+        className={styles.carousel__slider}
         style={{
           transform: `translateX(-${currentImage * 100}%)`,
         }}
@@ -32,7 +32,7 @@ export default function Carousel() {
             key={index}
             src={image}
             alt={`Imagen ${index + 1}`}
-            className="carousel__image"
+            className={styles.carousel__image}
           />
         ))}
       </div>

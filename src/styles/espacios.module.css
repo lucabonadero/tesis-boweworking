@@ -16,7 +16,7 @@
     font-size: 2.5rem;
   }
   
-  .espacios__header p {
+  .espacio__header p {
     font-size: 1.2rem;
     margin-top: 0.5rem;
   }
@@ -30,7 +30,7 @@
     margin: 0 auto;
   }
   
-  .espacio__card {
+  .espacios__card {
     background-color: white;
     border-radius: 16px;
     box-shadow: 0 4px 12px rgba(0,0,0,0.1);
@@ -38,34 +38,34 @@
     transition: transform 0.3s ease;
   }
   
-  .espacio__card:hover {
+  .espacios__card:hover {
     transform: translateY(-5px);
   }
   
-  .espacio__card img {
+  .espacios__card img {
     width: 100%;
     height: 200px;
     object-fit: cover;
   }
   
-  .espacio__card h2 {
+  .espacios__card h2 {
     padding: 1rem 1.5rem 0.5rem;
     margin: 0;
     color: #5a5a5a;
   }
   
-  .espacio__card ul {
+  .espacios__card ul {
     padding: 0 1.5rem 1.5rem;
     list-style: none;
   }
   
-  .espacio__card ul li {
+  .espacios__card ul li {
     margin-bottom: 0.5rem;
     padding-left: 1rem;
     position: relative;
   }
   
-  .espacio__card ul li::before {
+  .espacios__card ul li::before {
     content: "✔";
     position: absolute;
     left: 0;
