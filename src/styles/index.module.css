@@ -242,7 +242,7 @@
     object-position: top top;
   }
   
-  .cta__final-wrapper {
+  .cta__finalWrapper {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
@@ -261,14 +261,14 @@
     flex: 1;
   }
   
-  .cta__final-parrafo {
+  .cta__finalParrafo {
     flex: 1;
     max-width: 400px;
     font-size: 0.9rem;
     color: #555;
   }
   
-  .cta__final-underline {
+  .cta__finalUnderline {
     height: 1px;
     background-color: rgb(160, 157, 157);
     margin-top: 2rem;

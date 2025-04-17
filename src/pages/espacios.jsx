@@ -1,7 +1,8 @@
 import React from "react";
 import Header from "../components/header.jsx";
 import Footer from "../components/footer.jsx";
-import "../styles/espacios.css";
+import styles from "../styles/espacios.module.css";
+import "../styles/global.css";
 
 import imgprimerpiso from '../assets/primerpiso.png';
 import imgsalareuniones from '../assets/salareuniones.png';
@@ -55,15 +56,15 @@ const espacios = [
     return (
         <div>
             <Header />
-            <div className="espacios__container">
-                <header className="espacios__header">
+            <div className={styles.espacios__container}>
+                <header className={styles.espacios__header}>
                 <h1>Conocé nuestros espacios</h1>
                 <p>Elegí el que mejor se adapte a tus necesidades</p>
                 </header>
         
-                <main className="espacios__grid">
+                <main className={styles.espacios__grid}>
                 {espacios.map((espacio, index) => (
-                    <div key={index} className="espacio__card">
+                    <div key={index} className={styles.espacios__card}>
                     <img src={espacio.imagen} alt={espacio.titulo} />
                     <h2>{espacio.titulo}</h2>
                     <ul>
