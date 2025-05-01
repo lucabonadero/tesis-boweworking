@@ -111,8 +111,7 @@
     display: flex;
     justify-content: space-between;
     flex-wrap: wrap;
-    margin-bottom: 30px;
-  }
+}
   
 .footer__info {
     display: flex;
