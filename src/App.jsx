@@ -1,7 +1,7 @@
 import RegistroCliente from "./pages/registrocliente";
 import Index from "./pages/index";
 import Espacios from "./pages/espacios";
-import ControlReservas from "./pages/controlreservas";
+import ControlReservas from "./pages/consultareservas";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 
 

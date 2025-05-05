@@ -1,14 +1,14 @@
 import React from "react";
 import Header from "../components/header.jsx";
 import Footer from "../components/footer.jsx";
-import styles from "../styles/controlreservas.module.css";
+import styles from "../styles/consultareservas.module.css";
 import "../styles/global.css";
 import Tabla from "../components/tabla.jsx";
 
 export default function ControlReservas() {
     return (
         <div>
-            <Header />
+            <Header isEmpleado={true} />
 
             <main className={styles.main}>
                     <h1 className={styles.header}>
