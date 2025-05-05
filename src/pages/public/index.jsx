@@ -1,8 +1,8 @@
 import React from "react";
-import styles from "../styles/index.module.css";
-import Header from "../components/header.jsx";
-import Footer from "../components/footer.jsx";
-import "../styles/global.css";
+import styles from "../../styles/public/index.module.css";
+import Header from "../../components/header.jsx";
+import Footer from "../../components/footer.jsx";
+import "../../styles/global.css";
 
 export default function Index() {
   return (

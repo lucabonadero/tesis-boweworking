@@ -3,48 +3,58 @@ import { Space, Table, Tag } from 'antd';
 
 const columns = [
   {
-    title: 'Name',
+    title: 'Nombre',
     dataIndex: 'name',
     key: 'name',
     render: text => <a>{text}</a>,
   },
   {
-    title: 'Age',
-    dataIndex: 'age',
-    key: 'age',
+    title: 'Apellido',
+    dataIndex: 'lastname',
+    key: 'lastname',
   },
   {
-    title: 'Address',
-    dataIndex: 'address',
-    key: 'address',
+    title: 'Email',
+    dataIndex: 'email',
+    key: 'email',
+    width: 200,
+    ellipsis: true, // Esto muestra "..." si se corta
+    allign: 'center', // Centra el texto
   },
   {
-    title: 'Tags',
-    key: 'tags',
-    dataIndex: 'tags',
-    render: (_, { tags }) => (
-      <>
-        {tags.map(tag => {
-          let color = tag.length > 5 ? 'geekblue' : 'green';
-          if (tag === 'loser') {
-            color = 'volcano';
-          }
-          return (
-            <Tag color={color} key={tag}>
-              {tag.toUpperCase()}
-            </Tag>
-          );
-        })}
-      </>
-    ),
+    title: 'Espacio',
+    dataIndex: 'space',
+    key: 'space',
   },
   {
-    title: 'Action',
+    title: 'Fecha y Hora',
+    dataIndex: 'date',
+    key: 'date',
+    width: 200,
+    ellipsis: true,
+  },
+  {
+    title: 'Duración',
+    dataIndex: 'duration',
+    key: 'duration',
+    width: 80, // bien angosta
+  },
+  {
+    title: 'Personas',
+    dataIndex: 'people',
+    key: 'people',
+  },
+  {
+    title: <div style={{ textAlign: 'center' }}>Acciones</div>,
     key: 'action',
+    dataIndex: 'action',
+    width: 150,
+    fixed: 'right',
+    allign: 'center',
     render: (_, record) => (
       <Space size="middle">
-        <a>Invite {record.name}</a>
-        <a>Delete</a>
+        <a>Eliminar</a>
+        <a>Modificar</a>
       </Space>
     ),
   },
@@ -53,26 +63,36 @@ const columns = [
 const data = [
   {
     key: '1',
-    name: 'John Brown',
-    age: 32,
-    address: 'New York No. 1 Lake Park',
-    tags: ['nice', 'developer'],
+    name: 'Juan',
+    lastname: 'Pérez',
+    email: 'juanperez245@gmail.com',
+    space: 'Planta Baja',
+    date: '2023-10-01 10:00',
+    duration: '1hs',
+    people: 2,
   },
   {
     key: '2',
-    name: 'Jim Green',
-    age: 42,
-    address: 'London No. 1 Lake Park',
-    tags: ['loser'],
-  },
-  {
-    key: '3',
-    name: 'Joe Black',
-    age: 32,
-    address: 'Sydney No. 1 Lake Park',
-    tags: ['cool', 'teacher'],
+    name: 'María',
+    lastname: 'Gómez',
+    email: 'mariagomezperez213@gmail.com',
+    space: 'Oficina Individual',
+    date: '2023-10-02 11:00',
+    duration: '2hs',
+    people: 1,
   },
 ];
 
-const Tabla = () => <Table columns={columns} dataSource={data} />;
+const Tabla = () => (
+  <div style={{ display: 'flex', justifyContent: 'center', overflowX: 'auto' }}>
+    <div style={{ minWidth: '1000px' }}>
+      <Table
+        columns={columns}
+        dataSource={data}
+        pagination={true}
+        scroll={{ x: true }}
+      />
+    </div>
+  </div>
+);
 export default Tabla;

@@ -1,13 +1,13 @@
 import React from "react";
-import Header from "../components/header.jsx";
-import Footer from "../components/footer.jsx";
-import styles from "../styles/espacios.module.css";
-import "../styles/global.css";
+import Header from "../../components/header.jsx";
+import Footer from "../../components/footer.jsx";
+import styles from "../../styles/public/espacios.module.css";
+import "../../styles/global.css";
 
-import imgprimerpiso from '../assets/primerpiso.png';
-import imgsalareuniones from '../assets/salareuniones.png';
-import imgterraza from '../assets/terrazarda.png';
-import imgplanta from '../assets/plantabaja.png';
+import imgprimerpiso from '../../assets/primerpiso.png';
+import imgsalareuniones from '../../assets/salareuniones.png';
+import imgterraza from '../../assets/terrazarda.png';
+import imgplanta from '../../assets/plantabaja.png';
 
 const espacios = [
     {

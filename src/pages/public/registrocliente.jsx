@@ -1,9 +1,9 @@
-import styles from "../styles/registrocliente.module.css";
-import Header from "../components/header.jsx";
+import styles from "../../styles/public/registrocliente.module.css";
+import Header from "../../components/header.jsx";
 import React from "react";
-import Footer from "../components/footer.jsx";
-import Carousel from '../components/carrusel.jsx';
-import "../styles/global.css";
+import Footer from "../../components/footer.jsx";
+import Carousel from '../../components/carrusel.jsx';
+import "../../styles/global.css";
 
 export default function RegistroCliente() {
   return (

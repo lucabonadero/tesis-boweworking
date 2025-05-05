@@ -4,7 +4,7 @@ import img2 from '../assets/plantabajadim.png';
 import img3 from '../assets/salareunionesdim.png';
 import img4 from '../assets/terrazardadim.png';
 
-import styles from '../styles/registrocliente.module.css'; // Asegurate de importar el CSS
+import styles from '../styles/public/registrocliente.module.css'; // Asegurate de importar el CSS
 
 export default function Carousel() {
   const images = [img1, img2, img3, img4];

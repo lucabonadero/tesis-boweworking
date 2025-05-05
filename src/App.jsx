@@ -1,7 +1,8 @@
-import RegistroCliente from "./pages/registrocliente";
-import Index from "./pages/index";
-import Espacios from "./pages/espacios";
-import ControlReservas from "./pages/consultareservas";
+import RegistroCliente from "./pages/public/registrocliente";
+import Index from "./pages/public/index";
+import Espacios from "./pages/public/espacios";
+import ControlReservas from "./pages/admin/consultareservas";
+import "./App.css";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 
 

@@ -1,9 +1,9 @@
 import React from "react";
-import Header from "../components/header.jsx";
-import Footer from "../components/footer.jsx";
-import styles from "../styles/consultareservas.module.css";
-import "../styles/global.css";
-import Tabla from "../components/tabla.jsx";
+import Header from "../../components/header.jsx";
+import Footer from "../../components/footer.jsx";
+import styles from "../../styles/admin/consultareservas.module.css";
+import "../../styles/global.css";
+import Tabla from "../../components/tabla.jsx";
 
 export default function ControlReservas() {
     return (
