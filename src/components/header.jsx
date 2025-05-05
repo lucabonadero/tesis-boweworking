@@ -1,10 +1,10 @@
 import React from "react";
 import { useLocation } from "react-router-dom"; // Importamos para obtener la ruta actual
 
-export default function Header() {
-  const location = useLocation(); // Obtenemos la ruta actual
+export default function Header({ isEmpleado = false }) {
+  const location = useLocation();
 
-  // Función para agregar la clase 'active' al link correspondiente
+  // Clase activa para destacar el enlace actual
   const getLinkClass = (path) => {
     return location.pathname === path ? "active" : "";
   };
@@ -12,19 +12,31 @@ export default function Header() {
   return (
     <header>
       <div className="header">
-        {/* Logo y texto Bo WeWorking a la derecha */}
+        {/* Logo y texto Bo WeWorking */}
         <a href="/">
           <img className="logo" src="./src/assets/logoblanco.png" alt="Logo" />
         </a>
         <div className="header__logo-text">
           Bo WeWorking
         </div>
-        {/* Enlaces centrados */}
+
+        {/* Enlaces navegables */}
         <ul className="header__links">
-          <li><a href="/" className={getLinkClass("/")}>Home</a></li>
-          <li><a href="/registro" className={getLinkClass("/registro")}>Reservar</a></li>
-          <li><a href="/espacios" className={getLinkClass("/espacios")}>Espacios</a></li>
-          <li><a href="/acerca" className={getLinkClass("/acerca")}>Acerca de Nosotros</a></li>
+          {isEmpleado ? (
+            <>
+              <li><a href="/control" className={getLinkClass("/control")}>Consultar Reservas</a></li>
+              <li><a href="/altas" className={getLinkClass("/altas")}>Altas</a></li>
+              <li><a href="/espacios" className={getLinkClass("/espacios")}>Espacios</a></li>
+              <li><a href="/gestion" className={getLinkClass("/gestion")}>Gestion Financiera</a></li>
+            </>
+          ) : (
+            <>
+              <li><a href="/" className={getLinkClass("/")}>Home</a></li>
+              <li><a href="/registro" className={getLinkClass("/registro")}>Reservar</a></li>
+              <li><a href="/espacios" className={getLinkClass("/espacios")}>Espacios</a></li>
+              <li><a href="/acerca" className={getLinkClass("/acerca")}>Acerca de Nosotros</a></li>
+            </>
+          )}
         </ul>
       </div>
     </header>
