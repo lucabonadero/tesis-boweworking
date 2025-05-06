@@ -1,6 +1,6 @@
 import { Form, Input, Button, Typography, Card, message } from 'antd';
 import { useNavigate } from 'react-router-dom';
-import styles from '../styles/login.module.css'; // Importa el archivo CSS para estilos
+import styles from '../../styles/admin/login.module.css'; // Importa el archivo CSS para estilos
 import 'antd/dist/reset.css';
 const { Title } = Typography;
 
