@@ -3,6 +3,7 @@ import Index from "./pages/public/index";
 import Espacios from "./pages/public/espacios";
 import ControlReservas from "./pages/admin/consultareservas";
 import Login from "./pages/admin/login";
+import GestionFinanciera from "./pages/admin/Gestionfinanciera";
 import "./App.css";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 
@@ -16,6 +17,7 @@ function App() {
         <Route path="/espacios" element={<Espacios />} />
         <Route path="/login" element={<Login />} />
         <Route path="/control" element={<ControlReservas />} />
+        <Route path="/gestionfinanciera" element={<GestionFinanciera />} />
       </Routes>
     </BrowserRouter>
   );
