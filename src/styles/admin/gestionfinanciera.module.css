@@ -1,0 +1,163 @@
+.reservasWrapper {
+    display: flex;
+    gap: 40px;
+    margin-bottom: 40px;
+    align-items: flex-start;
+  }
+  
+  .tablaContainer {
+    flex: 2;
+  }
+  
+  .formularioWrapper {
+    background: #fff;
+    border-radius: 20px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+    padding: 40px 30px;
+    max-width: 500px;
+    margin: 30px auto;
+  }
+  
+  .resumenFinanciero {
+    display: flex;
+    justify-content: space-between;
+    gap: 30px;
+    padding: 30px;
+    background-color: #fff;
+    border-radius: 20px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+  }
+  
+  .resumenBox {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    flex: 1;
+  }
+  
+  .iconoWrapper {
+    background-color: #e0f8e9;
+    border-radius: 50%;
+    width: 56px;
+    height: 56px;
+    font-size: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #4caf50;
+  }
+  
+  .resumenBox h3 {
+    margin: 0;
+    font-size: 22px;
+    font-weight: bold;
+  }
+  
+  .resumenBox p {
+    margin: 0;
+    font-size: 14px;
+    color: #999;
+  }
+  
+  .subida {
+    color: #4caf50;
+    font-size: 13px;
+  }
+  
+  .bajada {
+    color: #f44336;
+    font-size: 13px;
+  }
+  .containerFormulario {
+    background: #fff;
+    border-radius: 20px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+    padding: 40px 30px;
+    max-width: 500px;
+    margin: 30px auto;
+  }
+  
+  .formulario__header {
+    text-align: center;
+    font-size: 24px;
+    font-weight: bold;
+    margin-bottom: 8px;
+  }
+  
+  .formulario__subtitulo {
+    text-align: center;
+    color: #999;
+    font-size: 14px;
+    margin-bottom: 30px;
+  }
+  
+  .form__group {
+    margin-bottom: 20px;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .form__group label {
+    margin-bottom: 6px;
+    font-weight: 500;
+  }
+  
+  input[type="text"],
+  input[type="number"],
+  select {
+    padding: 10px 12px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 14px;
+    background: #f7f7f7;
+    transition: all 0.3s ease;
+  }
+  
+  input:focus,
+  select:focus {
+    border-color: #4caf50;
+    outline: none;
+    background: #fff;
+  }
+  
+  .radioGroup {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+  }
+  
+  .radioGroup input[type="radio"] {
+    margin-right: 6px;
+  }
+  
+  .radioPagado {
+    color: #4caf50;
+    font-weight: 600;
+  }
+  
+  .radioPendiente {
+    color: #f44336;
+    font-weight: 600;
+  }
+  
+  .formButtons {
+    display: flex;
+    justify-content: center;
+    margin-top: 30px;
+  }
+  
+  .buttonPrimario {
+    background-color: #4caf50;
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    padding: 12px 24px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background 0.3s ease;
+  }
+  
+  .buttonPrimario:hover {
+    background-color: #43a047;
+  }
