@@ -1,6 +1,7 @@
-.espacios__container {
+
+ 
+ .espacios__container {
     background-color: #f8f8f8;
-    font-family: 'Segoe UI', sans-serif;
     color: #333;
   }
   
@@ -18,56 +19,52 @@
   
   .espacio__header p {
     font-size: 1.2rem;
-    margin-top: 0.5rem;
   }
   
-  .espacios__grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 2rem;
-    padding: 2rem;
-    max-width: 1200px;
-    margin: 0 auto;
+  .container {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    padding: 2rem 0;
+    align-items: center;
   }
   
-  .espacios__card {
-    background-color: white;
-    border-radius: 16px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-    overflow: hidden;
-    transition: transform 0.3s ease;
-  }
-  
-  .espacios__card:hover {
-    transform: translateY(-5px);
-  }
-  
-  .espacios__card img {
+  .carruselWrapper {
     width: 100%;
-    height: 200px;
-    object-fit: cover;
+    max-width: 1300px;
   }
   
-  .espacios__card h2 {
-    padding: 1rem 1.5rem 0.5rem;
+  .textContainer {
+    background-color: #f4f4f4;
+    padding: 1.5rem;
+    border-radius: 15px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    margin-bottom: 1.5rem;
+    text-align: center;
+    transition: all 0.3s ease;
+  }
+  
+  .textContainer:hover {
+    box-shadow: 0 25px 216px rgba(0, 0, 0, 0.12);
+  }
+  
+  .titulo {
+    font-size: 2rem;
     margin: 0;
-    color: #5a5a5a;
+    color: #333;
   }
   
-  .espacios__card ul {
-    padding: 0 1.5rem 1.5rem;
-    list-style: none;
+  .descripcion {
+    font-size: 1rem;
+    color: #555;
+    margin: 0;
   }
   
-  .espacios__card ul li {
-    margin-bottom: 0.5rem;
-    padding-left: 1rem;
-    position: relative;
-  }
-  
-  .espacios__card ul li::before {
-    content: "✔";
-    position: absolute;
-    left: 0;
-    color: #7cc293;
+  .slide img {
+    width: 100%;
+    height: 260px;
+    object-fit: cover;
+    margin: 0;
+    padding: 0;
+    border-radius: 0;
   }
