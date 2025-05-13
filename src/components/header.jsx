@@ -34,7 +34,20 @@ export default function Header({ isEmpleado = false }) {
               <li><a href="/" className={getLinkClass("/")}>Home</a></li>
               <li><a href="/registro" className={getLinkClass("/registro")}>Reservar</a></li>
               <li><a href="/espacios" className={getLinkClass("/espacios")}>Espacios</a></li>
-              <li><a href="/acerca" className={getLinkClass("/acerca")}>Acerca de Nosotros</a></li>
+              <li><a
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        const footer = document.getElementById("footer");
+                        if (footer) {
+                          footer.scrollIntoView({ behavior: "smooth" });
+                        }
+                      }}
+                      className={getLinkClass("/acerca")}
+                    >
+                      Acerca de Nosotros
+                   </a>
+            </li>
             </>
           )}
         </ul>
