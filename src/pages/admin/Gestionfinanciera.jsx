@@ -1,107 +1,135 @@
-import React from "react";
-import Header from "../../components/header.jsx";
-import Footer from "../../components/footer.jsx";
-import "../../styles/global.css";
-import TablaFinanciera from "../../components/tablafinanciera.jsx";
+import { useState } from 'react';
+import {
+  Layout, Typography, Button, Select, InputNumber, Radio, Form, Row, Col, Card, Statistic, Divider,
+} from 'antd';
+import {
+  DollarOutlined, SyncOutlined, WalletOutlined, ArrowUpOutlined, ArrowDownOutlined,
+} from '@ant-design/icons';
+import Header from '../../components/header';
+import Footer from '../../components/footer';
+import TablaFinanciera from '../../components/tablafinanciera';
 
-import styles from "../../styles/admin/gestionfinanciera.module.css";
+const { Content } = Layout;
+const { Title, Text } = Typography;
+const { Option } = Select;
 
 export default function GestionFinanciera() {
-    return (
-        <div>
-            <Header isEmpleado={true} />
-            <main className={styles.main}>
-  <h1 className={styles.header}>Gestión Financiera</h1>
+  const [form] = Form.useForm();
 
-  {/* Contenedor horizontal */}
-  <div className={styles.reservasWrapper}>
-    <div className={styles.tablaContainer}>
-      <TablaFinanciera />
-    </div>
-    <div className={styles.formularioWrapper}>
-    <form action="/formulario.html" method="POST">
-    <div className={styles.form__group}>
-      <label htmlFor="cliente">Cliente:</label>
-      <select id="cliente" name="cliente" required>
-        <option value="">Seleccionar cliente</option>
-        <option value="cliente1">Matías Dutto</option>
-        <option value="cliente2">Esteban Belcuore</option>
-      </select>
-    </div>
+  return (
+    <Layout style={{ minHeight: '100vh' }}>
+      <Header isEmpleado={true} />
+      <Content style={{ padding: '2rem', backgroundColor: '#f9f9f9' }}>
+        <Title level={2} style={{ marginBottom: '1.5rem' }}>Gestión Financiera</Title>
 
-    <div className={styles.form__group}>
-      <label htmlFor="monto">Monto:</label>
-      <input type="number" id="monto" name="monto" required />
+        <Row gutter={16} align="top">
+  {/* Columna izquierda con botones y tabla */}
+  <Col span={14}>
+    <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+      <Button type="primary" style={{ backgroundColor: '#69c187', borderColor: '#69c187' }}>
+        Resumen Diario
+      </Button>
+      <Button type="primary" style={{ backgroundColor: '#69c187', borderColor: '#69c187' }}>
+        Resumen Semanal
+      </Button>
+      <Button type="primary" style={{ backgroundColor: '#69c187', borderColor: '#69c187' }}>
+        Resumen Mensual
+      </Button>
     </div>
 
-    <div className={styles.form__group}>
-      <label htmlFor="metodo">Método de pago:</label>
-      <select id="metodo" name="metodo" required>
-        <option value="">Seleccionar</option>
-        <option value="qr">QR</option>
-        <option value="efectivo">Efectivo</option>
-        <option value="tarjeta">Tarjeta</option>
-      </select>
-    </div>
+    <TablaFinanciera />
+  </Col>
 
-    <div className={styles.form__group}>
-      <label>Estado del pago:</label>
-      <div className={styles.radioGroup}>
-        <label>
-          <input type="radio" name="estado" value="pagado" required />
-          <span className={styles.radioPagado}>Pagado</span>
-        </label>
-        <label>
-          <input type="radio" name="estado" value="pendiente" />
-          <span className={styles.radioPendiente}>Pendiente</span>
-        </label>
-      </div>
-    </div>
+  <Col span={10} style={{ marginTop: '-8px' }}>
+    <Card
+      title={<Text strong style={{ fontSize: '16px' }}>Registrar un pago</Text>}
+      bordered={false}
+      style={{
+        borderRadius: '16px',
+        boxShadow: '0 4px 10px rgba(0,0,0,0.05)',
+      }}
+      bodyStyle={{ padding: '24px' }}
+    >
+      <Form form={form} layout="vertical">
+        <Form.Item label="Cliente" name="cliente" rules={[{ required: true }]}>
+          <Select placeholder="Seleccionar cliente">
+            <Option value="cliente1">Matías Dutto</Option>
+            <Option value="cliente2">Esteban Belcuore</Option>
+          </Select>
+        </Form.Item>
 
-    <div className={styles.formButtons}>
-      <button type="submit" className={styles.buttonPrimario}>
-        Registrar Pago
-      </button>
-    </div>
-  </form>
-    </div>
-  </div>
+        <Form.Item label="Monto" name="monto" rules={[{ required: true }]}>
+          <InputNumber style={{ width: '100%' }} />
+        </Form.Item>
 
-  {/* Barra de datos resumen */}
-  <div className={styles.resumenFinanciero}>
-    <div className={styles.resumenBox}>
-      <div className={styles.iconoWrapper}>
-        💰
-      </div>
-      <div>
-        <p>Total Ingresos</p>
-        <h3>$5,423</h3>
-        <span className={styles.subida}>▲ 16% este mes</span>
-      </div>
-    </div>
-    <div className={styles.resumenBox}>
-      <div className={styles.iconoWrapper}>
-        🔄
-      </div>
-      <div>
-        <p>Balance</p>
-        <h3>$1,893</h3>
-        <span className={styles.bajada}>▼ 1% este mes</span>
-      </div>
-    </div>
-    <div className={styles.resumenBox}>
-      <div className={styles.iconoWrapper}>
-        👛
-      </div>
-      <div>
-        <p>Pagos pendientes</p>
-        <h3>16</h3>
-      </div>
-    </div>
-  </div>
-</main>
-            <Footer isEmpleado={true} />
+        <Form.Item label="Método de pago" name="metodo" rules={[{ required: true }]}>
+          <Select placeholder="Seleccionar método">
+            <Option value="qr">QR</Option>
+            <Option value="efectivo">Efectivo</Option>
+            <Option value="tarjeta">Tarjeta</Option>
+          </Select>
+        </Form.Item>
 
-        </div>
-    );
+        <Form.Item label="Estado del pago" name="estado" rules={[{ required: true }]}>
+          <Radio.Group>
+            <Radio value="pagado" style={{ color: '#52c41a' }}>Pagado</Radio>
+            <Radio value="pendiente" style={{ color: '#f5222d' }}>Pendiente</Radio>
+          </Radio.Group>
+        </Form.Item>
+
+        <Form.Item>
+          <Button
+            type="primary"
+            htmlType="submit"
+            block
+            style={{ backgroundColor: '#69c187', borderColor: '#69c187' }}
+          >
+            Registrar Pago
+          </Button>
+        </Form.Item>
+      </Form>
+    </Card>
+  </Col>
+</Row>
+
+        <Divider style={{ margin: '2rem 0' }} />
+
+        <Row gutter={32} justify="center">
+          <Col span={6}>
+            <Card style={{ borderRadius: '16px', textAlign: 'center' }}>
+              <Statistic
+                title="Total Ingresos"
+                value={5423}
+                prefix={<DollarOutlined />}
+                valueStyle={{ color: '#52c41a' }}
+                suffix={<Text type="success"><ArrowUpOutlined /> 16% este mes</Text>}
+              />
+            </Card>
+          </Col>
+          <Col span={6}>
+            <Card style={{ borderRadius: '16px', textAlign: 'center' }}>
+              <Statistic
+                title="Balance"
+                value={1893}
+                prefix={<SyncOutlined />}
+                valueStyle={{ color: '#faad14' }}
+                suffix={<Text type="danger"><ArrowDownOutlined /> 1% este mes</Text>}
+              />
+            </Card>
+          </Col>
+          <Col span={6}>
+            <Card style={{ borderRadius: '16px', textAlign: 'center' }}>
+              <Statistic
+                title="Pagos pendientes"
+                value={16}
+                prefix={<WalletOutlined />}
+                valueStyle={{ color: '#f5222d' }}
+              />
+            </Card>
+          </Col>
+        </Row>
+      </Content>
+      <Footer isEmpleado={true} />
+    </Layout>
+  );
 }
