@@ -18,7 +18,7 @@ function App() {
         <Route path="/espacios" element={<Espacios />} />
         <Route path="/login" element={<Login />} />
         <Route path="/control" element={<ControlReservas />} />
-        <Route path="/gestionfinanciera" element={<GestionFinanciera />} />
+        <Route path="/gestion" element={<GestionFinanciera />} />
       </Routes>
     </BrowserRouter>
   );

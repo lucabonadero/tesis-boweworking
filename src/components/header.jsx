@@ -17,7 +17,7 @@ export default function Header({ isEmpleado = false }) {
           <img className="logo" src="./src/assets/logoblanco.png" alt="Logo" />
         </a>
         <div className="header__logo-text">
-          Bo WeWorking
+          <a href="/" className={getLinkClass("/")}>Bo WeWorking</a>
         </div>
 
         {/* Enlaces navegables */}
@@ -26,7 +26,7 @@ export default function Header({ isEmpleado = false }) {
             <>
               <li><a href="/control" className={getLinkClass("/control")}>Consultar Reservas</a></li>
               <li><a href="/altas" className={getLinkClass("/altas")}>Altas</a></li>
-              <li><a href="/espacios" className={getLinkClass("/espacios")}>Espacios</a></li>
+              <li><a href="/" className={getLinkClass("/")}>Espacios</a></li>
               <li><a href="/gestion" className={getLinkClass("/gestion")}>Gestion Financiera</a></li>
             </>
           ) : (
