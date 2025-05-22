@@ -1,0 +1,77 @@
+.alta-clientes__container {
+  display: flex;
+  gap: 2rem;
+  padding: 2rem;
+  background-color: #f9fafb;
+  min-height: 100vh;
+}
+
+.alta-clientes__sidebar {
+  width: 260px;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  background: #fff;
+  border-radius: 10px;
+  padding: 1.5rem;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
+}
+
+.alta-clientes__select {
+  width: 100%;
+}
+
+.alta-clientes__buttons {
+  display: flex;
+  justify-content: space-between;
+}
+
+.asistio {
+  background-color: #c7f1e4;
+  color: #006e5e;
+  border: none;
+}
+
+.no-asistio {
+  background-color: #ffcece;
+  color: #b30000;
+  border: none;
+}
+
+.alta-clientes__main {
+  flex: 1;
+  background: #fff;
+  border-radius: 16px;
+  padding: 2rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.05);
+}
+
+.alta-clientes__main h2 {
+  font-weight: 600;
+  font-size: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.alta-clientes__header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.alta-clientes__search {
+  width: 60%;
+}
+
+.alta-clientes__sort {
+  width: 30%;
+}
+
+.alta-clientes__table .ant-table {
+  border-top: 1px solid #eee;
+}
+
+.ant-tag {
+  font-weight: 500;
+  padding: 4px 12px;
+  border-radius: 8px;
+}

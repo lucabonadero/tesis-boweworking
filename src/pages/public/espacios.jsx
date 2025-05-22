@@ -4,8 +4,24 @@ import Footer from "../../components/footer.jsx";
 import styles from "../../styles/public/espacios.module.css";
 import "../../styles/global.css";
 import Carrusel from "../../components/carrusel.jsx";
+import { useEffect } from "react";
+import { useLocation } from "react-router-dom";
   
  export default function Espacios () {
+    const location = useLocation();
+
+    useEffect(() => {
+    const scrollTo = location.state?.scrollTo;
+    if (scrollTo) {
+      const element = document.getElementById(scrollTo);
+      if (element) {
+        setTimeout(() => {
+          element.scrollIntoView({ behavior: "smooth" });
+        }, 300); // Espera un poco por si hay imágenes cargando
+      }
+    }
+  }, [location]);
+
     return (
         <div>
             <Header />

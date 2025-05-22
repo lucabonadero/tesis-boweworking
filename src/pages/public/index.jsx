@@ -3,8 +3,15 @@ import styles from "../../styles/public/index.module.css";
 import Header from "../../components/header.jsx";
 import Footer from "../../components/footer.jsx";
 import "../../styles/global.css";
+import { useNavigate } from "react-router-dom";
 
 export default function Index() {
+  const navigate = useNavigate();
+
+  const handleVerMas = (seccionId) => {
+    navigate("/espacios", { state: { scrollTo: seccionId } });
+  };
+  
   return (
     <div>
       <Header />
@@ -35,28 +42,31 @@ export default function Index() {
           <div className={styles.card}>
             <img src="./src/assets/plantabaja.png" alt="Planta Baja" />
             <h3>Planta Baja</h3>
-            <p>Escritorios individuales, espacio para eventos, reuniones, clases</p>
+            <p>Escritorios individuales, espacio para eventos, reuniones, clases.</p>
             <div className={styles.spaceLink}>
-              <a href="#">Ver más</a>
-              <span className={styles.arrow}>➝</span>
-            </div>
+              <a href="/espacios">
+                Ver más
+              </a>
+              </div>
           </div>
           <div className={styles.card}>
             <img src="./src/assets/primerpiso.png" alt="Primer Piso" />
             <h3>Primer Piso</h3>
-            <p>Oficinas equipadas para reuniones, con proyector disponible y opción de alquiler mensual.</p>
+            <p>Oficinas y sala para reuniones, con opción de alquiler mensual.</p>
             <div className={styles.spaceLink}>
-              <a href="#">Ver más</a>
-              <span className={styles.arrow}>➝</span>
+              <a href="/espacios">
+                Ver más
+              </a>
             </div>
           </div>
           <div className={styles.card}>
             <img src="./src/assets/terrazarda.png" alt="Terraza" />
             <h3>Terraza</h3>
-            <p>Espacio libre, coworking</p>
+            <p>Espacio libre, coworking.</p>
             <div className={styles.spaceLink}>
-              <a href="#">Ver más</a>
-              <span className={styles.arrow}>➝</span>
+              <a href="/espacios">
+                Ver más
+              </a>
             </div>
           </div>
         </div>
