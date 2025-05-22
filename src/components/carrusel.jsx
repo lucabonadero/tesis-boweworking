@@ -38,6 +38,7 @@ const settings = {
   arrows: false,
 };
 
+
 export default function CarruselEdificio() {
   return (
     <div className={styles.container}>
