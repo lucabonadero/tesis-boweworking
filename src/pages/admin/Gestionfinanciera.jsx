@@ -22,22 +22,26 @@ export default function GestionFinanciera() {
       <Content style={{ padding: '2rem', backgroundColor: '#f9f9f9' }}>
         <Title level={2} style={{ marginBottom: '1.5rem' }}>Gestión Financiera</Title>
 
-        <Row gutter={16} align="top">
-  {/* Columna izquierda con botones y tabla */}
+<Row gutter={16} align="top">
+  {/* Col izquierda con botones y tabla */}
   <Col span={14}>
-    <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
-      <Button type="primary" style={{ backgroundColor: '#69c187', borderColor: '#69c187' }}>
-        Resumen Diario
-      </Button>
-      <Button type="primary" style={{ backgroundColor: '#69c187', borderColor: '#69c187' }}>
-        Resumen Semanal
-      </Button>
-      <Button type="primary" style={{ backgroundColor: '#69c187', borderColor: '#69c187' }}>
-        Resumen Mensual
-      </Button>
-    </div>
+    <div style={{ paddingLeft: '24px' }}>
+      {/* Botones alineados con la tabla */}
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+        <Button type="primary" style={{ backgroundColor: '#69c187', borderColor: '#69c187' }}>
+          Resumen Diario
+        </Button>
+        <Button type="primary" style={{ backgroundColor: '#69c187', borderColor: '#69c187' }}>
+          Resumen Semanal
+        </Button>
+        <Button type="primary" style={{ backgroundColor: '#69c187', borderColor: '#69c187' }}>
+          Resumen Mensual
+        </Button>
+      </div>
 
-    <TablaFinanciera />
+      {/* Tabla */}
+      <TablaFinanciera />
+    </div>
   </Col>
 
   <Col span={10} style={{ marginTop: '-8px' }}>
