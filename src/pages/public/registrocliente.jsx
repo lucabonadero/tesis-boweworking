@@ -59,7 +59,12 @@ export default function RegistroCliente() {
     message.success("¡Reserva enviada con éxito!");
     setCurrent(2);
   };
-
+const handleEspacioClick = (espacio) => {
+  setSelectedEspacio(espacio);
+  setTimeout(() => {
+    setCurrent(1);
+  }, 0);
+};
   const steps = [
     {
       title: "Elegir espacio",
@@ -69,10 +74,8 @@ export default function RegistroCliente() {
             <Col xs={24} sm={12} md={8} key={index}>
               <Card
                 hoverable
-                onClick={() => {
-                  setSelectedEspacio(espacio);
-                  next();
-                }}
+                onClick={() => handleEspacioClick(espacio)}
+
                 cover={<img alt={espacio.titulo} src={espacio.imagen} className={styles.espacioImagen} />}
               >
                 <Card.Meta title={espacio.titulo} description={espacio.descripcion} />
