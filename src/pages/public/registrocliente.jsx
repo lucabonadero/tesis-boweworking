@@ -31,12 +31,12 @@ import img6 from "../../assets/espacios_plantabaja.png";
 
 // Datos de los espacios
 const espacios = [
-  { titulo: "Bancos", valor: "bancos", imagen: img1, descripcion: "Espacio con bancos cómodos para trabajar." },
-  { titulo: "Sillones", valor: "sillones", imagen: img2, descripcion: "Ambiente relajado con sillones amplios." },
-  { titulo: "Oficina Individual", valor: "oficina-individual", imagen: img3, descripcion: "Oficina privada para una persona." },
-  { titulo: "Sala de Reuniones", valor: "sala-de-reuniones", imagen: img4, descripcion: "Sala ideal para reuniones grupales." },
-  { titulo: "Terraza", valor: "terraza", imagen: img5, descripcion: "Espacio al aire libre en la terraza." },
-  { titulo: "Planta Baja", valor: "planta-baja", imagen: img6, descripcion: "Zona común en la planta baja." },
+  { titulo: "Bancos - $0.99", valor: "bancos", imagen: img1, descripcion: "Espacio con bancos cómodos para trabajar." },
+  { titulo: "Sillones - ", valor: "sillones", imagen: img2, descripcion: "Ambiente relajado con sillones amplios." },
+  { titulo: "Oficina Individual - ", valor: "oficina-individual", imagen: img3, descripcion: "Oficina privada para una persona." },
+  { titulo: "Sala de Reuniones - ", valor: "sala-de-reuniones", imagen: img4, descripcion: "Sala ideal para reuniones grupales." },
+  { titulo: "Terraza - ", valor: "terraza", imagen: img5, descripcion: "Espacio al aire libre en la terraza." },
+  { titulo: "Planta Baja - ", valor: "planta-baja", imagen: img6, descripcion: "Zona común en la planta baja." },
 ];
 
 export default function RegistroCliente() {
@@ -44,13 +44,7 @@ export default function RegistroCliente() {
   const [selectedEspacio, setSelectedEspacio] = useState(null);
   const [form] = Form.useForm();
 
-  const next = () => {
-    if (current === 0 && !selectedEspacio) {
-      message.warning("Seleccioná un espacio para continuar");
-      return;
-    }
-    setCurrent(current + 1);
-  };
+  
 
   const prev = () => setCurrent(current - 1);
 
@@ -74,8 +68,8 @@ const handleEspacioClick = (espacio) => {
             <Col xs={24} sm={12} md={8} key={index}>
               <Card
                 hoverable
+                className={styles.cardFullHeight}
                 onClick={() => handleEspacioClick(espacio)}
-
                 cover={<img alt={espacio.titulo} src={espacio.imagen} className={styles.espacioImagen} />}
               >
                 <Card.Meta title={espacio.titulo} description={espacio.descripcion} />

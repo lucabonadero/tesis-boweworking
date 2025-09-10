@@ -1,77 +1,184 @@
-.alta-clientes__container {
-  display: flex;
-  gap: 2rem;
-  padding: 2rem;
-  background-color: #f9fafb;
+.layout {
+  background: #f5f7f9;
   min-height: 100vh;
 }
 
-.alta-clientes__sidebar {
-  width: 260px;
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-  background: #fff;
-  border-radius: 10px;
-  padding: 1.5rem;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
+/* Content wrapper to center and add spacing similar to la imagen */
+.contentWrap {
+  padding: 24px 40px;
 }
 
-.alta-clientes__select {
-  width: 100%;
+/* Row container */
+.pageRow {
+  align-items: flex-start;
 }
 
-.alta-clientes__buttons {
-  display: flex;
-  justify-content: space-between;
+/* LEFT column */
+.leftCol {
+  padding-right: 12px;
 }
 
-.asistio {
-  background-color: #c7f1e4;
-  color: #006e5e;
-  border: none;
-}
-
-.no-asistio {
-  background-color: #ffcece;
-  color: #b30000;
-  border: none;
-}
-
-.alta-clientes__main {
-  flex: 1;
-  background: #fff;
-  border-radius: 16px;
-  padding: 2rem;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.05);
-}
-
-.alta-clientes__main h2 {
-  font-weight: 600;
-  font-size: 1.5rem;
-  margin-bottom: 1rem;
-}
-
-.alta-clientes__header {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 1rem;
-}
-
-.alta-clientes__search {
-  width: 60%;
-}
-
-.alta-clientes__sort {
-  width: 30%;
-}
-
-.alta-clientes__table .ant-table {
-  border-top: 1px solid #eee;
-}
-
-.ant-tag {
-  font-weight: 500;
-  padding: 4px 12px;
+.leftCard {
+  background: transparent;
+  box-shadow: none;
   border-radius: 8px;
+  padding: 18px 12px;
+}
+
+.filterLabel {
+  font-size: 13px;
+  color: #8a8f98;
+  margin-bottom: 12px;
+}
+
+/* Select style */
+.dniSelect {
+  width: 100%;
+  border-radius: 8px;
+  background: #f4f7f9;
+  margin-bottom: 20px;
+}
+
+/* Buttons group */
+.buttonsGroup {
+  display: flex;
+  gap: 12px;
+  margin-top: 6px;
+  flex-direction: column;
+}
+
+.btnAsistio {
+  background: #2fc08b;
+  border-color: rgba(47,192,139,0.25);
+  color: #fff;
+  height: 36px;
+  border-radius: 8px;
+}
+
+.btnNoAsistio {
+  background: #ff7070;
+  border-color: rgba(255,112,112,0.2);
+  color: #fff;
+  height: 36px;
+  border-radius: 8px;
+}
+
+/* MAIN column */
+.mainCol {
+  padding-left: 12px;
+}
+
+/* Main card where the table sits */
+.mainCard {
+  background: #ffffff;
+  border-radius: 18px;
+  padding: 26px;
+  box-shadow: 0 10px 30px rgba(7, 16, 30, 0.06);
+  border: 0;
+}
+
+/* Header of the card */
+.headerRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 18px;
+}
+
+.title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  color: #1b1f22;
+}
+
+/* Tools (search + sort) */
+.tools {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.searchInput {
+  width: 220px;
+  border-radius: 12px;
+  background: #f4f7f9;
+  height: 40px;
+}
+
+.sortSelect {
+  width: 140px;
+  border-radius: 12px;
+  background: #f4f7f9;
+}
+
+/* Table customizations */
+.dataTable {
+  background: transparent;
+}
+
+.tableRow {
+  height: 64px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+/* Nombre cliente style */
+.nombreCliente {
+  font-weight: 600;
+  color: #222;
+}
+
+/* Email link style */
+.emailLink {
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* Tag styles */
+.tagAsistio {
+  background: rgba(47,192,139,0.12);
+  color: #1b7a55;
+  border-radius: 10px;
+  padding: 4px 10px;
+  font-weight: 600;
+}
+
+.tagNoAsistio {
+  background: rgba(255,112,112,0.12);
+  color: #b22f2f;
+  border-radius: 10px;
+  padding: 4px 10px;
+  font-weight: 600;
+}
+
+/* Bottom area (info + pagination) */
+.tableBottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 18px;
+  margin-top: 6px;
+  border-top: 1px solid #f3f5f7;
+}
+
+.infoText {
+  color: #9aa1a8;
+  font-size: 13px;
+}
+
+.pagination {
+  margin: 0;/* the default antd pagination is compact; this keeps it aligned to the right */
+}
+
+/* Responsive tweaks */
+@media (max-width: 1000px) {
+  .leftCol {
+    display: none;
+  }
+  .mainCol {
+    flex: 1;
+  }
+  .searchInput {
+    width: 160px;
+  }
 }

@@ -68,3 +68,16 @@
 .stepContent {
   margin-top: 2rem;
 }
+
+.cardFullHeight {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.cardFullHeight .ant-card-body {
+  flex-grow: 1; /* hace que el contenido ocupe lo que falte */
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between; /* separa título y descripción */
+}
