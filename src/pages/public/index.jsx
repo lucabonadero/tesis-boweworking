@@ -28,7 +28,9 @@ export default function Index() {
                 Su productividad está influenciada por el lugar donde trabaja.<br />
                 ¡Busque el mejor lugar para trabajar!
               </p>
-              <button className={styles.hero__button}>Buscar</button>
+              <form action="/espacios">
+                <button className={styles.hero__button}>Buscar</button>
+              </form>
             </div>
           </div>
         </div>
@@ -62,7 +64,7 @@ export default function Index() {
           <div className={styles.card}>
             <img src="./src/assets/terrazarda.png" alt="Terraza" />
             <h3>Terraza</h3>
-            <p>Espacio libre, coworking.</p>
+            <p>Espacio al aire libre ideal para reuniones con amigos o festejos.</p>
             <div className={styles.spaceLink}>
               <a href="/espacios">
                 Ver más

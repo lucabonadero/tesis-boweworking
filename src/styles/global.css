@@ -121,17 +121,16 @@
 
 .footer__bo {
     max-width: 400px;
-    margin-bottom: 50px;
+    margin-bottom: 35px;
 }
 
 .footer__contacts {
     display: flex;
     justify-content: space-between; /* Espacio entre social y links */
     align-items: center; /* Centra verticalmente si hay diferencia de altura */
-    width: 1250px;
   }
   
-  .footer__social i {
+  .footer__social a {
     margin-right: 10px;
     font-size: 1.2rem;
     color: white;
@@ -141,13 +140,13 @@
     transition: background-color 0.3s;
   }
   
-  .footer__social i:hover {
+  .footer__social a:hover {
     background-color: rgba(255, 255, 255, 0.4);
   }
   
   .footer__links {
     display: flex;
-    gap: 1.5rem;
+    gap: 1rem;
   }
   
   .footer__links a {
@@ -178,16 +177,24 @@
   
 .footer__card h4 {
     margin-bottom: 8px;
-    color: #ffffff;
+    color: #505050;
+    font-size: 18px;
 }
   
 .footer__card a {
     margin-top: auto;
     text-decoration: none;
     font-weight: bold;
-    color: #ffffff;
+    color: #505050;
+}
+
+.footer__card a:hover {
+    text-decoration: underline;
 }
 
 .footer__card p {
-    color: #ffffff;
+    margin-top: 6px;
+    color: #505050;
+    font-size: 15px;
+    width: 80%;
 }

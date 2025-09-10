@@ -9,22 +9,21 @@ export default function Footer() {
             <h3>Bo WeWorking</h3>
             <p>
               ¡Es el lugar! Vení a conocernos, estamos ubicados en Buenos Aires 1120,
-              Nueva Córdoba
+              Nueva Córdoba.
             </p>
+            <p>Contacto: +54 9 351 8522482</p>
           </div>
           <div className="footer__contacts">
             <div className="footer__social">
-              <i className="fab fa-instagram"></i>
-              <i className="fab fa-dribbble"></i>
-              <i className="fab fa-twitter"></i>
-              <i className="fab fa-youtube"></i>
+              <a className="fab fa-instagram" href="https://www.instagram.com/bo.weworking/" target="_blank"></a>
+              <a class="fa fa-image" href="https://boweworking.pixieset.com/boweworking/" target="_blank"></a>
+              
             </div>
-            {/*<div className="footer__links">
-              <a href="#">Home</a>
-              <a href="#">Servicios</a>
-              <a href="#">Espacios</a>
-              <a href="#">Acerca de nosotros</a>
-            </div> */}
+            <div className="footer__links">
+              <a href="/">Home</a>
+              <a href="/registro">Reservar</a>
+              <a href="/espacios">Espacios</a>
+            </div> 
           </div>
         </div>
 
@@ -32,12 +31,12 @@ export default function Footer() {
           <div className="footer__card">
             <h4>Contáctanos</h4>
             <p>Consulta por WhatsApp</p>
-            <a href="#">Click acá →</a>
+            <a href="https://api.whatsapp.com/send/?phone=5493518522482&text&type=phone_number&app_absent=0" target="_blank">Click acá →</a>
           </div>
           <div className="footer__card">
             <h4>Hace tu reserva</h4>
             <p>Nuestro apartado de reservas web</p>
-            <a href="#">Click acá →</a>
+            <a href="/registro">Click acá →</a>
           </div>
           <div className="footer__card">
             <h4>Ubicación</h4>
