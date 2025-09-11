@@ -168,6 +168,7 @@
 
 .pagination {
   margin: 0;/* the default antd pagination is compact; this keeps it aligned to the right */
+  align-items: center;
 }
 
 /* Responsive tweaks */

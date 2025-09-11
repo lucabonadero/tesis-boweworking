@@ -39,6 +39,7 @@ const sampleData = [
     empresa: "-",
     estado: "Asistió",
   },
+  
 ];
 
 export default function AltaClientes() {
@@ -124,8 +125,8 @@ export default function AltaClientes() {
                     allowClear
                   />
                   <Select defaultValue="newest" className={styles.sortSelect}>
-                    <Option value="newest">Newest</Option>
-                    <Option value="oldest">Oldest</Option>
+                    <Option value="newest">Nuevos</Option>
+                    <Option value="oldest">Mas Viejos</Option>
                     <Option value="nombre">Nombre</Option>
                   </Select>
                 </div>
