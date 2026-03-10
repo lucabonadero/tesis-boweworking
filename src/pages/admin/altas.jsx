@@ -2,47 +2,56 @@
 import "../../styles/global.css";
 import styles from "../../styles/admin/altas.module.css";
 import Header from "../../components/header";
-import React from "react";
-import { Layout, Row, Col, Card, Select, Button, Input, Table, Tag, Space, Avatar, Pagination } from "antd";
+import React, { useState, useEffect } from "react";
+import { Layout, Row, Col, Card, Select, Button, Input, Table, Tag, Space, Pagination, message, Spin } from "antd";
 import { SearchOutlined, DownOutlined } from "@ant-design/icons";
-
-
 
 const { Content } = Layout;
 const { Option } = Select;
 
-const sampleData = [
-  {
-    key: "1",
-    nombre: "Matias Dutto",
-    dni: "45854882",
-    email: "mtdutto@gmail.com",
-    espacio: "Sillón Individual",
-    empresa: "-",
-    estado: "Asistió",
-  },
-  {
-    key: "2",
-    nombre: "Martin Cattani",
-    dni: "34934232",
-    email: "mctao@gmail.com",
-    espacio: "Oficina",
-    empresa: "-",
-    estado: "No Asistió",
-  },
-  {
-    key: "3",
-    nombre: "Agustin Rasero",
-    dni: "44687234",
-    email: "agsrasero@gmail.com",
-    espacio: "Sillón Individual",
-    empresa: "-",
-    estado: "Asistió",
-  },
-  
-];
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const getToken = () => localStorage.getItem('token');
 
 export default function AltaClientes() {
+  const [reservas, setReservas] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [selectedDni, setSelectedDni] = useState(null);
+
+  const fetchReservas = async () => {
+    try {
+      const res = await fetch(`${API_URL}/api/reservas`, {
+        headers: { Authorization: `Bearer ${getToken()}` },
+      });
+      const data = await res.json();
+      setReservas(data);
+    } catch {
+      message.error("Error al cargar reservas");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { fetchReservas(); }, []);
+
+  const dniList = [...new Set(reservas.map((r) => r.DNI).filter(Boolean))];
+
+  const filteredData = reservas
+    .filter((r) => {
+      const matchSearch = search === "" ||
+        (r.Nombre || "").toLowerCase().includes(search.toLowerCase()) ||
+        (r.DNI || "").includes(search);
+      return matchSearch;
+    })
+    .map((r) => ({
+      key: r.idReserva,
+      nombre: r.Nombre || `${r.cliente_nombre || ""} ${r.cliente_apellido || ""}`,
+      dni: r.DNI,
+      email: r.cliente_email || "-",
+      espacio: r.espacio_nombre || "-",
+      empresa: "-",
+    }));
+
   const columns = [
     {
       title: "Nombre del Cliente",
@@ -71,18 +80,18 @@ export default function AltaClientes() {
       dataIndex: "empresa",
       key: "empresa",
     },
-    {
-      title: "Estado",
-      dataIndex: "estado",
-      key: "estado",
-      align: "right",
-      render: (estado) => (
-        <Tag className={estado === "Asistió" ? styles.tagAsistio : styles.tagNoAsistio}>
-          {estado}
-        </Tag>
-      ),
-    },
   ];
+
+  if (loading) {
+    return (
+      <Layout className={styles.layout}>
+        <Header isEmpleado={true} />
+        <Content className={styles.contentWrap}>
+          <div style={{ textAlign: 'center', padding: '4rem' }}><Spin size="large" /></div>
+        </Content>
+      </Layout>
+    );
+  }
 
   return (
     <Layout className={styles.layout}>
@@ -98,15 +107,20 @@ export default function AltaClientes() {
                 className={styles.dniSelect}
                 suffixIcon={<DownOutlined />}
                 allowClear
+                value={selectedDni}
+                onChange={(v) => setSelectedDni(v)}
               >
-                <Option value="45854882">45854882 - Matias D</Option>
-                <Option value="34934232">34934232 - Martin C</Option>
-                <Option value="44687234">44687234 - Agustin R</Option>
+                {dniList.map((dni) => {
+                  const r = reservas.find((x) => x.DNI === dni);
+                  return (
+                    <Option key={dni} value={dni}>{dni} - {r?.Nombre || r?.cliente_nombre || ""}</Option>
+                  );
+                })}
               </Select>
 
               <div className={styles.buttonsGroup}>
-                <Button className={styles.btnAsistio}>Asistio</Button>
-                <Button className={styles.btnNoAsistio}>No Asistio</Button>
+                <Button className={styles.btnAsistio} disabled={!selectedDni}>Asistio</Button>
+                <Button className={styles.btnNoAsistio} disabled={!selectedDni}>No Asistio</Button>
               </div>
             </Card>
           </Col>
@@ -120,9 +134,11 @@ export default function AltaClientes() {
                 <div className={styles.tools}>
                   <Input
                     prefix={<SearchOutlined />}
-                    placeholder="Search"
+                    placeholder="Buscar"
                     className={styles.searchInput}
                     allowClear
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
                   />
                   <Select defaultValue="newest" className={styles.sortSelect}>
                     <Option value="newest">Nuevos</Option>
@@ -134,7 +150,7 @@ export default function AltaClientes() {
 
               <Table
                 columns={columns}
-                dataSource={sampleData}
+                dataSource={filteredData}
                 pagination={false}
                 rowClassName={() => styles.tableRow}
                 className={styles.dataTable}
@@ -142,7 +158,7 @@ export default function AltaClientes() {
               />
 
               <div className={styles.tableBottom}>
-                <div className={styles.infoText}>Showing data 1 to 8 of 256K entries</div>
+                <div className={styles.infoText}>Mostrando {filteredData.length} de {reservas.length} entradas</div>
                 <Pagination simple defaultCurrent={1} total={400} className={styles.pagination} />
               </div>
             </Card>

@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Layout, Typography, Button, Select, InputNumber, Radio, Form, Row, Col, Card, Statistic, Divider,
+  message,
 } from 'antd';
 import {
   DollarOutlined, SyncOutlined, WalletOutlined, ArrowUpOutlined, ArrowDownOutlined,
@@ -13,8 +14,63 @@ const { Content } = Layout;
 const { Title, Text } = Typography;
 const { Option } = Select;
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const getToken = () => localStorage.getItem('token');
+
 export default function GestionFinanciera() {
   const [form] = Form.useForm();
+  const [reservas, setReservas] = useState([]);
+  const [transacciones, setTransacciones] = useState([]);
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [resReservas, resTrans] = await Promise.all([
+          fetch(`${API_URL}/api/reservas`, { headers: { Authorization: `Bearer ${getToken()}` } }),
+          fetch(`${API_URL}/api/pagos`, { headers: { Authorization: `Bearer ${getToken()}` } }),
+        ]);
+        setReservas(await resReservas.json());
+        setTransacciones(await resTrans.json());
+      } catch {
+        message.error("Error al cargar datos");
+      }
+    };
+    fetchData();
+  }, []);
+
+  const totalIngresos = transacciones
+    .filter(t => t.EstadoPago === 'Pagado')
+    .reduce((sum, t) => sum + (parseFloat(t.Monto) || 0), 0);
+
+  const pendientes = transacciones.filter(t => t.EstadoPago === 'Pendiente').length;
+
+  const onRegistrarPago = async (values) => {
+    setSubmitting(true);
+    try {
+      const res = await fetch(`${API_URL}/api/pagos`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
+        body: JSON.stringify({
+          idReserva: values.reserva,
+          MetodoPago: values.metodo,
+          EstadoPago: values.estado === 'pagado' ? 'Pagado' : 'Pendiente',
+        }),
+      });
+      if (!res.ok) throw new Error();
+      message.success("Pago registrado exitosamente");
+      form.resetFields();
+      // Re-fetch transactions
+      const resTrans = await fetch(`${API_URL}/api/pagos`, {
+        headers: { Authorization: `Bearer ${getToken()}` },
+      });
+      setTransacciones(await resTrans.json());
+    } catch {
+      message.error("Error al registrar pago");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
@@ -54,23 +110,22 @@ export default function GestionFinanciera() {
       }}
       bodyStyle={{ padding: '24px' }}
     >
-      <Form form={form} layout="vertical">
-        <Form.Item label="Cliente" name="cliente" rules={[{ required: true }]}>
-          <Select placeholder="Seleccionar cliente">
-            <Option value="cliente1">Matías Dutto</Option>
-            <Option value="cliente2">Esteban Belcuore</Option>
+      <Form form={form} layout="vertical" onFinish={onRegistrarPago}>
+        <Form.Item label="Reserva" name="reserva" rules={[{ required: true }]}>
+          <Select placeholder="Seleccionar reserva">
+            {reservas.map((r) => (
+              <Option key={r.idReserva} value={r.idReserva}>
+                {r.Nombre} - {r.espacio_nombre || `Espacio ${r.idEspacio}`} ({r.DiaReserva ? new Date(r.DiaReserva).toLocaleDateString() : ''})
+              </Option>
+            ))}
           </Select>
-        </Form.Item>
-
-        <Form.Item label="Monto" name="monto" rules={[{ required: true }]}>
-          <InputNumber style={{ width: '100%' }} />
         </Form.Item>
 
         <Form.Item label="Método de pago" name="metodo" rules={[{ required: true }]}>
           <Select placeholder="Seleccionar método">
-            <Option value="qr">QR</Option>
-            <Option value="efectivo">Efectivo</Option>
-            <Option value="tarjeta">Tarjeta</Option>
+            <Option value="QR">QR</Option>
+            <Option value="Efectivo">Efectivo</Option>
+            <Option value="Tarjeta">Tarjeta</Option>
           </Select>
         </Form.Item>
 
@@ -86,6 +141,7 @@ export default function GestionFinanciera() {
             type="primary"
             htmlType="submit"
             block
+            loading={submitting}
             style={{ backgroundColor: '#69c187', borderColor: '#69c187' }}
           >
             Registrar Pago
@@ -103,21 +159,20 @@ export default function GestionFinanciera() {
             <Card style={{ borderRadius: '16px', textAlign: 'center' }}>
               <Statistic
                 title="Total Ingresos"
-                value={5423}
+                value={totalIngresos}
                 prefix={<DollarOutlined />}
+                precision={2}
                 valueStyle={{ color: '#52c41a' }}
-                suffix={<Text type="success"><ArrowUpOutlined /> 16% este mes</Text>}
               />
             </Card>
           </Col>
           <Col span={6}>
             <Card style={{ borderRadius: '16px', textAlign: 'center' }}>
               <Statistic
-                title="Balance"
-                value={1893}
+                title="Total Transacciones"
+                value={transacciones.length}
                 prefix={<SyncOutlined />}
                 valueStyle={{ color: '#faad14' }}
-                suffix={<Text type="danger"><ArrowDownOutlined /> 1% este mes</Text>}
               />
             </Card>
           </Col>
@@ -125,7 +180,7 @@ export default function GestionFinanciera() {
             <Card style={{ borderRadius: '16px', textAlign: 'center' }}>
               <Statistic
                 title="Pagos pendientes"
-                value={16}
+                value={pendientes}
                 prefix={<WalletOutlined />}
                 valueStyle={{ color: '#f5222d' }}
               />

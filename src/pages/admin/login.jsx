@@ -1,18 +1,39 @@
 import { Form, Input, Button, Typography, Card, message } from 'antd';
 import { useNavigate } from 'react-router-dom';
-import styles from '../../styles/admin/login.module.css'; // Importa el archivo CSS para estilos
+import { useState } from 'react';
+import styles from '../../styles/admin/login.module.css';
 import 'antd/dist/reset.css';
 const { Title } = Typography;
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
 export default function Login() {
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
 
-const onFinish = ({ email, password }) => {
-  console.log('Intento de login:', email, password);
-  if (email === 'admin@bowe.com' && password === 'admin123') {
+const onFinish = async ({ email, password }) => {
+  setLoading(true);
+  try {
+    const res = await fetch(`${API_URL}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      message.error(data.message || 'Credenciales incorrectas');
+      return;
+    }
+
+    localStorage.setItem('token', data.token);
+    localStorage.setItem('usuario', JSON.stringify(data.usuario));
+    message.success('Inicio de sesión exitoso');
     navigate('/control');
-  } else {
-    message.error('Credenciales incorrectas');
+  } catch {
+    message.error('Error al conectar con el servidor');
+  } finally {
+    setLoading(false);
   }
 };
 
@@ -45,7 +66,7 @@ const onFinish = ({ email, password }) => {
           </Form.Item>
 
           <Form.Item className={styles.formItem}>
-            <Button type="primary" htmlType="submit" className={styles.submitButton}>
+            <Button type="primary" htmlType="submit" className={styles.submitButton} loading={loading}>
               Ingresar
             </Button>
           </Form.Item>

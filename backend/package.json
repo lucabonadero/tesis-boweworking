@@ -2,6 +2,7 @@
   "name": "bowe-backend",
   "version": "1.0.0",
   "description": "Backend API para Bo WeWorking - Sistema de gestion de coworking",
+  "type": "module",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",

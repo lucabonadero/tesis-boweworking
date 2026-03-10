@@ -2,7 +2,7 @@ import styles from "../../styles/public/registrocliente.module.css";
 import Header from "../../components/header.jsx";
 import Footer from "../../components/footer.jsx";
 import "../../styles/global.css";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Steps,
   Button,
@@ -15,13 +15,16 @@ import {
   Row,
   Col,
   message,
+  Spin,
 } from "antd";
 import { ArrowLeftOutlined } from "@ant-design/icons";
 
 const { Step } = Steps;
 const { Option } = Select;
 
-// Imágenes de los espacios
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
+// Imágenes de los espacios (fallback)
 import img1 from "../../assets/espacios_sillas.png";
 import img2 from "../../assets/espacios_sillones.png";
 import img3 from "../../assets/oficina_individual.png";
@@ -29,29 +32,88 @@ import img4 from "../../assets/salareuniones.png";
 import img5 from "../../assets/terrazarda.png";
 import img6 from "../../assets/espacios_plantabaja.png";
 
-// Datos de los espacios
-const espacios = [
-  { titulo: "Bancos - $0.99", valor: "bancos", imagen: img1, descripcion: "Espacio con bancos cómodos para trabajar." },
-  { titulo: "Sillones - ", valor: "sillones", imagen: img2, descripcion: "Ambiente relajado con sillones amplios." },
-  { titulo: "Oficina Individual - ", valor: "oficina-individual", imagen: img3, descripcion: "Oficina privada para una persona." },
-  { titulo: "Sala de Reuniones - ", valor: "sala-de-reuniones", imagen: img4, descripcion: "Sala ideal para reuniones grupales." },
-  { titulo: "Terraza - ", valor: "terraza", imagen: img5, descripcion: "Espacio al aire libre en la terraza." },
-  { titulo: "Planta Baja - ", valor: "planta-baja", imagen: img6, descripcion: "Zona común en la planta baja." },
-];
+const imagenesDefault = [img1, img2, img3, img4, img5, img6];
 
 export default function RegistroCliente() {
   const [current, setCurrent] = useState(0);
   const [selectedEspacio, setSelectedEspacio] = useState(null);
+  const [espacios, setEspacios] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [form] = Form.useForm();
 
-  
+  useEffect(() => {
+    const fetchEspacios = async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/espacios`);
+        const data = await res.json();
+        const mapped = data.map((e, i) => ({
+          ...e,
+          imagen: imagenesDefault[i % imagenesDefault.length],
+        }));
+        setEspacios(mapped);
+      } catch {
+        message.error("Error al cargar espacios");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchEspacios();
+  }, []);
 
   const prev = () => setCurrent(current - 1);
 
-  const onFinish = (values) => {
-    console.log("Reserva enviada:", { ...values, espacio: selectedEspacio.titulo });
-    message.success("¡Reserva enviada con éxito!");
-    setCurrent(2);
+  const onFinish = async (values) => {
+    setSubmitting(true);
+    try {
+      // 1. Crear o verificar cliente
+      const clienteRes = await fetch(`${API_URL}/api/clientes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          DNI: values.dni,
+          Nombre: values.nombre,
+          Apellido: values.apellido,
+          Email: values.email,
+        }),
+      });
+
+      if (!clienteRes.ok) {
+        const err = await clienteRes.json();
+        // Si ya existe el cliente, no es error grave
+        if (!err.message?.includes('duplicate')) {
+          console.warn("Cliente posiblemente ya existe:", err.message);
+        }
+      }
+
+      // 2. Crear reserva
+      const fechaObj = values.fecha;
+      const reservaRes = await fetch(`${API_URL}/api/reservas`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          DNI: values.dni,
+          Nombre: `${values.nombre} ${values.apellido}`,
+          idEspacio: selectedEspacio.Espacio,
+          HorarioReserva: fechaObj.format("HH:mm"),
+          Monto: 0,
+          DiaReserva: fechaObj.format("YYYY-MM-DD"),
+        }),
+      });
+
+      if (!reservaRes.ok) {
+        const err = await reservaRes.json();
+        message.error(err.message || "Error al crear reserva");
+        return;
+      }
+
+      message.success("¡Reserva enviada con éxito!");
+      setCurrent(2);
+    } catch {
+      message.error("Error al conectar con el servidor");
+    } finally {
+      setSubmitting(false);
+    }
   };
 const handleEspacioClick = (espacio) => {
   setSelectedEspacio(espacio);
@@ -62,17 +124,22 @@ const handleEspacioClick = (espacio) => {
   const steps = [
     {
       title: "Elegir espacio",
-      content: (
+      content: loading ? (
+        <div style={{ textAlign: 'center', padding: '2rem' }}><Spin size="large" /></div>
+      ) : (
         <Row gutter={[16, 16]} justify="center">
           {espacios.map((espacio, index) => (
-            <Col xs={24} sm={12} md={8} key={index}>
+            <Col xs={24} sm={12} md={8} key={espacio.Espacio || index}>
               <Card
                 hoverable
                 className={styles.cardFullHeight}
                 onClick={() => handleEspacioClick(espacio)}
-                cover={<img alt={espacio.titulo} src={espacio.imagen} className={styles.espacioImagen} />}
+                cover={<img alt={espacio.Nombre} src={espacio.imagen} className={styles.espacioImagen} />}
               >
-                <Card.Meta title={espacio.titulo} description={espacio.descripcion} />
+                <Card.Meta
+                  title={espacio.Nombre}
+                  description={`Capacidad: ${espacio.Capacidad} personas${espacio.Disponible === false ? ' - No disponible' : ''}`}
+                />
               </Card>
             </Col>
           ))}
@@ -84,10 +151,10 @@ const handleEspacioClick = (espacio) => {
       content: selectedEspacio ? (
         <>
           <div className={styles.espacioSeleccionado}>
-            <img src={selectedEspacio.imagen} alt={selectedEspacio.titulo} />
+            <img src={selectedEspacio.imagen} alt={selectedEspacio.Nombre} />
             <div>
-              <h3>{selectedEspacio.titulo}</h3>
-              <p>{selectedEspacio.descripcion}</p>
+              <h3>{selectedEspacio.Nombre}</h3>
+              <p>Capacidad: {selectedEspacio.Capacidad} personas</p>
             </div>
           </div>
 
@@ -97,6 +164,14 @@ const handleEspacioClick = (espacio) => {
             onFinish={onFinish}
             className={styles.formulario}
           >
+            <Form.Item
+              name="dni"
+              label="DNI"
+              rules={[{ required: true, message: "Por favor ingresa tu DNI" }]}
+            >
+              <Input />
+            </Form.Item>
+
             <Form.Item
               name="nombre"
               label="Nombre"
@@ -133,29 +208,9 @@ const handleEspacioClick = (espacio) => {
               />
             </Form.Item>
 
-            <Form.Item
-              name="duracion"
-              label="Duración"
-              rules={[{ required: true }]}
-            >
-              <Select>
-                <Option value="1">1 hora</Option>
-                <Option value="2">2 horas</Option>
-                <Option value="3">3 horas</Option>
-              </Select>
-            </Form.Item>
-
-            <Form.Item
-              name="cantidad"
-              label="Cantidad de personas"
-              rules={[{ required: true }]}
-            >
-              <InputNumber min={1} style={{ width: "100%" }} />
-            </Form.Item>
-
             <div className={styles.botones}>
               <Button icon={<ArrowLeftOutlined />} onClick={prev} />
-              <Button type="primary" htmlType="submit">
+              <Button type="primary" htmlType="submit" loading={submitting}>
                 Reservar
               </Button>
             </div>
