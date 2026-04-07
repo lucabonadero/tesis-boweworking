@@ -1,0 +1,391 @@
+.layout {
+  background: #f5f5f6;
+  min-height: 100vh;
+}
+
+.content {
+  padding: 28px 40px;
+  box-sizing: border-box;
+}
+
+.controlsBar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.controlsBar h2 {
+  font-size: 22px;
+  font-weight: 700;
+  color: #1a1a2e;
+  margin: 0;
+  margin-right: auto;
+}
+
+.btnFiltrar {
+  background: #1a1a2e;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  height: 36px;
+  padding: 0 20px;
+  font-weight: 500;
+}
+.btnFiltrar:hover {
+  background: #2d2d4e !important;
+  color: #fff !important;
+}
+
+.btnPDF {
+  background: #fff;
+  color: #1a1a2e;
+  border: 1.5px solid #1a1a2e;
+  border-radius: 8px;
+  height: 36px;
+  padding: 0 20px;
+  font-weight: 500;
+}
+.btnPDF:hover {
+  background: #1a1a2e !important;
+  color: #fff !important;
+}
+
+.statsRow {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+.statCard {
+  background: #fff;
+  border-radius: 12px;
+  padding: 20px 22px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.statCard:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+}
+
+.statIcon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  flex-shrink: 0;
+}
+
+.statInfo {
+  display: flex;
+  flex-direction: column;
+}
+
+.statLabel {
+  font-size: 12px;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.statValue {
+  font-size: 24px;
+  font-weight: 700;
+  color: #1a1a2e;
+  line-height: 1.1;
+}
+
+.statSub {
+  font-size: 11px;
+  color: #aaa;
+  margin-top: 2px;
+}
+
+.mainGrid {
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  gap: 24px;
+  align-items: start;
+}
+
+.availCard {
+  background: #fff;
+  border-radius: 12px;
+  padding: 22px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.availTitle {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1a1a2e;
+  margin-bottom: 18px;
+}
+
+.spaceGroup {
+  margin-bottom: 20px;
+}
+
+.spaceGroupHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  padding-bottom: 6px;
+  border-bottom: 2px solid #eef2f7;
+}
+
+.spaceGroupName {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1a1a2e;
+}
+
+.spaceGroupBadge {
+  font-size: 11px;
+  padding: 2px 10px;
+  border-radius: 10px;
+  font-weight: 600;
+}
+
+.resourceRow {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 8px;
+  margin-bottom: 4px;
+  transition: background 0.15s ease;
+}
+.resourceRow:hover {
+  background: #f8f9fb;
+}
+
+.resourceRowChild {
+  padding-left: 28px;
+}
+
+.resourceName {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 500;
+  color: #333;
+}
+
+.resourceCompleto {
+  font-style: italic;
+  color: #b88a00;
+}
+
+.resourceReservas {
+  font-size: 12px;
+  color: #666;
+  width: 80px;
+  text-align: center;
+}
+
+.resourceOcup {
+  width: 100px;
+}
+
+.ocupBar {
+  height: 6px;
+  background: #eef2f7;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.ocupFill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.4s ease;
+}
+
+.resourceStatus {
+  width: 90px;
+  text-align: right;
+}
+
+.badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.badgeDisponible {
+  background: #e6f7f0;
+  color: #27ae60;
+}
+
+.badgeReservado {
+  background: #fdecea;
+  color: #e74c3c;
+}
+
+.badgeParcial {
+  background: #fff8e1;
+  color: #f39c12;
+}
+
+.metricsCol {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.metricCard {
+  background: #fff;
+  border-radius: 12px;
+  padding: 20px 22px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.metricTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1a1a2e;
+  margin-bottom: 14px;
+}
+
+.barRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.barLabel {
+  font-size: 12px;
+  color: #555;
+  width: 110px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex-shrink: 0;
+}
+
+.barTrack {
+  flex: 1;
+  height: 10px;
+  background: #eef2f7;
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.barFill {
+  height: 100%;
+  border-radius: 5px;
+  transition: width 0.5s ease;
+}
+
+.barValue {
+  font-size: 12px;
+  font-weight: 600;
+  color: #333;
+  width: 55px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.noData {
+  text-align: center;
+  color: #bbb;
+  font-size: 13px;
+  padding: 20px 0;
+}
+
+.espacioOcupCard {
+  background: #fff;
+  border-radius: 12px;
+  padding: 20px 22px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.espacioOcupRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.espacioOcupName {
+  font-size: 13px;
+  font-weight: 600;
+  color: #333;
+}
+
+.espacioOcupPct {
+  font-size: 13px;
+  font-weight: 700;
+  min-width: 40px;
+  text-align: right;
+}
+
+.espacioOcupBar {
+  height: 8px;
+  background: #eef2f7;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
+.espacioOcupFill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.5s ease;
+}
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+}
+
+.emptyIcon {
+  font-size: 48px;
+  color: #d0d0d0;
+  margin-bottom: 16px;
+}
+
+.emptyText {
+  font-size: 15px;
+  color: #888;
+  max-width: 360px;
+  line-height: 1.5;
+}
+
+@media (max-width: 1100px) {
+  .mainGrid {
+    grid-template-columns: 1fr;
+  }
+  .statsRow {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .content {
+    padding: 16px;
+  }
+  .statsRow {
+    grid-template-columns: 1fr;
+  }
+  .controlsBar h2 {
+    font-size: 18px;
+  }
+}

@@ -179,6 +179,16 @@
   border-radius: 6px;
   height: 38px;
 }
+.formRow {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.formFieldHalf {
+  flex: 1;
+}
+
 .actions {
   display: flex;
   justify-content: flex-end;
@@ -202,6 +212,144 @@
   color: #fff;
   border: none;
   border-radius: 6px;
+}
+
+/* ── Resource Picker ─────────────────────────── */
+
+.resourcePicker {
+  background: #fff;
+  border: 1px solid #e4e7eb;
+  border-radius: 8px;
+  padding: 10px;
+  min-height: 48px;
+  max-height: 56px;
+  overflow: hidden;
+  opacity: 0.6;
+  transition: max-height 0.35s cubic-bezier(.4,0,.2,1),
+              opacity 0.3s ease,
+              border-color 0.25s ease;
+}
+
+.resourcePickerOpen {
+  max-height: 600px;
+  opacity: 1;
+  border-color: #c8ced6;
+}
+
+.resourceHint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #aaa;
+  font-size: 13px;
+  padding: 4px 0;
+  user-select: none;
+}
+
+.resourceContent {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Each section fades + slides in */
+.resourceSection,
+.resourceDivider {
+  animation: sectionIn 0.3s ease both;
+}
+
+@keyframes sectionIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.resourceSectionLabel {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #8a919a;
+  margin-bottom: 6px;
+  padding-left: 2px;
+}
+
+.chipGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* Divider before "Completo" options */
+.dividerLine {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #dde1e6 30%, #dde1e6 70%, transparent);
+  margin-bottom: 8px;
+}
+
+/* ── Chips ── */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #444;
+  background: #f5f7f9;
+  border: 1.5px solid #e2e6ea;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.chip:hover {
+  background: #eaf0f5;
+  border-color: #c0cad4;
+  transform: translateY(-1px);
+}
+
+.chipActive {
+  background: #34c08f;
+  color: #fff;
+  border-color: #2aad7e;
+  box-shadow: 0 2px 8px rgba(52, 192, 143, 0.30);
+}
+
+.chipActive:hover {
+  background: #2fb485;
+  border-color: #259e72;
+}
+
+.chipCompleto {
+  border-style: dashed;
+  background: #fefcf3;
+  border-color: #e0c97a;
+  color: #7a6b2a;
+}
+
+.chipCompleto:hover {
+  background: #fdf6e0;
+  border-color: #c9b15e;
+}
+
+.chipCompleto.chipActive {
+  background: #e8a830;
+  color: #fff;
+  border-color: #d49520;
+  border-style: solid;
+  box-shadow: 0 2px 8px rgba(232, 168, 48, 0.30);
+}
+
+.chipCompleto.chipActive:hover {
+  background: #d69b28;
+  border-color: #c08d1e;
+}
+
+.chipIcon {
+  font-size: 12px;
 }
 
 /* Responsive: en pantallas chicas, apilamos y quitamos compensación lateral */

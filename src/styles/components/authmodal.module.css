@@ -1,0 +1,145 @@
+/* ── Modal overrides ── */
+
+.modalBody {
+  padding: 8px 0;
+}
+
+.tabRow {
+  display: flex;
+  border-bottom: 2px solid #eef0f3;
+  margin-bottom: 24px;
+}
+
+.tabBtn {
+  flex: 1;
+  padding: 10px 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: #999;
+  background: none;
+  border: none;
+  border-bottom: 3px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-bottom: -2px;
+}
+
+.tabBtn:hover {
+  color: #34c08f;
+}
+
+.tabBtnActive {
+  color: #34c08f;
+  border-bottom-color: #34c08f;
+}
+
+/* ── Form ── */
+
+.authForm {
+  animation: slideIn 0.25s ease both;
+}
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.submitBtn {
+  width: 100%;
+  height: 44px;
+  font-size: 15px;
+  font-weight: 600;
+  border-radius: 8px;
+  background: #34c08f !important;
+  border-color: #34c08f !important;
+  color: #fff !important;
+}
+
+.submitBtn:hover {
+  background: #2aad7e !important;
+  border-color: #2aad7e !important;
+}
+
+/* ── Divider ── */
+
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 20px 0;
+  color: #bbb;
+  font-size: 13px;
+}
+
+.dividerLine {
+  flex: 1;
+  height: 1px;
+  background: #e8ecf0;
+}
+
+/* ── Google ── */
+
+.googleRow {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+
+/* ── Footer link ── */
+
+.footerLink {
+  text-align: center;
+  margin-top: 16px;
+  font-size: 13px;
+  color: #888;
+}
+
+.footerLink button {
+  background: none;
+  border: none;
+  color: #34c08f;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  margin-left: 4px;
+}
+
+.footerLink button:hover {
+  text-decoration: underline;
+}
+
+/* ── Complete profile ── */
+
+.profileTitle {
+  text-align: center;
+  font-size: 18px;
+  font-weight: 700;
+  color: #222;
+  margin-bottom: 4px;
+}
+
+.profileSub {
+  text-align: center;
+  font-size: 14px;
+  color: #888;
+  margin-bottom: 24px;
+}
+
+.profileUser {
+  text-align: center;
+  margin-bottom: 20px;
+  padding: 12px;
+  background: #f5f8fa;
+  border-radius: 10px;
+}
+
+.profileUserName {
+  font-size: 16px;
+  font-weight: 600;
+  color: #222;
+}
+
+.profileUserEmail {
+  font-size: 13px;
+  color: #888;
+}

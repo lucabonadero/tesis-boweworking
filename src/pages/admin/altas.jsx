@@ -5,12 +5,12 @@ import Header from "../../components/header";
 import React, { useState, useEffect } from "react";
 import { Layout, Row, Col, Card, Select, Button, Input, Table, Tag, Space, Pagination, message, Spin } from "antd";
 import { SearchOutlined, DownOutlined } from "@ant-design/icons";
+import { adminFetch } from "../../utils/adminApi";
 
 const { Content } = Layout;
 const { Option } = Select;
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-const getToken = () => localStorage.getItem('token');
 
 export default function AltaClientes() {
   const [reservas, setReservas] = useState([]);
@@ -20,9 +20,7 @@ export default function AltaClientes() {
 
   const fetchReservas = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/reservas`, {
-        headers: { Authorization: `Bearer ${getToken()}` },
-      });
+      const res = await adminFetch(`${API_URL}/api/reservas`);
       const data = await res.json();
       setReservas(data);
     } catch {

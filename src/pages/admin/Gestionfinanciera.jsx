@@ -1,70 +1,160 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from "react";
+import dayjs from "dayjs";
+import Header from "../../components/header";
+import { adminFetch } from "../../utils/adminApi";
+import styles from "../../styles/admin/gestionfinanciera.module.css";
+import "../../styles/global.css";
+
 import {
-  Layout, Typography, Button, Select, InputNumber, Radio, Form, Row, Col, Card, Statistic, Divider,
+  Layout,
+  Input,
+  Select,
+  Button,
+  Table,
+  Radio,
+  Spin,
+  Popconfirm,
   message,
-} from 'antd';
+} from "antd";
 import {
-  DollarOutlined, SyncOutlined, WalletOutlined, ArrowUpOutlined, ArrowDownOutlined,
-} from '@ant-design/icons';
-import Header from '../../components/header';
-import Footer from '../../components/footer';
-import TablaFinanciera from '../../components/tablafinanciera';
+  SearchOutlined,
+  DollarOutlined,
+  SyncOutlined,
+  WalletOutlined,
+  CheckCircleOutlined,
+  ClockCircleOutlined,
+  CreditCardOutlined,
+} from "@ant-design/icons";
 
 const { Content } = Layout;
-const { Title, Text } = Typography;
 const { Option } = Select;
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-const getToken = () => localStorage.getItem('token');
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
+
+const METODO_STYLES = {
+  Efectivo: styles.metodoEfectivo,
+  "Mercado Pago": styles.metodoMercadoPago,
+  QR: styles.metodoQR,
+  Tarjeta: styles.metodoTarjeta,
+};
 
 export default function GestionFinanciera() {
-  const [form] = Form.useForm();
-  const [reservas, setReservas] = useState([]);
   const [transacciones, setTransacciones] = useState([]);
+  const [reservas, setReservas] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [filtroEstado, setFiltroEstado] = useState("Todos");
+  const [filtroMetodo, setFiltroMetodo] = useState("Todos");
+
+  const [formReserva, setFormReserva] = useState(null);
+  const [formMetodo, setFormMetodo] = useState(null);
+  const [formEstado, setFormEstado] = useState("Pendiente");
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [resReservas, resTrans] = await Promise.all([
-          fetch(`${API_URL}/api/reservas`, { headers: { Authorization: `Bearer ${getToken()}` } }),
-          fetch(`${API_URL}/api/pagos`, { headers: { Authorization: `Bearer ${getToken()}` } }),
-        ]);
-        setReservas(await resReservas.json());
-        setTransacciones(await resTrans.json());
-      } catch {
-        message.error("Error al cargar datos");
-      }
+  const fetchAll = async () => {
+    try {
+      const [resTrans, resReservas] = await Promise.all([
+        adminFetch(`${API_URL}/api/pagos`),
+        adminFetch(`${API_URL}/api/reservas`),
+      ]);
+      setTransacciones((await resTrans.json()).map((t) => ({ ...t, key: t.idTransaccion })));
+      setReservas(await resReservas.json());
+    } catch {
+      message.error("Error al cargar datos");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { fetchAll(); }, []);
+
+  /* ── Stats ── */
+  const stats = useMemo(() => {
+    const pagados = transacciones.filter((t) => t.EstadoPago === "Pagado");
+    const pendientes = transacciones.filter((t) => t.EstadoPago === "Pendiente");
+    const totalIngresos = pagados.reduce((s, t) => s + (parseFloat(t.Monto) || 0), 0);
+    const totalPendiente = pendientes.reduce((s, t) => s + (parseFloat(t.Monto) || 0), 0);
+
+    const hoy = dayjs().format("YYYY-MM-DD");
+    const ingresosHoy = pagados
+      .filter((t) => t.DiaReserva && dayjs(t.DiaReserva).format("YYYY-MM-DD") === hoy)
+      .reduce((s, t) => s + (parseFloat(t.Monto) || 0), 0);
+
+    return {
+      totalIngresos,
+      totalPendiente,
+      ingresosHoy,
+      totalTransacciones: transacciones.length,
+      pendientes: pendientes.length,
     };
-    fetchData();
-  }, []);
+  }, [transacciones]);
 
-  const totalIngresos = transacciones
-    .filter(t => t.EstadoPago === 'Pagado')
-    .reduce((sum, t) => sum + (parseFloat(t.Monto) || 0), 0);
+  /* ── Filtering ── */
+  const filtered = useMemo(() => {
+    return transacciones.filter((t) => {
+      if (filtroEstado !== "Todos" && t.EstadoPago !== filtroEstado) return false;
+      if (filtroMetodo !== "Todos" && t.MetodoPago !== filtroMetodo) return false;
+      if (search) {
+        const q = search.toLowerCase();
+        const haystack = [
+          t.reserva_nombre,
+          t.cliente_dni,
+          t.espacio_nombre,
+          t.recurso_nombre,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+        if (!haystack.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [transacciones, filtroEstado, filtroMetodo, search]);
 
-  const pendientes = transacciones.filter(t => t.EstadoPago === 'Pendiente').length;
+  /* ── Toggle estado ── */
+  const toggleEstado = async (record) => {
+    const nuevoEstado = record.EstadoPago === "Pagado" ? "Pendiente" : "Pagado";
+    try {
+      const res = await adminFetch(`${API_URL}/api/pagos/${record.idTransaccion}/estado`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ EstadoPago: nuevoEstado }),
+      });
+      if (!res.ok) throw new Error();
+      setTransacciones((prev) =>
+        prev.map((t) =>
+          t.idTransaccion === record.idTransaccion ? { ...t, EstadoPago: nuevoEstado } : t
+        )
+      );
+      message.success(nuevoEstado === "Pagado" ? "Pago confirmado" : "Marcado como pendiente");
+    } catch {
+      message.error("Error al actualizar estado");
+    }
+  };
 
-  const onRegistrarPago = async (values) => {
+  /* ── Register payment ── */
+  const onRegistrar = async () => {
+    if (!formReserva || !formMetodo) {
+      message.warning("Completá reserva y método de pago");
+      return;
+    }
     setSubmitting(true);
     try {
-      const res = await fetch(`${API_URL}/api/pagos`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
+      const res = await adminFetch(`${API_URL}/api/pagos`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          idReserva: values.reserva,
-          MetodoPago: values.metodo,
-          EstadoPago: values.estado === 'pagado' ? 'Pagado' : 'Pendiente',
+          idReserva: formReserva,
+          MetodoPago: formMetodo,
+          EstadoPago: formEstado,
         }),
       });
       if (!res.ok) throw new Error();
-      message.success("Pago registrado exitosamente");
-      form.resetFields();
-      // Re-fetch transactions
-      const resTrans = await fetch(`${API_URL}/api/pagos`, {
-        headers: { Authorization: `Bearer ${getToken()}` },
-      });
-      setTransacciones(await resTrans.json());
+      message.success("Pago registrado");
+      setFormReserva(null);
+      setFormMetodo(null);
+      setFormEstado("Pendiente");
+      fetchAll();
     } catch {
       message.error("Error al registrar pago");
     } finally {
@@ -72,123 +162,343 @@ export default function GestionFinanciera() {
     }
   };
 
-  return (
-    <Layout style={{ minHeight: '100vh' }}>
-      <Header isEmpleado={true} />
-      <Content style={{ padding: '2rem', backgroundColor: '#f9f9f9' }}>
-        <Title level={2} style={{ marginBottom: '1.5rem' }}>Gestión Financiera</Title>
+  /* ── Metodos únicos for filter ── */
+  const metodos = useMemo(
+    () => [...new Set(transacciones.map((t) => t.MetodoPago).filter(Boolean))],
+    [transacciones]
+  );
 
-<Row gutter={16} align="top">
-  {/* Col izquierda con botones y tabla */}
-  <Col span={14}>
-    <div style={{ paddingLeft: '24px' }}>
-      {/* Botones alineados con la tabla */}
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
-        <Button type="primary" style={{ backgroundColor: '#69c187', borderColor: '#69c187' }}>
-          Resumen Diario
-        </Button>
-        <Button type="primary" style={{ backgroundColor: '#69c187', borderColor: '#69c187' }}>
-          Resumen Semanal
-        </Button>
-        <Button type="primary" style={{ backgroundColor: '#69c187', borderColor: '#69c187' }}>
-          Resumen Mensual
-        </Button>
-      </div>
-
-      {/* Tabla */}
-      <TablaFinanciera />
-    </div>
-  </Col>
-
-  <Col span={10} style={{ marginTop: '-8px' }}>
-    <Card
-      title={<Text strong style={{ fontSize: '16px' }}>Registrar un pago</Text>}
-      bordered={false}
-      style={{
-        borderRadius: '16px',
-        boxShadow: '0 4px 10px rgba(0,0,0,0.05)',
-      }}
-      bodyStyle={{ padding: '24px' }}
-    >
-      <Form form={form} layout="vertical" onFinish={onRegistrarPago}>
-        <Form.Item label="Reserva" name="reserva" rules={[{ required: true }]}>
-          <Select placeholder="Seleccionar reserva">
-            {reservas.map((r) => (
-              <Option key={r.idReserva} value={r.idReserva}>
-                {r.Nombre} - {r.espacio_nombre || `Espacio ${r.idEspacio}`} ({r.DiaReserva ? new Date(r.DiaReserva).toLocaleDateString() : ''})
-              </Option>
-            ))}
-          </Select>
-        </Form.Item>
-
-        <Form.Item label="Método de pago" name="metodo" rules={[{ required: true }]}>
-          <Select placeholder="Seleccionar método">
-            <Option value="QR">QR</Option>
-            <Option value="Efectivo">Efectivo</Option>
-            <Option value="Tarjeta">Tarjeta</Option>
-          </Select>
-        </Form.Item>
-
-        <Form.Item label="Estado del pago" name="estado" rules={[{ required: true }]}>
-          <Radio.Group>
-            <Radio value="pagado" style={{ color: '#52c41a' }}>Pagado</Radio>
-            <Radio value="pendiente" style={{ color: '#f5222d' }}>Pendiente</Radio>
-          </Radio.Group>
-        </Form.Item>
-
-        <Form.Item>
-          <Button
-            type="primary"
-            htmlType="submit"
-            block
-            loading={submitting}
-            style={{ backgroundColor: '#69c187', borderColor: '#69c187' }}
+  /* ── Columns ── */
+  const columns = [
+    {
+      title: "Cliente",
+      key: "cliente",
+      sorter: (a, b) => (a.reserva_nombre || "").localeCompare(b.reserva_nombre || ""),
+      render: (_, r) => (
+        <div>
+          <div style={{ fontWeight: 500, color: "#222" }}>{r.reserva_nombre || "-"}</div>
+          {r.cliente_dni && <div style={{ fontSize: 11, color: "#999" }}>DNI: {r.cliente_dni}</div>}
+        </div>
+      ),
+    },
+    {
+      title: "Espacio / Recurso",
+      key: "espacio",
+      render: (_, r) => (
+        <div>
+          <div style={{ fontSize: 13, color: "#333" }}>{r.espacio_nombre || "-"}</div>
+          {r.recurso_nombre && (
+            <div style={{ fontSize: 11, color: "#999" }}>{r.recurso_nombre}</div>
+          )}
+        </div>
+      ),
+    },
+    {
+      title: "Fecha",
+      dataIndex: "DiaReserva",
+      key: "fecha",
+      sorter: (a, b) => new Date(a.DiaReserva || 0) - new Date(b.DiaReserva || 0),
+      render: (v, r) => (
+        <div>
+          <div style={{ fontSize: 13 }}>{v ? dayjs(v).format("DD/MM/YYYY") : "-"}</div>
+          {r.HorarioReserva && (
+            <div style={{ fontSize: 11, color: "#999" }}>
+              {r.HorarioReserva}{r.HorarioFin ? ` – ${r.HorarioFin}` : ""}
+            </div>
+          )}
+        </div>
+      ),
+    },
+    {
+      title: "Monto",
+      dataIndex: "Monto",
+      key: "monto",
+      sorter: (a, b) => (parseFloat(a.Monto) || 0) - (parseFloat(b.Monto) || 0),
+      render: (v) => (
+        <span style={{ fontWeight: 600, color: "#1a1a2e" }}>
+          ${parseFloat(v || 0).toLocaleString("es-AR", { minimumFractionDigits: 2 })}
+        </span>
+      ),
+    },
+    {
+      title: "Método",
+      dataIndex: "MetodoPago",
+      key: "metodo",
+      render: (v) => (
+        <span className={`${styles.metodoBadge} ${METODO_STYLES[v] || styles.metodoOtro}`}>
+          <CreditCardOutlined /> {v || "-"}
+        </span>
+      ),
+    },
+    {
+      title: "Estado",
+      dataIndex: "EstadoPago",
+      key: "estado",
+      render: (estado, record) => (
+        <Popconfirm
+          title={estado === "Pagado" ? "¿Revertir a pendiente?" : "¿Confirmar pago?"}
+          onConfirm={() => toggleEstado(record)}
+          okText="Sí"
+          cancelText="No"
+        >
+          <button
+            type="button"
+            className={`${styles.badge} ${estado === "Pagado" ? styles.badgePagado : styles.badgePendiente}`}
           >
-            Registrar Pago
-          </Button>
-        </Form.Item>
-      </Form>
-    </Card>
-  </Col>
-</Row>
+            {estado === "Pagado" ? <CheckCircleOutlined /> : <ClockCircleOutlined />}
+            {estado}
+          </button>
+        </Popconfirm>
+      ),
+    },
+    {
+      title: "",
+      key: "action",
+      width: 110,
+      render: (_, record) =>
+        record.EstadoPago === "Pendiente" ? (
+          <Popconfirm
+            title="¿Confirmar pago presencial?"
+            onConfirm={() => toggleEstado(record)}
+            okText="Confirmar"
+            cancelText="Cancelar"
+          >
+            <button type="button" className={styles.confirmBtn}>
+              <CheckCircleOutlined /> Cobrar
+            </button>
+          </Popconfirm>
+        ) : (
+          <Popconfirm
+            title="¿Revertir a pendiente?"
+            onConfirm={() => toggleEstado(record)}
+            okText="Sí"
+            cancelText="No"
+          >
+            <button type="button" className={styles.revertBtn}>
+              <ClockCircleOutlined /> Revertir
+            </button>
+          </Popconfirm>
+        ),
+    },
+  ];
 
-        <Divider style={{ margin: '2rem 0' }} />
+  /* ── Render ── */
+  if (loading) {
+    return (
+      <Layout className={styles.layout}>
+        <Header isEmpleado={true} />
+        <Content className={styles.content}>
+          <div style={{ textAlign: "center", padding: "4rem" }}><Spin size="large" /></div>
+        </Content>
+      </Layout>
+    );
+  }
 
-        <Row gutter={32} justify="center">
-          <Col span={6}>
-            <Card style={{ borderRadius: '16px', textAlign: 'center' }}>
-              <Statistic
-                title="Total Ingresos"
-                value={totalIngresos}
-                prefix={<DollarOutlined />}
-                precision={2}
-                valueStyle={{ color: '#52c41a' }}
+  return (
+    <Layout className={styles.layout}>
+      <Header isEmpleado={true} />
+      <Content className={styles.content}>
+        {/* Stats */}
+        <div className={styles.statsRow}>
+          <StatCard
+            icon={<DollarOutlined />}
+            label="Ingresos Hoy"
+            value={`$${stats.ingresosHoy.toLocaleString("es-AR", { minimumFractionDigits: 2 })}`}
+            sub={dayjs().format("DD/MM/YYYY")}
+            color={{ bg: "#e6f7f0", icon: "#27ae60" }}
+          />
+          <StatCard
+            icon={<DollarOutlined />}
+            label="Total Ingresos"
+            value={`$${stats.totalIngresos.toLocaleString("es-AR", { minimumFractionDigits: 2 })}`}
+            sub="pagos confirmados"
+            color={{ bg: "#eef0ff", icon: "#5b6abf" }}
+          />
+          <StatCard
+            icon={<WalletOutlined />}
+            label="Pendientes"
+            value={stats.pendientes}
+            sub={`$${stats.totalPendiente.toLocaleString("es-AR", { minimumFractionDigits: 2 })} por cobrar`}
+            color={{ bg: "#fff5e6", icon: "#e67e22" }}
+          />
+          <StatCard
+            icon={<SyncOutlined />}
+            label="Transacciones"
+            value={stats.totalTransacciones}
+            sub="registradas"
+            color={{ bg: "#fce4ec", icon: "#e74c3c" }}
+          />
+        </div>
+
+        {/* Main grid */}
+        <div className={styles.mainGrid}>
+          {/* Table */}
+          <div className={styles.tableCard}>
+            <div className={styles.tableHeader}>
+              <h2 className={styles.tableTitle}>Transacciones</h2>
+              <div className={styles.tableControls}>
+                <Input
+                  placeholder="Buscar cliente, DNI, espacio..."
+                  prefix={<SearchOutlined />}
+                  className={styles.searchInput}
+                  allowClear
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+                <Select
+                  value={filtroEstado}
+                  className={styles.filterSelect}
+                  onChange={setFiltroEstado}
+                >
+                  <Option value="Todos">Todos los estados</Option>
+                  <Option value="Pagado">Pagado</Option>
+                  <Option value="Pendiente">Pendiente</Option>
+                </Select>
+                <Select
+                  value={filtroMetodo}
+                  className={styles.filterSelect}
+                  onChange={setFiltroMetodo}
+                >
+                  <Option value="Todos">Todos los métodos</Option>
+                  {metodos.map((m) => (
+                    <Option key={m} value={m}>{m}</Option>
+                  ))}
+                </Select>
+              </div>
+            </div>
+
+            <div className={styles.tableWrapper}>
+              <Table
+                columns={columns}
+                dataSource={filtered}
+                pagination={{ pageSize: 10, showSizeChanger: false, size: "small" }}
+                className={styles.table}
+                tableLayout="auto"
+                size="middle"
               />
-            </Card>
-          </Col>
-          <Col span={6}>
-            <Card style={{ borderRadius: '16px', textAlign: 'center' }}>
-              <Statistic
-                title="Total Transacciones"
-                value={transacciones.length}
-                prefix={<SyncOutlined />}
-                valueStyle={{ color: '#faad14' }}
-              />
-            </Card>
-          </Col>
-          <Col span={6}>
-            <Card style={{ borderRadius: '16px', textAlign: 'center' }}>
-              <Statistic
-                title="Pagos pendientes"
-                value={pendientes}
-                prefix={<WalletOutlined />}
-                valueStyle={{ color: '#f5222d' }}
-              />
-            </Card>
-          </Col>
-        </Row>
+            </div>
+
+            <div className={styles.tableFooter}>
+              <span className={styles.tableInfo}>
+                Mostrando {filtered.length} de {transacciones.length} transacciones
+              </span>
+            </div>
+          </div>
+
+          {/* Right panel */}
+          <div className={styles.rightPanel}>
+            {/* Register payment */}
+            <div className={styles.formCard}>
+              <h3 className={styles.formTitle}>Registrar Pago</h3>
+
+              <div className={styles.formField}>
+                <label className={styles.label}>Reserva</label>
+                <Select
+                  className={styles.select}
+                  placeholder="Seleccionar reserva"
+                  value={formReserva}
+                  onChange={setFormReserva}
+                  showSearch
+                  filterOption={(input, option) =>
+                    (option?.children || "").toLowerCase().includes(input.toLowerCase())
+                  }
+                >
+                  {reservas.map((r) => (
+                    <Option key={r.idReserva} value={r.idReserva}>
+                      {r.Nombre} — {r.espacio_nombre || "?"} ({r.DiaReserva ? dayjs(r.DiaReserva).format("DD/MM") : "?"})
+                    </Option>
+                  ))}
+                </Select>
+              </div>
+
+              <div className={styles.formField}>
+                <label className={styles.label}>Método de pago</label>
+                <Select
+                  className={styles.select}
+                  placeholder="Seleccionar método"
+                  value={formMetodo}
+                  onChange={setFormMetodo}
+                >
+                  <Option value="Efectivo">Efectivo</Option>
+                  <Option value="Mercado Pago">Mercado Pago</Option>
+                  <Option value="QR">QR</Option>
+                  <Option value="Tarjeta">Tarjeta</Option>
+                </Select>
+              </div>
+
+              <div className={styles.formField}>
+                <label className={styles.label}>Estado</label>
+                <Radio.Group
+                  value={formEstado}
+                  onChange={(e) => setFormEstado(e.target.value)}
+                  className={styles.radioGroup}
+                >
+                  <Radio value="Pagado">Pagado</Radio>
+                  <Radio value="Pendiente">Pendiente</Radio>
+                </Radio.Group>
+              </div>
+
+              <Button
+                className={styles.btnRegistrar}
+                onClick={onRegistrar}
+                loading={submitting}
+              >
+                Registrar Pago
+              </Button>
+            </div>
+
+            {/* Quick info */}
+            <div className={styles.quickInfo}>
+              <h4 className={styles.quickInfoTitle}>Resumen de Caja</h4>
+              <div className={styles.quickInfoRow}>
+                <span className={styles.quickInfoLabel}>Cobrados hoy</span>
+                <span className={styles.quickInfoValue} style={{ color: "#27ae60" }}>
+                  ${stats.ingresosHoy.toLocaleString("es-AR", { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+              <div className={styles.quickInfoRow}>
+                <span className={styles.quickInfoLabel}>Pendientes por cobrar</span>
+                <span className={styles.quickInfoValue} style={{ color: "#e67e22" }}>
+                  ${stats.totalPendiente.toLocaleString("es-AR", { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+              <div className={styles.quickInfoRow}>
+                <span className={styles.quickInfoLabel}>Total acumulado</span>
+                <span className={styles.quickInfoValue} style={{ color: "#5b6abf" }}>
+                  ${stats.totalIngresos.toLocaleString("es-AR", { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+              <div className={styles.quickInfoRow}>
+                <span className={styles.quickInfoLabel}>Pagos presenciales</span>
+                <span className={styles.quickInfoValue}>
+                  {transacciones.filter((t) => t.MetodoPago === "Efectivo").length}
+                </span>
+              </div>
+              <div className={styles.quickInfoRow}>
+                <span className={styles.quickInfoLabel}>Pagos online</span>
+                <span className={styles.quickInfoValue}>
+                  {transacciones.filter((t) => t.MetodoPago === "Mercado Pago").length}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
       </Content>
-      <Footer isEmpleado={true} />
     </Layout>
+  );
+}
+
+function StatCard({ icon, label, value, sub, color }) {
+  return (
+    <div className={styles.statCard}>
+      <div className={styles.statIcon} style={{ background: color.bg, color: color.icon }}>
+        {icon}
+      </div>
+      <div className={styles.statInfo}>
+        <span className={styles.statLabel}>{label}</span>
+        <span className={styles.statValue}>{value}</span>
+        {sub && <span className={styles.statSub}>{sub}</span>}
+      </div>
+    </div>
   );
 }

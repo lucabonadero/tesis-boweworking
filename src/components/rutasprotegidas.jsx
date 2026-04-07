@@ -1,10 +1,10 @@
 import React from "react";
 import { Navigate } from "react-router-dom";
+import { isAdminTokenValid, clearAdminSession } from "../utils/adminApi";
 
 export default function ProtectedRoute({ children }) {
-  const token = localStorage.getItem('token');
-
-  if (!token) {
+  if (!isAdminTokenValid()) {
+    clearAdminSession();
     return <Navigate to="/login" replace />;
   }
   return children;

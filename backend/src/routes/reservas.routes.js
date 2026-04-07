@@ -12,7 +12,7 @@ const router = Router();
 
 router.get("/", verificarToken, obtenerReservas);
 router.get("/:id", verificarToken, obtenerReservaPorId);
-router.post("/", crearReserva);
+router.post("/", verificarToken, crearReserva);
 router.put("/:id", verificarToken, actualizarReserva);
 router.delete("/:id", verificarToken, eliminarReserva);
 

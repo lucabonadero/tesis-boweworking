@@ -1,196 +1,365 @@
-.main {
-  padding: 2rem;
-  max-width: 1200px;
-  margin: 0 auto;
+.layout {
+  background: #f5f5f6;
+  min-height: 100vh;
 }
 
-.header {
-  font-size: 2rem;
-  margin-bottom: 2rem;
-  text-align: center;
-  font-weight: bold;
+.content {
+  padding: 28px 40px;
+  box-sizing: border-box;
 }
 
-.wrapperContenido {
-  display: flex;
-  gap: 2rem;
-  align-items: flex-start;
-  margin-bottom: 2rem;
+/* ── Stats row ────────────────────────────────── */
+.statsRow {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
 }
 
-.tablaContainer {
-  flex: 2;
-}
-
-.tabla {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.tabla th,
-.tabla td {
-  border: 1px solid #ccc;
-  padding: 0.75rem;
-  text-align: left;
-}
-
-.containerFormulario {
-  flex: 1.2;
-  background-color: #ffffff;
-  padding: 1.5rem;
+.statCard {
+  background: #fff;
   border-radius: 12px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
-  min-height: 400px;
+  padding: 20px 22px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.statCard:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
 }
 
-.formulario__header {
-  font-size: 1.5rem;
-  margin-bottom: 0.5rem;
+.statIcon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  flex-shrink: 0;
 }
 
-.formulario__subtitulo {
-  font-size: 1rem;
-  color: #666;
-  margin-bottom: 1.5rem;
-}
-
-.form__group {
-  margin-bottom: 1rem;
+.statInfo {
   display: flex;
   flex-direction: column;
 }
 
-.form__group label {
-  margin-bottom: 0.5rem;
+.statLabel {
+  font-size: 12px;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.statValue {
+  font-size: 24px;
+  font-weight: 700;
+  color: #1a1a2e;
+  line-height: 1.1;
+}
+
+.statSub {
+  font-size: 11px;
+  color: #aaa;
+  margin-top: 2px;
+}
+
+/* ── Main grid ────────────────────────────────── */
+.mainGrid {
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  gap: 24px;
+  align-items: start;
+}
+
+/* ── Table card ───────────────────────────────── */
+.tableCard {
+  background: #fff;
+  border-radius: 12px;
+  padding: 22px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.tableHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.tableTitle {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1a1a2e;
+  margin: 0;
+}
+
+.tableControls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.searchInput {
+  width: 200px;
+  border-radius: 8px;
+  background: #f4f7f9;
+  height: 36px;
+}
+
+.filterSelect {
+  min-width: 130px;
+  border-radius: 8px;
+}
+
+.tableWrapper {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+}
+
+.table .ant-table-tbody > tr > td {
+  padding: 12px 10px;
+}
+
+/* ── Status badge ─────────────────────────────── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 12px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+  border: none;
+  background: none;
+}
+
+.badgePagado {
+  background: #e6f7f0;
+  color: #27ae60;
+}
+
+.badgePendiente {
+  background: #fff3e0;
+  color: #e67e22;
+}
+
+.badge:hover {
+  transform: scale(1.05);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.metodoBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.metodoEfectivo {
+  background: #f0f5ff;
+  color: #3b82f6;
+}
+
+.metodoMercadoPago {
+  background: #e0f4ff;
+  color: #0090d9;
+}
+
+.metodoQR {
+  background: #f3e8ff;
+  color: #8b5cf6;
+}
+
+.metodoTarjeta {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.metodoOtro {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+/* ── Confirmar btn in row ─────────────────────── */
+.confirmBtn {
+  background: #27ae60;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.confirmBtn:hover {
+  background: #219150 !important;
+  color: #fff !important;
+}
+
+.revertBtn {
+  background: #e67e22;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.revertBtn:hover {
+  background: #cf6d17 !important;
+  color: #fff !important;
+}
+
+/* ── Right panel ──────────────────────────────── */
+.rightPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.formCard {
+  background: #fff;
+  border-radius: 12px;
+  padding: 22px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.formTitle {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1a1a2e;
+  margin-bottom: 16px;
+}
+
+.formField {
+  margin-bottom: 14px;
+}
+
+.label {
+  display: block;
+  font-size: 13px;
+  margin-bottom: 5px;
+  color: #555;
   font-weight: 500;
 }
 
-.form__group input,
-.form__group select {
-  padding: 0.5rem;
-  border-radius: 6px;
-  border: 1px solid #ccc;
-  font-size: 1rem;
+.select {
+  width: 100%;
+  border-radius: 8px;
 }
 
 .radioGroup {
   display: flex;
-  gap: 1rem;
+  gap: 12px;
 }
 
-.radioGroup label {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.radioPagado {
-  color: green;
-  font-weight: bold;
-}
-
-.radioPendiente {
-  color: red;
-  font-weight: bold;
-}
-
-.formButtons {
-  margin-top: 1.5rem;
-  
-}
-
-.buttonPrimario {
-  padding: 0.75rem 1.5rem;
-  background-color: #77C38C;
-  color: white;
+.btnRegistrar {
+  width: 100%;
+  height: 40px;
+  border-radius: 8px;
+  font-weight: 600;
+  background: #1a1a2e;
+  color: #fff;
   border: none;
-  border-radius: 6px;
-  font-size: 1rem;
-  cursor: pointer;
+  font-size: 14px;
+}
+.btnRegistrar:hover {
+  background: #2d2d4e !important;
+  color: #fff !important;
 }
 
-.buttonPrimario:hover {
-  background-color: #4d865d;
+/* ── Quick-info panel ─────────────────────────── */
+.quickInfo {
+  background: #fff;
+  border-radius: 12px;
+  padding: 20px 22px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
-/* Nueva barra de resumen estilo tarjeta */
-.barraResumen {
+.quickInfoTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1a1a2e;
+  margin-bottom: 14px;
+}
+
+.quickInfoRow {
   display: flex;
   justify-content: space-between;
-  background: #fff;
-  border-radius: 16px;
-  padding: 2rem;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
-  gap: 2rem;
-}
-
-.itemResumen {
-  flex: 1;
-  display: flex;
   align-items: center;
-  gap: 1rem;
-  border-right: 1px solid #eee;
+  padding: 8px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+.quickInfoRow:last-child {
+  border-bottom: none;
 }
 
-.itemResumen:last-child {
-  border-right: none;
+.quickInfoLabel {
+  font-size: 13px;
+  color: #666;
 }
 
-.iconoResumen {
-  background: #dcfce7;
-  padding: 1rem;
-  border-radius: 50%;
+.quickInfoValue {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+/* ── Table footer ─────────────────────────────── */
+.tableFooter {
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  justify-content: center;
+  margin-top: 12px;
 }
 
-.textoResumen {
-  display: flex;
-  flex-direction: column;
+.tableInfo {
+  font-size: 13px;
+  color: #666;
 }
 
-.tituloResumen {
-  font-size: 0.9rem;
-  color: #999;
-  margin-bottom: 0.3rem;
+/* ── Responsive ───────────────────────────────── */
+@media (max-width: 1100px) {
+  .mainGrid {
+    grid-template-columns: 1fr;
+  }
+  .statsRow {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
-.valorResumen {
-  font-size: 1.5rem;
-  font-weight: bold;
-}
-
-.cambioResumen {
-  font-size: 0.8rem;
-  margin-top: 0.2rem;
-}
-
-.cambioVerde {
-  color: green;
-}
-
-.cambioRojo {
-  color: crimson;
-}
-.botonesResumen {
-  display: flex;
-  justify-content: flex-start;
-  gap: 1rem;
-  margin-bottom: 1rem;
-}
-
-.botonResumen {
-  padding: 0.6rem 1.2rem;
-  background-color: #77C38C;
-  border: 1px solid #ccc;
-  border-radius: 8px;
-  font-size: 0.95rem;
-  cursor: pointer;
-  transition: background-color 0.2s ease;
-  color: white;
-}
-
-.botonResumen:hover {
-  background-color: #4d865d;
+@media (max-width: 600px) {
+  .content {
+    padding: 16px;
+  }
+  .statsRow {
+    grid-template-columns: 1fr;
+  }
+  .tableControls {
+    width: 100%;
+  }
+  .searchInput {
+    width: 100%;
+  }
 }

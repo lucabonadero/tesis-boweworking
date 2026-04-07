@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Tag, Spin, message } from 'antd';
+import { adminFetch } from '../utils/adminApi';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-const getToken = () => localStorage.getItem('token');
 
 const columns = [
   {
@@ -46,9 +46,7 @@ const TablaFinanciera = () => {
   useEffect(() => {
     const fetchTransacciones = async () => {
       try {
-        const res = await fetch(`${API_URL}/api/pagos`, {
-          headers: { Authorization: `Bearer ${getToken()}` },
-        });
+        const res = await adminFetch(`${API_URL}/api/pagos`);
         const data = await res.json();
         setTransacciones(data.map((t) => ({ ...t, key: t.idTransaccion })));
       } catch {
