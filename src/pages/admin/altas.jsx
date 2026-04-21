@@ -1,28 +1,52 @@
-
 import "../../styles/global.css";
 import styles from "../../styles/admin/altas.module.css";
 import Header from "../../components/header";
-import React, { useState, useEffect } from "react";
-import { Layout, Row, Col, Card, Select, Button, Input, Table, Tag, Space, Pagination, message, Spin } from "antd";
-import { SearchOutlined, DownOutlined } from "@ant-design/icons";
+import React, { useState, useEffect, useMemo } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import dayjs from "dayjs";
+import { Layout, Card, Button, Input, Table, Tag, message, Spin, Empty, Badge, Tooltip } from "antd";
+import {
+  SearchOutlined,
+  CheckCircleOutlined,
+  CloseCircleOutlined,
+  CalendarOutlined,
+  ClockCircleOutlined,
+  UserOutlined,
+} from "@ant-design/icons";
 import { adminFetch } from "../../utils/adminApi";
+import { validarRecepcionNoAnticipadaLocal } from "../../utils/coworkingHours.js";
+import { notifyReservasChanged } from "../../utils/boweSync.js";
 
 const { Content } = Layout;
-const { Option } = Select;
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+function mensajeRecepcionAnticipada(r) {
+  const tipo = r.TipoReserva || "turno";
+  if (tipo !== "turno" || !r.HorarioReserva) return null;
+  const dia = dayjs(r.DiaReserva).format("YYYY-MM-DD");
+  return validarRecepcionNoAnticipadaLocal(dia, String(r.HorarioReserva).slice(0, 5));
+}
 
 export default function AltaClientes() {
+  const queryClient = useQueryClient();
   const [reservas, setReservas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [selectedDni, setSelectedDni] = useState(null);
+  const [procesando, setProcesando] = useState(null);
+
+  const hoy = dayjs().format("YYYY-MM-DD");
 
   const fetchReservas = async () => {
     try {
-      const res = await adminFetch(`${API_URL}/api/reservas`);
+      const params = new URLSearchParams({
+        afectaDia: dayjs().format("YYYY-MM-DD"),
+        limit: "500",
+        offset: "0",
+      });
+      const res = await adminFetch(`${API_URL}/api/reservas?${params}`);
       const data = await res.json();
-      setReservas(data);
+      const items = data.items ?? data;
+      setReservas(Array.isArray(items) ? items : []);
     } catch {
       message.error("Error al cargar reservas");
     } finally {
@@ -30,62 +54,179 @@ export default function AltaClientes() {
     }
   };
 
-  useEffect(() => { fetchReservas(); }, []);
+  useEffect(() => {
+    fetchReservas();
+  }, []);
 
-  const dniList = [...new Set(reservas.map((r) => r.DNI).filter(Boolean))];
+  const pendientes = useMemo(() => {
+    return reservas
+      .filter((r) => {
+        const dia = r.DiaReserva ? dayjs(r.DiaReserva).format("YYYY-MM-DD") : null;
+        const estado = r.Estado || "activa";
+        return dia === hoy && estado === "activa";
+      })
+      .filter((r) => {
+        if (!search) return true;
+        const q = search.toLowerCase();
+        return (
+          (r.Nombre || "").toLowerCase().includes(q) ||
+          (r.DNI || "").includes(q) ||
+          (r.espacio_nombre || "").toLowerCase().includes(q)
+        );
+      });
+  }, [reservas, hoy, search]);
 
-  const filteredData = reservas
-    .filter((r) => {
-      const matchSearch = search === "" ||
-        (r.Nombre || "").toLowerCase().includes(search.toLowerCase()) ||
-        (r.DNI || "").includes(search);
-      return matchSearch;
-    })
-    .map((r) => ({
-      key: r.idReserva,
-      nombre: r.Nombre || `${r.cliente_nombre || ""} ${r.cliente_apellido || ""}`,
-      dni: r.DNI,
-      email: r.cliente_email || "-",
-      espacio: r.espacio_nombre || "-",
-      empresa: "-",
-    }));
+  const procesadas = useMemo(() => {
+    return reservas.filter((r) => {
+      const dia = r.DiaReserva ? dayjs(r.DiaReserva).format("YYYY-MM-DD") : null;
+      const estado = r.Estado || "activa";
+      return dia === hoy && (estado === "completada" || estado === "no_asistio");
+    });
+  }, [reservas, hoy]);
 
-  const columns = [
+  const marcarEstado = async (idReserva, estado) => {
+    setProcesando(idReserva);
+    try {
+      const res = await adminFetch(`${API_URL}/api/reservas/${idReserva}/estado`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ estado }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.message || "Error al actualizar estado");
+      }
+
+      setReservas((prev) =>
+        prev.map((r) => r.idReserva === idReserva ? { ...r, Estado: estado } : r)
+      );
+      void fetchReservas();
+      queryClient.invalidateQueries({ queryKey: ["staff-reservas"] });
+      notifyReservasChanged();
+      message.success(estado === "completada" ? "Asistencia registrada" : "No asistencia registrada");
+    } catch (e) {
+      message.error(e.message || "Error al actualizar estado");
+    } finally {
+      setProcesando(null);
+    }
+  };
+
+  const pendienteCols = [
     {
-      title: "Nombre del Cliente",
-      dataIndex: "nombre",
-      key: "nombre",
-      render: (text) => <span className={styles.nombreCliente}>{text}</span>,
-    },
-    {
-      title: "DNI",
-      dataIndex: "dni",
-      key: "dni",
-    },
-    {
-      title: "Email",
-      dataIndex: "email",
-      key: "email",
-      render: (text) => <a className={styles.emailLink}>{text}</a>,
+      title: "Cliente",
+      key: "cliente",
+      render: (_, r) => (
+        <div>
+          <div style={{ fontWeight: 600, color: "#222" }}>
+            <UserOutlined style={{ marginRight: 6 }} />
+            {r.Nombre || `${r.cliente_nombre || ""} ${r.cliente_apellido || ""}`}
+          </div>
+          <div style={{ fontSize: 12, color: "#888" }}>DNI: {r.DNI || "-"}</div>
+        </div>
+      ),
     },
     {
       title: "Espacio",
-      dataIndex: "espacio",
       key: "espacio",
+      render: (_, r) => (
+        <div>
+          <div style={{ fontWeight: 500 }}>{r.espacio_nombre || "-"}</div>
+          <div style={{ fontSize: 12, color: "#888" }}>{r.recurso_nombre || "-"}</div>
+        </div>
+      ),
     },
     {
-      title: "Empresa",
-      dataIndex: "empresa",
-      key: "empresa",
+      title: "Horario",
+      key: "horario",
+      render: (_, r) => (
+        <span>
+          <ClockCircleOutlined style={{ marginRight: 4 }} />
+          {r.HorarioReserva || "Todo el dia"}
+          {r.HorarioFin ? ` - ${r.HorarioFin}` : ""}
+        </span>
+      ),
+    },
+    {
+      title: "Acciones",
+      key: "acciones",
+      width: 220,
+      render: (_, r) => {
+        const bloqueo = mensajeRecepcionAnticipada(r);
+        return (
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <Tooltip title={bloqueo || undefined}>
+              <Button
+                type="primary"
+                icon={<CheckCircleOutlined />}
+                loading={procesando === r.idReserva}
+                disabled={Boolean(bloqueo)}
+                onClick={() => marcarEstado(r.idReserva, "completada")}
+                style={{ background: "#34c08f", borderColor: "#34c08f" }}
+              >
+                Asistió
+              </Button>
+            </Tooltip>
+            <Tooltip title={bloqueo || undefined}>
+              <Button
+                danger
+                icon={<CloseCircleOutlined />}
+                loading={procesando === r.idReserva}
+                disabled={Boolean(bloqueo)}
+                onClick={() => marcarEstado(r.idReserva, "no_asistio")}
+              >
+                No asistió
+              </Button>
+            </Tooltip>
+          </div>
+        );
+      },
+    },
+  ];
+
+  const procesadaCols = [
+    {
+      title: "Cliente",
+      key: "cliente",
+      render: (_, r) => (
+        <span style={{ fontWeight: 500 }}>
+          {r.Nombre || `${r.cliente_nombre || ""} ${r.cliente_apellido || ""}`}
+        </span>
+      ),
+    },
+    { title: "DNI", dataIndex: "DNI", key: "dni" },
+    {
+      title: "Espacio",
+      key: "espacio",
+      render: (_, r) => `${r.espacio_nombre || "-"} / ${r.recurso_nombre || "-"}`,
+    },
+    {
+      title: "Horario",
+      key: "horario",
+      render: (_, r) =>
+        r.HorarioReserva
+          ? `${r.HorarioReserva}${r.HorarioFin ? ` - ${r.HorarioFin}` : ""}`
+          : "Todo el dia",
+    },
+    {
+      title: "Recepción (turno)",
+      key: "estado",
+      render: (_, r) => (
+        <Tag
+          color={r.Estado === "completada" ? "success" : "error"}
+          icon={r.Estado === "completada" ? <CheckCircleOutlined /> : <CloseCircleOutlined />}
+        >
+          {r.Estado === "completada" ? "Asistió" : "No asistió"}
+        </Tag>
+      ),
     },
   ];
 
   if (loading) {
     return (
       <Layout className={styles.layout}>
-        <Header isEmpleado={true} />
+        <Header />
         <Content className={styles.contentWrap}>
-          <div style={{ textAlign: 'center', padding: '4rem' }}><Spin size="large" /></div>
+          <div style={{ textAlign: "center", padding: "4rem" }}><Spin size="large" /></div>
         </Content>
       </Layout>
     );
@@ -93,75 +234,66 @@ export default function AltaClientes() {
 
   return (
     <Layout className={styles.layout}>
-      <Header isEmpleado={true} />
+      <Header />
       <Content className={styles.contentWrap}>
-        <Row gutter={24} className={styles.pageRow}>
-          {/* Left filter column */}
-          <Col span={6} className={styles.leftCol}>
-            <Card bordered={false} className={styles.leftCard}>
-              <div className={styles.filterLabel}>DNI asociado a la Reserva</div>
-              <Select
-                placeholder="Seleccione DNI"
-                className={styles.dniSelect}
-                suffixIcon={<DownOutlined />}
-                allowClear
-                value={selectedDni}
-                onChange={(v) => setSelectedDni(v)}
-              >
-                {dniList.map((dni) => {
-                  const r = reservas.find((x) => x.DNI === dni);
-                  return (
-                    <Option key={dni} value={dni}>{dni} - {r?.Nombre || r?.cliente_nombre || ""}</Option>
-                  );
-                })}
-              </Select>
+        <div className={styles.pageHeader}>
+          <h1 className={styles.pageTitle}>
+            <CalendarOutlined /> Control de Asistencia
+          </h1>
+          <span className={styles.pageDate}>{dayjs().format("dddd DD/MM/YYYY")}</span>
+        </div>
 
-              <div className={styles.buttonsGroup}>
-                <Button className={styles.btnAsistio} disabled={!selectedDni}>Asistio</Button>
-                <Button className={styles.btnNoAsistio} disabled={!selectedDni}>No Asistio</Button>
-              </div>
+        <div className={styles.counters}>
+          <Badge count={pendientes.length} showZero overflowCount={99}>
+            <Card size="small" className={styles.counterCard}>
+              <ClockCircleOutlined style={{ color: "#e67e22", fontSize: 20 }} />
+              <span>Pendientes</span>
             </Card>
-          </Col>
-
-          {/* Main content column */}
-          <Col span={18} className={styles.mainCol}>
-            <Card bordered={false} className={styles.mainCard}>
-              <div className={styles.headerRow}>
-                <h2 className={styles.title}>Alta Clientes</h2>
-
-                <div className={styles.tools}>
-                  <Input
-                    prefix={<SearchOutlined />}
-                    placeholder="Buscar"
-                    className={styles.searchInput}
-                    allowClear
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                  />
-                  <Select defaultValue="newest" className={styles.sortSelect}>
-                    <Option value="newest">Nuevos</Option>
-                    <Option value="oldest">Mas Viejos</Option>
-                    <Option value="nombre">Nombre</Option>
-                  </Select>
-                </div>
-              </div>
-
-              <Table
-                columns={columns}
-                dataSource={filteredData}
-                pagination={false}
-                rowClassName={() => styles.tableRow}
-                className={styles.dataTable}
-                showHeader
-              />
-
-              <div className={styles.tableBottom}>
-                <div className={styles.infoText}>Mostrando {filteredData.length} de {reservas.length} entradas</div>
-                <Pagination simple defaultCurrent={1} total={400} className={styles.pagination} />
-              </div>
+          </Badge>
+          <Badge count={procesadas.length} showZero overflowCount={99} color="#34c08f">
+            <Card size="small" className={styles.counterCard}>
+              <CheckCircleOutlined style={{ color: "#34c08f", fontSize: 20 }} />
+              <span>Procesadas</span>
             </Card>
-          </Col>
-        </Row>
+          </Badge>
+        </div>
+
+        <Card bordered={false} className={styles.mainCard}>
+          <div className={styles.sectionHeader}>
+            <h2 className={styles.sectionTitle}>Reservas pendientes de hoy</h2>
+            <Input
+              prefix={<SearchOutlined />}
+              placeholder="Buscar por nombre, DNI..."
+              allowClear
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              style={{ maxWidth: 300 }}
+            />
+          </div>
+
+          {pendientes.length === 0 ? (
+            <Empty description="No hay reservas pendientes para hoy" />
+          ) : (
+            <Table
+              columns={pendienteCols}
+              dataSource={pendientes.map((r) => ({ ...r, key: r.idReserva }))}
+              pagination={false}
+              size="middle"
+            />
+          )}
+        </Card>
+
+        {procesadas.length > 0 && (
+          <Card bordered={false} className={styles.mainCard} style={{ marginTop: 24 }}>
+            <h2 className={styles.sectionTitle}>Procesadas hoy</h2>
+            <Table
+              columns={procesadaCols}
+              dataSource={procesadas.map((r) => ({ ...r, key: r.idReserva }))}
+              pagination={false}
+              size="middle"
+            />
+          </Card>
+        )}
       </Content>
     </Layout>
   );

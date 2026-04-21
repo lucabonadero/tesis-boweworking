@@ -6,14 +6,14 @@ import {
   actualizarCliente,
   eliminarCliente,
 } from "../controllers/clientes.controller.js";
-import { verificarToken } from "../middleware/auth.middleware.js";
+import { verificarToken, verificarStaff } from "../middleware/auth.middleware.js";
 
 const router = Router();
 
-router.get("/", verificarToken, obtenerClientes);
-router.get("/:dni", verificarToken, obtenerClientePorDni);
-router.post("/", crearCliente);
-router.put("/:dni", verificarToken, actualizarCliente);
-router.delete("/:dni", verificarToken, eliminarCliente);
+router.get("/", verificarToken, verificarStaff, obtenerClientes);
+router.get("/:dni", verificarToken, verificarStaff, obtenerClientePorDni);
+router.post("/", verificarToken, verificarStaff, crearCliente);
+router.put("/:dni", verificarToken, verificarStaff, actualizarCliente);
+router.delete("/:dni", verificarToken, verificarStaff, eliminarCliente);
 
 export default router;

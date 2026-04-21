@@ -10,17 +10,18 @@ import { useLocation } from "react-router-dom";
  export default function Espacios () {
     const location = useLocation();
 
-    useEffect(() => {
+  useEffect(() => {
+    window.scrollTo(0, 0);
     const scrollTo = location.state?.scrollTo;
-    if (scrollTo) {
+    if (!scrollTo) return undefined;
+    const t = window.setTimeout(() => {
       const element = document.getElementById(scrollTo);
       if (element) {
-        setTimeout(() => {
-          element.scrollIntoView({ behavior: "smooth" });
-        }, 300); // Espera un poco por si hay imágenes cargando
+        element.scrollIntoView({ behavior: "smooth", block: "start" });
       }
-    }
-  }, [location]);
+    }, 120);
+    return () => window.clearTimeout(t);
+  }, [location.pathname, location.key, location.state?.scrollTo]);
 
     return (
         <div>
@@ -29,6 +30,9 @@ import { useLocation } from "react-router-dom";
                 <header className={styles.espacios__header}>
                 <h1>Conocé nuestros espacios</h1>
                 <p>Elegí el que mejor se adapte a tus necesidades</p>
+                <p className={styles.espacios__subhint}>
+                  Más abajo podés saltar entre planta baja, primer piso y terraza.
+                </p>
                 </header>
                 <Carrusel />
             </div>

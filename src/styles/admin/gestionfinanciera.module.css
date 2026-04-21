@@ -1,11 +1,16 @@
 .layout {
   background: #f5f5f6;
   min-height: 100vh;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 .content {
   padding: 28px 40px;
   box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
 /* ── Stats row ────────────────────────────────── */
@@ -72,9 +77,11 @@
 /* ── Main grid ────────────────────────────────── */
 .mainGrid {
   display: grid;
-  grid-template-columns: 1fr 360px;
+  grid-template-columns: minmax(0, 1fr) 360px;
   gap: 24px;
   align-items: start;
+  width: 100%;
+  min-width: 0;
 }
 
 /* ── Table card ───────────────────────────────── */
@@ -83,6 +90,8 @@
   border-radius: 12px;
   padding: 22px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  min-width: 0;
+  max-width: 100%;
 }
 
 .tableHeader {
@@ -122,11 +131,27 @@
 
 .tableWrapper {
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
 }
 
 .table {
   width: 100%;
+  min-width: 0;
+}
+
+.table :global(.ant-pagination) {
+  flex-wrap: wrap;
+  row-gap: 8px;
+}
+
+.rangePicker {
+  min-width: 220px;
+  width: 100%;
+  max-width: 100%;
 }
 
 .table .ant-table-tbody > tr > td {
@@ -162,6 +187,72 @@
 .badge:hover {
   transform: scale(1.05);
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* ── Estado de pago (tabla): lectura rápida recepción ── */
+.estadoBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  border: 1px solid transparent;
+  cursor: default;
+  white-space: nowrap;
+}
+
+.estadoPagado {
+  background: #ecfdf5;
+  color: #047857;
+  border-color: #6ee7b7;
+}
+
+.estadoPendiente {
+  background: #fffbeb;
+  color: #b45309;
+  border-color: #fcd34d;
+}
+
+.estadoRechazado {
+  background: #fef2f2;
+  color: #b91c1c;
+  border-color: #fecaca;
+}
+
+.formCardPendientesHighlight {
+  box-shadow: 0 0 0 2px rgba(217, 119, 6, 0.35), 0 4px 14px rgba(0, 0, 0, 0.06);
+}
+
+.pendienteOptionRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+}
+
+.pendienteOptionText {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.estadoMiniPendiente {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #b45309;
+  background: #fffbeb;
+  padding: 2px 8px;
+  border-radius: 6px;
+  border: 1px solid #fcd34d;
 }
 
 .metodoBadge {
@@ -237,6 +328,8 @@
   display: flex;
   flex-direction: column;
   gap: 20px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .formCard {
@@ -246,11 +339,18 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
+.formTitleRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
 .formTitle {
   font-size: 16px;
   font-weight: 600;
   color: #1a1a2e;
-  margin-bottom: 16px;
+  margin: 0;
 }
 
 .formField {
@@ -339,10 +439,30 @@
   color: #666;
 }
 
+.deleteBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #e74c3c;
+  background: #fdecea;
+  border: 1px solid #f5c6cb;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.deleteBtn:hover {
+  background: #f8d7da;
+  border-color: #e74c3c;
+}
+
 /* ── Responsive ───────────────────────────────── */
 @media (max-width: 1100px) {
   .mainGrid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
   .statsRow {
     grid-template-columns: repeat(2, 1fr);
@@ -351,15 +471,44 @@
 
 @media (max-width: 600px) {
   .content {
-    padding: 16px;
+    padding: 12px 12px 20px;
   }
   .statsRow {
     grid-template-columns: 1fr;
   }
+  .statValue {
+    font-size: 20px;
+  }
+  .tableCard {
+    padding: 14px 12px;
+  }
   .tableControls {
     width: 100%;
+    flex-direction: column;
+    align-items: stretch;
   }
   .searchInput {
     width: 100%;
+  }
+  .filterSelect {
+    width: 100%;
+    min-width: 0;
+  }
+  .rangePicker {
+    min-width: 0;
+  }
+  .tableHeader {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .tableTitle {
+    font-size: 16px;
+  }
+  .tableFooter {
+    flex-wrap: wrap;
+  }
+  .tableInfo {
+    font-size: 12px;
+    line-height: 1.4;
   }
 }

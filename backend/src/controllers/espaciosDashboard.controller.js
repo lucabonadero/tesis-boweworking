@@ -1,5 +1,6 @@
 import pool from "../config/db.js";
 import PDFDocument from "pdfkit";
+import { normalizarHorariosEnDisponibilidadRango } from "../services/horarioReserva.service.js";
 
 const DATE_OVERLAP_CONDITION = `
   (
@@ -51,6 +52,7 @@ export const obtenerDisponibilidadRango = async (req, res) => {
       [fechaDesde, fechaHasta]
     );
 
+    normalizarHorariosEnDisponibilidadRango(rows);
     res.json(rows);
   } catch (error) {
     console.error("Error al obtener disponibilidad:", error);
@@ -79,12 +81,19 @@ export const obtenerMetricas = async (req, res) => {
          e."Nombre"        AS espacio_nombre,
          e."Espacio"       AS id_espacio,
          COUNT(r."idReserva")              AS total_reservas,
-         COALESCE(SUM(r."Monto"), 0)       AS total_ingresos,
+         COALESCE(SUM(r."Monto"), 0)       AS total_montos_reservas,
+         COALESCE(
+           SUM(CASE WHEN t."EstadoPago" = 'Pagado' THEN r."Monto" ELSE 0 END),
+           0
+         )                                AS total_cobrado,
          COUNT(DISTINCT r."DiaReserva")    AS dias_ocupados
        FROM "Recursos" rec
        JOIN "Espacios" e ON rec."idEspacio" = e."Espacio"
        LEFT JOIN "Reservas" r ON rec."idRecurso" = r."idRecurso"
          AND ${DATE_OVERLAP_CONDITION}
+       LEFT JOIN LATERAL (
+         SELECT "EstadoPago" FROM "Transaccion" WHERE "idReserva" = r."idReserva" LIMIT 1
+       ) t ON true
        GROUP BY rec."idRecurso", rec."Nombre", rec."esCompleto",
                 rec."idRecursoPadre", e."Nombre", e."Espacio"
        ORDER BY total_reservas DESC`,
@@ -98,7 +107,8 @@ export const obtenerMetricas = async (req, res) => {
     );
 
     const totalReservas = bookable.reduce((s, r) => s + parseInt(r.total_reservas), 0);
-    const totalIngresos = bookable.reduce((s, r) => s + parseFloat(r.total_ingresos), 0);
+    const totalMontosReservas = bookable.reduce((s, r) => s + parseFloat(r.total_montos_reservas), 0);
+    const totalCobradoPagado = bookable.reduce((s, r) => s + parseFloat(r.total_cobrado), 0);
 
     const leafResources = recursoStats.filter((r) => {
       const isGroup = recursoStats.some((c) => c.idRecursoPadre === r.idRecurso);
@@ -114,14 +124,16 @@ export const obtenerMetricas = async (req, res) => {
         espacioMap[r.id_espacio] = {
           nombre: r.espacio_nombre,
           totalReservas: 0,
-          totalIngresos: 0,
+          totalMontosReservas: 0,
+          totalCobradoPagado: 0,
           recursosCount: 0,
           diasOcupados: 0,
         };
       }
       const sp = espacioMap[r.id_espacio];
       sp.totalReservas += parseInt(r.total_reservas);
-      sp.totalIngresos += parseFloat(r.total_ingresos);
+      sp.totalMontosReservas += parseFloat(r.total_montos_reservas);
+      sp.totalCobradoPagado += parseFloat(r.total_cobrado);
       const isGroup = recursoStats.some((c) => c.idRecursoPadre === r.idRecurso);
       if (!isGroup) {
         sp.recursosCount++;
@@ -133,7 +145,10 @@ export const obtenerMetricas = async (req, res) => {
       id: parseInt(id),
       nombre: sp.nombre,
       totalReservas: sp.totalReservas,
-      totalIngresos: sp.totalIngresos,
+      totalMontosReservas: sp.totalMontosReservas,
+      totalCobradoPagado: sp.totalCobradoPagado,
+      /** @deprecated Usar totalMontosReservas (mismo valor). */
+      totalIngresos: sp.totalMontosReservas,
       ocupacion: Math.round(
         (sp.diasOcupados / (Math.max(sp.recursosCount, 1) * totalDias)) * 100
       ),
@@ -149,20 +164,33 @@ export const obtenerMetricas = async (req, res) => {
         reservas: parseInt(r.total_reservas),
       }));
 
-    const topIngresos = leafResources
-      .filter((r) => parseFloat(r.total_ingresos) > 0)
-      .sort((a, b) => parseFloat(b.total_ingresos) - parseFloat(a.total_ingresos))
+    const topMontosReservas = leafResources
+      .filter((r) => parseFloat(r.total_montos_reservas) > 0)
+      .sort((a, b) => parseFloat(b.total_montos_reservas) - parseFloat(a.total_montos_reservas))
       .slice(0, 10)
       .map((r) => ({
         nombre: r.recurso_nombre,
         espacio: r.espacio_nombre,
-        ingresos: parseFloat(r.total_ingresos),
+        montoReservas: parseFloat(r.total_montos_reservas),
+      }));
+
+    const topCobradoPagado = leafResources
+      .filter((r) => parseFloat(r.total_cobrado) > 0)
+      .sort((a, b) => parseFloat(b.total_cobrado) - parseFloat(a.total_cobrado))
+      .slice(0, 10)
+      .map((r) => ({
+        nombre: r.recurso_nombre,
+        espacio: r.espacio_nombre,
+        cobrado: parseFloat(r.total_cobrado),
       }));
 
     res.json({
       resumen: {
         totalReservas,
-        totalIngresos,
+        totalMontosReservas,
+        totalCobradoPagado,
+        /** @deprecated Mismo valor que totalMontosReservas (suma de Monto en reservas del período). */
+        totalIngresos: totalMontosReservas,
         ocupacionPromedio,
         totalDias,
         recursosActivos: leafResources.filter((r) => parseInt(r.total_reservas) > 0).length,
@@ -170,7 +198,14 @@ export const obtenerMetricas = async (req, res) => {
       },
       espacios,
       topUso,
-      topIngresos,
+      topMontosReservas,
+      topCobradoPagado,
+      /** @deprecated Usar topMontosReservas. */
+      topIngresos: topMontosReservas.map((x) => ({
+        nombre: x.nombre,
+        espacio: x.espacio,
+        ingresos: x.montoReservas,
+      })),
     });
   } catch (error) {
     console.error("Error al obtener métricas:", error);
@@ -226,12 +261,19 @@ export const generarReportePDF = async (req, res) => {
          rec."idRecurso", rec."Nombre" AS recurso_nombre, rec."esCompleto",
          rec."idRecursoPadre", e."Nombre" AS espacio_nombre, e."Espacio" AS id_espacio,
          COUNT(r."idReserva")           AS total_reservas,
-         COALESCE(SUM(r."Monto"), 0)    AS total_ingresos,
+         COALESCE(SUM(r."Monto"), 0)    AS total_montos_reservas,
+         COALESCE(
+           SUM(CASE WHEN t."EstadoPago" = 'Pagado' THEN r."Monto" ELSE 0 END),
+           0
+         )                             AS total_cobrado,
          COUNT(DISTINCT r."DiaReserva") AS dias_ocupados
        FROM "Recursos" rec
        JOIN "Espacios" e ON rec."idEspacio" = e."Espacio"
        LEFT JOIN "Reservas" r ON rec."idRecurso" = r."idRecurso"
          AND ${DATE_OVERLAP_CONDITION}
+       LEFT JOIN LATERAL (
+         SELECT "EstadoPago" FROM "Transaccion" WHERE "idReserva" = r."idReserva" LIMIT 1
+       ) t ON true
        GROUP BY rec."idRecurso", rec."Nombre", rec."esCompleto",
                 rec."idRecursoPadre", e."Nombre", e."Espacio"
        ORDER BY e."Espacio", rec."idRecursoPadre" NULLS FIRST, rec."idRecurso"`,
@@ -243,7 +285,8 @@ export const generarReportePDF = async (req, res) => {
       return !isGroup;
     });
     const totalReservas = leafResources.reduce((s, r) => s + parseInt(r.total_reservas), 0);
-    const totalIngresos = leafResources.reduce((s, r) => s + parseFloat(r.total_ingresos), 0);
+    const totalMontosReservasPdf = leafResources.reduce((s, r) => s + parseFloat(r.total_montos_reservas), 0);
+    const totalCobradoPdf = leafResources.reduce((s, r) => s + parseFloat(r.total_cobrado), 0);
     const totalLeaf = leafResources.length || 1;
     const sumOcup = leafResources.reduce((s, r) => s + parseInt(r.dias_ocupados), 0);
     const ocupacion = Math.round((sumOcup / (totalLeaf * totalDias)) * 100);
@@ -264,32 +307,44 @@ export const generarReportePDF = async (req, res) => {
 
     doc.fillColor("#333");
     let y = 110;
-    const cardW = 120;
+    const cardW = 93;
     const cards = [
       { label: "Total Reservas", value: String(totalReservas) },
-      { label: "Ingresos", value: `$${totalIngresos.toLocaleString("es-AR", { minimumFractionDigits: 2 })}` },
+      {
+        label: "Montos en reservas",
+        value: `$${totalMontosReservasPdf.toLocaleString("es-AR", { minimumFractionDigits: 2 })}`,
+      },
+      {
+        label: "Cobrado confirmado",
+        value: `$${totalCobradoPdf.toLocaleString("es-AR", { minimumFractionDigits: 2 })}`,
+      },
       { label: "Ocupación", value: `${ocupacion}%` },
       { label: "Días analizados", value: String(totalDias) },
     ];
     cards.forEach((c, i) => {
-      const x = 50 + i * (cardW + 12);
-      doc.rect(x, y, cardW, 50).lineWidth(0.5).stroke("#ddd");
-      doc.font("Helvetica").fontSize(8).fillColor("#888").text(c.label, x + 8, y + 8, { width: cardW - 16 });
-      doc.font("Helvetica-Bold").fontSize(16).fillColor("#222").text(c.value, x + 8, y + 24, { width: cardW - 16 });
+      const x = 50 + i * (cardW + 6);
+      doc.rect(x, y, cardW, 52).lineWidth(0.5).stroke("#ddd");
+      doc.font("Helvetica").fontSize(6.5).fillColor("#888").text(c.label, x + 5, y + 6, { width: cardW - 10 });
+      doc.font("Helvetica-Bold").fontSize(10).fillColor("#222").text(c.value, x + 5, y + 22, { width: cardW - 10 });
     });
 
-    y = 185;
+    y = 188;
     doc.font("Helvetica-Bold").fontSize(13).fillColor("#1a1a2e").text("Detalle por Recurso", 50, y);
     y += 22;
 
     const cols = [
-      { x: 50, w: 140, align: "left" },
-      { x: 195, w: 110, align: "left" },
-      { x: 310, w: 65, align: "center" },
-      { x: 380, w: 75, align: "right" },
-      { x: 460, w: 65, align: "right" },
+      { x: 50, w: 118, align: "left" },
+      { x: 172, w: 92, align: "left" },
+      { x: 268, w: 52, align: "center" },
+      { x: 324, w: 72, align: "right" },
+      { x: 400, w: 72, align: "right" },
+      { x: 476, w: 52, align: "right" },
     ];
-    drawTableRow(doc, y, cols, ["Recurso", "Espacio", "Reservas", "Ingresos", "Ocupación"], { bold: true, bg: "#eef2f7", fontSize: 9 });
+    drawTableRow(doc, y, cols, ["Recurso", "Espacio", "Res.", "Monto res.", "Cobrado", "Ocup."], {
+      bold: true,
+      bg: "#eef2f7",
+      fontSize: 8,
+    });
     y += 20;
 
     let currentEspacio = "";
@@ -315,7 +370,8 @@ export const generarReportePDF = async (req, res) => {
         nombre,
         "",
         parseInt(r.total_reservas),
-        `$${parseFloat(r.total_ingresos).toFixed(2)}`,
+        `$${parseFloat(r.total_montos_reservas).toFixed(2)}`,
+        `$${parseFloat(r.total_cobrado).toFixed(2)}`,
         `${ocup}%`,
       ]);
       y += 16;
@@ -341,15 +397,19 @@ export const generarReportePDF = async (req, res) => {
 
     y += 20;
     const topIng = leafResources
-      .filter((r) => parseFloat(r.total_ingresos) > 0)
-      .sort((a, b) => parseFloat(b.total_ingresos) - parseFloat(a.total_ingresos))
+      .filter((r) => parseFloat(r.total_montos_reservas) > 0)
+      .sort((a, b) => parseFloat(b.total_montos_reservas) - parseFloat(a.total_montos_reservas))
       .slice(0, 8);
-    const maxIng = topIng.length > 0 ? parseFloat(topIng[0].total_ingresos) : 1;
+    const maxIng = topIng.length > 0 ? parseFloat(topIng[0].total_montos_reservas) : 1;
     drawBarChart(
       doc, y,
-      topIng.map((r) => ({ label: r.recurso_nombre, value: parseFloat(r.total_ingresos), display: `$${parseFloat(r.total_ingresos).toFixed(0)}` })),
+      topIng.map((r) => ({
+        label: r.recurso_nombre,
+        value: parseFloat(r.total_montos_reservas),
+        display: `$${parseFloat(r.total_montos_reservas).toFixed(0)}`,
+      })),
       maxIng,
-      "Recursos con Mayor Ingreso",
+      "Mayor monto en reservas (período)",
       "#59a14f"
     );
 

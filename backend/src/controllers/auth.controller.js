@@ -2,6 +2,10 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import pool from "../config/db.js";
 
+/**
+ * Login legado (solo tabla `usuarios`). Preferí POST /api/auth/cliente/login: unifica admin, empleado y cliente
+ * y es el que usa el frontend (AuthModal / panel).
+ */
 export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -10,17 +14,13 @@ export const login = async (req, res) => {
       'SELECT * FROM usuarios WHERE email = $1',
       [email]
     );
-    console.log(email, password);
 
     if (rows.length === 0) {
       return res.status(401).json({ message: "Credenciales incorrectas" });
     }
 
     const usuario = rows[0];
-    console.log("Usuario encontrado:", usuario);
     const passwordValido = await bcrypt.compare(password, usuario.password);
-    console.log(usuario.password, password);
-    console.log("Password válido:", passwordValido);
 
     if (!passwordValido) {
       return res.status(401).json({ message: "Credenciales incorrectas" });

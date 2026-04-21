@@ -1,97 +1,227 @@
-import React from "react";
-import { useLocation } from "react-router-dom";
+import React, { useState } from "react";
+import { useLocation, Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.jsx";
-import { Dropdown } from "antd";
-import { UserOutlined, LogoutOutlined } from "@ant-design/icons";
+import { Dropdown, Drawer, Button } from "antd";
+import {
+  UserOutlined,
+  LogoutOutlined,
+  MenuOutlined,
+  HomeOutlined,
+  CalendarOutlined,
+  AppstoreOutlined,
+  InfoCircleOutlined,
+  SettingOutlined,
+  RobotOutlined,
+} from "@ant-design/icons";
 
-export default function Header({ isEmpleado = false }) {
+export default function Header() {
   const location = useLocation();
+  const navigate = useNavigate();
   const auth = useAuth();
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  const isAdmin = auth.isAdmin;
+  const isStaff = auth.isStaff;
 
   const getLinkClass = (path) => {
     return location.pathname === path ? "active" : "";
   };
 
+  const handleLogout = () => {
+    auth.logout();
+    navigate("/");
+  };
+
   const userMenu = {
+    items: [
+      {
+        key: "asistente",
+        icon: <RobotOutlined />,
+        label: "Asistente de reservas",
+        onClick: () => navigate("/asistente"),
+      },
+      {
+        key: "perfil",
+        icon: <UserOutlined />,
+        label: "Mi Perfil",
+        onClick: () => navigate("/perfil"),
+      },
+      {
+        key: "logout",
+        icon: <LogoutOutlined />,
+        label: "Cerrar sesión",
+        onClick: handleLogout,
+      },
+    ],
+  };
+
+  const adminMenu = {
     items: [
       {
         key: "logout",
         icon: <LogoutOutlined />,
         label: "Cerrar sesión",
-        onClick: () => auth.logout(),
+        onClick: handleLogout,
       },
     ],
   };
 
+  const publicLinks = [
+    { path: "/", label: "Home", icon: <HomeOutlined /> },
+    { path: "/registro", label: "Reservar", icon: <CalendarOutlined /> },
+    { path: "/espacios", label: "Espacios", icon: <AppstoreOutlined /> },
+  ];
+
+  const staffPanelLinks = [
+    { path: "/control", label: "Consultar Reservas", icon: <CalendarOutlined /> },
+    { path: "/altas", label: "Altas", icon: <AppstoreOutlined /> },
+    { path: "/admin-espacios", label: "Panel de Espacios", icon: <AppstoreOutlined /> },
+  ];
+  const adminOnlyLinks = [{ path: "/gestion", label: "Gestión Financiera", icon: <SettingOutlined /> }];
+
+  const navLinks = isStaff
+    ? [...publicLinks, ...staffPanelLinks, ...(isAdmin ? adminOnlyLinks : [])]
+    : publicLinks;
+
   return (
     <header>
       <div className="header">
-        <a href="/">
-          <img className="logo" src="./src/assets/logoblanco.png" alt="Logo" />
-        </a>
+        <Link to="/">
+          <img className="logo" src="/src/assets/logoblanco.png" alt="Logo" />
+        </Link>
         <div className="header__logo-text">
-          <a href="/" className={getLinkClass("/")}>Bo WeWorking</a>
+          <Link to="/" className={getLinkClass("/")}>Bo WeWorking</Link>
         </div>
 
         <ul className="header__links">
-          {isEmpleado ? (
-            <>
-              <li><a href="/control" className={getLinkClass("/control")}>Consultar Reservas</a></li>
-              <li><a href="/altas" className={getLinkClass("/altas")}>Altas</a></li>
-              <li><a href="/admin-espacios" className={getLinkClass("/admin-espacios")}>Espacios</a></li>
-              <li><a href="/gestion" className={getLinkClass("/gestion")}>Gestion Financiera</a></li>
-            </>
-          ) : (
-            <>
-              <li><a href="/" className={getLinkClass("/")}>Home</a></li>
-              <li><a href="/registro" className={getLinkClass("/registro")}>Reservar</a></li>
-              <li><a href="/espacios" className={getLinkClass("/espacios")}>Espacios</a></li>
-              <li>
-                <a
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    const footer = document.getElementById("footer");
-                    if (footer) footer.scrollIntoView({ behavior: "smooth" });
-                  }}
-                  className={getLinkClass("/acerca")}
-                >
-                  Acerca de Nosotros
-                </a>
-              </li>
-            </>
+          {navLinks.map((link) => (
+            <li key={link.path}>
+              <Link to={link.path} className={getLinkClass(link.path)}>
+                {link.label}
+              </Link>
+            </li>
+          ))}
+          {!isStaff && (
+            <li>
+              <a
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  const footer = document.getElementById("footer");
+                  if (footer) footer.scrollIntoView({ behavior: "smooth" });
+                }}
+                className={getLinkClass("/acerca")}
+              >
+                Acerca de Nosotros
+              </a>
+            </li>
           )}
         </ul>
 
-        {!isEmpleado && (
-          <div className="header__auth">
-            {auth.isAuthenticated ? (
-              <Dropdown menu={userMenu} placement="bottomRight" trigger={["click"]}>
-                <button type="button" className="header__user-btn">
-                  <UserOutlined />
-                  <span className="header__user-name">{auth.user?.nombre}</span>
-                </button>
-              </Dropdown>
+        <div className="header__auth">
+          {isStaff ? (
+            <Dropdown menu={adminMenu} placement="bottomRight" trigger={["click"]}>
+              <button type="button" className="header__user-btn">
+                <SettingOutlined />
+                <span className="header__user-name">{isAdmin ? "Admin" : "Personal"}</span>
+              </button>
+            </Dropdown>
+          ) : auth.isAuthenticated ? (
+            <Dropdown menu={userMenu} placement="bottomRight" trigger={["click"]}>
+              <button type="button" className="header__user-btn">
+                <UserOutlined />
+                <span className="header__user-name">{auth.user?.nombre}</span>
+              </button>
+            </Dropdown>
+          ) : (
+            <div className="header__auth-buttons">
+              <button
+                type="button"
+                className="header__login-btn"
+                onClick={() => auth.openAuthModal("login")}
+              >
+                Iniciar sesión
+              </button>
+              <button
+                type="button"
+                className="header__register-btn"
+                onClick={() => auth.openAuthModal("register")}
+              >
+                Registrarse
+              </button>
+            </div>
+          )}
+
+          <Button
+            className="header__hamburger"
+            type="text"
+            icon={<MenuOutlined style={{ fontSize: 22 }} />}
+            onClick={() => setDrawerOpen(true)}
+          />
+        </div>
+
+        <Drawer
+          title="Menú"
+          placement="right"
+          onClose={() => setDrawerOpen(false)}
+          open={drawerOpen}
+          width={280}
+        >
+          <nav className="header__drawer-nav">
+            {navLinks.map((link) => (
+              <Link
+                key={link.path}
+                to={link.path}
+                className={`header__drawer-link ${getLinkClass(link.path)}`}
+                onClick={() => setDrawerOpen(false)}
+              >
+                {link.icon && <span className="header__drawer-icon">{link.icon}</span>}
+                {link.label}
+              </Link>
+            ))}
+            {!isStaff && (
+              <a
+                href="#"
+                className="header__drawer-link"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setDrawerOpen(false);
+                  const footer = document.getElementById("footer");
+                  if (footer) footer.scrollIntoView({ behavior: "smooth" });
+                }}
+              >
+                <span className="header__drawer-icon"><InfoCircleOutlined /></span>
+                Acerca de Nosotros
+              </a>
+            )}
+          </nav>
+
+          <div className="header__drawer-footer">
+            {isStaff ? (
+              <Button block type="primary" danger onClick={() => { handleLogout(); setDrawerOpen(false); }}>
+                Cerrar sesión
+              </Button>
+            ) : auth.isAuthenticated ? (
+              <>
+                <Button block onClick={() => { navigate("/perfil"); setDrawerOpen(false); }} style={{ marginBottom: 8 }}>
+                  Mi Perfil
+                </Button>
+                <Button block type="primary" danger onClick={() => { handleLogout(); setDrawerOpen(false); }}>
+                  Cerrar sesión
+                </Button>
+              </>
             ) : (
-              <div className="header__auth-buttons">
-                <button
-                  type="button"
-                  className="header__login-btn"
-                  onClick={() => auth.openAuthModal("login")}
-                >
+              <>
+                <Button block onClick={() => { auth.openAuthModal("login"); setDrawerOpen(false); }} style={{ marginBottom: 8 }}>
                   Iniciar sesión
-                </button>
-                <button
-                  type="button"
-                  className="header__register-btn"
-                  onClick={() => auth.openAuthModal("register")}
-                >
+                </Button>
+                <Button block type="primary" onClick={() => { auth.openAuthModal("register"); setDrawerOpen(false); }}>
                   Registrarse
-                </button>
-              </div>
+                </Button>
+              </>
             )}
           </div>
-        )}
+        </Drawer>
       </div>
     </header>
   );

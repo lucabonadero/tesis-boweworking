@@ -1,185 +1,89 @@
 .layout {
-  background: #f5f7f9;
   min-height: 100vh;
+  background: #f5f6fa;
 }
 
-/* Content wrapper to center and add spacing similar to la imagen */
 .contentWrap {
-  padding: 24px 40px;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 32px 24px;
 }
 
-/* Row container */
-.pageRow {
-  align-items: flex-start;
-}
-
-/* LEFT column */
-.leftCol {
-  padding-right: 12px;
-}
-
-.leftCard {
-  background: transparent;
-  box-shadow: none;
-  border-radius: 8px;
-  padding: 18px 12px;
-}
-
-.filterLabel {
-  font-size: 13px;
-  color: #8a8f98;
-  margin-bottom: 12px;
-}
-
-/* Select style */
-.dniSelect {
-  width: 100%;
-  border-radius: 8px;
-  background: #f4f7f9;
-  margin-bottom: 20px;
-}
-
-/* Buttons group */
-.buttonsGroup {
-  display: flex;
-  gap: 12px;
-  margin-top: 6px;
-  flex-direction: column;
-}
-
-.btnAsistio {
-  background: #2fc08b;
-  border-color: rgba(47,192,139,0.25);
-  color: #fff;
-  height: 36px;
-  border-radius: 8px;
-}
-
-.btnNoAsistio {
-  background: #ff7070;
-  border-color: rgba(255,112,112,0.2);
-  color: #fff;
-  height: 36px;
-  border-radius: 8px;
-}
-
-/* MAIN column */
-.mainCol {
-  padding-left: 12px;
-}
-
-/* Main card where the table sits */
-.mainCard {
-  background: #ffffff;
-  border-radius: 18px;
-  padding: 26px;
-  box-shadow: 0 10px 30px rgba(7, 16, 30, 0.06);
-  border: 0;
-}
-
-/* Header of the card */
-.headerRow {
+.pageHeader {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 18px;
+  margin-bottom: 24px;
 }
 
-.title {
-  margin: 0;
-  font-size: 22px;
+.pageTitle {
+  font-size: 24px;
   font-weight: 700;
-  color: #1b1f22;
-}
-
-/* Tools (search + sort) */
-.tools {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-}
-
-.searchInput {
-  width: 220px;
-  border-radius: 12px;
-  background: #f4f7f9;
-  height: 40px;
-}
-
-.sortSelect {
-  width: 140px;
-  border-radius: 12px;
-  background: #f4f7f9;
-}
-
-/* Table customizations */
-.dataTable {
-  background: transparent;
-}
-
-.tableRow {
-  height: 64px;
-  border-bottom: 1px solid #f0f0f0;
-}
-
-/* Nombre cliente style */
-.nombreCliente {
-  font-weight: 600;
   color: #222;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
-/* Email link style */
-.emailLink {
-  text-decoration: underline;
-  cursor: pointer;
+.pageDate {
+  font-size: 14px;
+  color: #888;
+  font-weight: 500;
+  text-transform: capitalize;
 }
 
-/* Tag styles */
-.tagAsistio {
-  background: rgba(47,192,139,0.12);
-  color: #1b7a55;
+.counters {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.counterCard {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 20px !important;
   border-radius: 10px;
-  padding: 4px 10px;
   font-weight: 600;
+  color: #444;
 }
 
-.tagNoAsistio {
-  background: rgba(255,112,112,0.12);
-  color: #b22f2f;
-  border-radius: 10px;
-  padding: 4px 10px;
-  font-weight: 600;
+.mainCard {
+  border-radius: 12px;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
 }
 
-/* Bottom area (info + pagination) */
-.tableBottom {
+.sectionHeader {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding-top: 18px;
-  margin-top: 6px;
-  border-top: 1px solid #f3f5f7;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 12px;
 }
 
-.infoText {
-  color: #9aa1a8;
-  font-size: 13px;
+.sectionTitle {
+  font-size: 17px;
+  font-weight: 600;
+  color: #333;
+  margin: 0;
 }
 
-.pagination {
-  margin: 0;/* the default antd pagination is compact; this keeps it aligned to the right */
-  align-items: center;
-}
-
-/* Responsive tweaks */
-@media (max-width: 1000px) {
-  .leftCol {
-    display: none;
+@media (max-width: 768px) {
+  .contentWrap {
+    padding: 16px;
   }
-  .mainCol {
-    flex: 1;
+  .pageHeader {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
   }
-  .searchInput {
-    width: 160px;
+  .counters {
+    flex-wrap: wrap;
+  }
+  .sectionHeader {
+    flex-direction: column;
+    align-items: stretch;
   }
 }

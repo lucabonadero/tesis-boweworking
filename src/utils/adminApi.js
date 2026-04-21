@@ -1,47 +1,44 @@
-/**
- * Sesión del panel (empleados/admin). El token JWT expira en el servidor (~8h);
- * si queda guardado en localStorage pero ya venció, hay que volver a iniciar sesión.
- */
-const TOKEN_KEY = "token";
-const USUARIO_KEY = "usuario";
+const TOKEN_KEY = "clienteToken";
 
 export function getAdminToken() {
   return localStorage.getItem(TOKEN_KEY);
 }
 
-/** true si hay token y el JWT no está vencido (campo exp). */
-export function isAdminTokenValid() {
-  const token = getAdminToken();
-  if (!token) return false;
+function rolEnToken(token) {
   try {
     const payload = JSON.parse(atob(token.split(".")[1]));
-    if (payload.exp && payload.exp * 1000 <= Date.now() + 5000) return false;
-    return true;
+    if (payload.exp && payload.exp * 1000 <= Date.now() + 5000) return null;
+    return payload.rol || null;
   } catch {
-    return false;
+    return null;
   }
+}
+
+/** Token del panel: admin o empleado (tabla usuarios), mismo JWT que AuthContext. */
+export function isStaffTokenValid() {
+  const token = getAdminToken();
+  if (!token) return false;
+  const rol = rolEnToken(token);
+  return rol === "admin" || rol === "empleado";
+}
+
+/** @deprecated Usar isStaffTokenValid; el panel admite admin y empleado. */
+export function isAdminTokenValid() {
+  return isStaffTokenValid();
 }
 
 export function clearAdminSession() {
   localStorage.removeItem(TOKEN_KEY);
-  localStorage.removeItem(USUARIO_KEY);
 }
 
-export function redirectToAdminLogin() {
-  clearAdminSession();
-  window.location.assign("/login");
-}
-
-/**
- * fetch para APIs del panel: agrega Authorization y ante 401 limpia sesión y va a /login.
- */
 export async function adminFetch(input, init = {}) {
   const token = getAdminToken();
   const headers = new Headers(init.headers || {});
   if (token) headers.set("Authorization", `Bearer ${token}`);
   const res = await fetch(input, { ...init, headers });
   if (res.status === 401) {
-    redirectToAdminLogin();
+    clearAdminSession();
+    window.location.assign("/");
     throw new Error("Sesión expirada o no autorizada");
   }
   return res;

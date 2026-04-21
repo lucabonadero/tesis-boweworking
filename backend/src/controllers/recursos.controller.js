@@ -1,4 +1,11 @@
 import pool from "../config/db.js";
+import { getDisponibilidadTurno } from "../services/disponibilidadTurno.service.js";
+import { horariosParaReservaTurno } from "../services/horarioReserva.service.js";
+import {
+  validarVentanaOperativaTurno,
+  validarDiaReservaNoEnElPasado,
+  validarInicioTurnoNoEnElPasado,
+} from "../services/coworkingHours.service.js";
 
 export const obtenerRecursos = async (_req, res) => {
   try {
@@ -49,11 +56,12 @@ export const obtenerRecursoPorId = async (req, res) => {
 
 export const crearRecurso = async (req, res) => {
   try {
-    const { idEspacio, idRecursoPadre, Nombre, Descripcion, esCompleto } = req.body;
+    const { idEspacio, idRecursoPadre, Nombre, Descripcion, esCompleto, PrecioHora, PrecioSemanal, PrecioMensual } = req.body;
     const { rows } = await pool.query(
-      `INSERT INTO "Recursos" ("idEspacio","idRecursoPadre","Nombre","Descripcion","esCompleto")
-       VALUES ($1,$2,$3,$4,$5) RETURNING *`,
-      [idEspacio, idRecursoPadre || null, Nombre, Descripcion || null, esCompleto || false]
+      `INSERT INTO "Recursos" ("idEspacio","idRecursoPadre","Nombre","Descripcion","esCompleto","PrecioHora","PrecioSemanal","PrecioMensual")
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+      [idEspacio, idRecursoPadre || null, Nombre, Descripcion || null, esCompleto || false,
+       PrecioHora || null, PrecioSemanal || null, PrecioMensual || null]
     );
     res.status(201).json(rows[0]);
   } catch (error) {
@@ -64,12 +72,14 @@ export const crearRecurso = async (req, res) => {
 
 export const actualizarRecurso = async (req, res) => {
   try {
-    const { idEspacio, idRecursoPadre, Nombre, Descripcion, esCompleto } = req.body;
+    const { idEspacio, idRecursoPadre, Nombre, Descripcion, esCompleto, PrecioHora, PrecioSemanal, PrecioMensual } = req.body;
     const result = await pool.query(
       `UPDATE "Recursos"
-       SET "idEspacio"=$1,"idRecursoPadre"=$2,"Nombre"=$3,"Descripcion"=$4,"esCompleto"=$5
-       WHERE "idRecurso"=$6`,
-      [idEspacio, idRecursoPadre || null, Nombre, Descripcion, esCompleto, req.params.id]
+       SET "idEspacio"=$1,"idRecursoPadre"=$2,"Nombre"=$3,"Descripcion"=$4,"esCompleto"=$5,
+           "PrecioHora"=$6,"PrecioSemanal"=$7,"PrecioMensual"=$8
+       WHERE "idRecurso"=$9`,
+      [idEspacio, idRecursoPadre || null, Nombre, Descripcion, esCompleto,
+       PrecioHora ?? null, PrecioSemanal ?? null, PrecioMensual ?? null, req.params.id]
     );
     if (result.rowCount === 0) return res.status(404).json({ message: "Recurso no encontrado" });
     res.json({ message: "Recurso actualizado" });
@@ -113,16 +123,29 @@ export const obtenerDisponibilidad = async (req, res) => {
       return res.status(400).json({ message: "Parámetro requerido: fechaInicio" });
     }
 
-    const queryFecha = isPack ? fechaInicio : fecha;
-    const dias = tipo === "semanal" ? 6 : tipo === "mensual" ? 29 : 0;
-    const qHoraIni = isPack ? "00:00" : horaInicio;
-    const qHoraFin = isPack ? "23:59" : horaFin;
-    const qTipo = isPack ? tipo : "turno";
+    if (!isPack) {
+      const nh = horariosParaReservaTurno(horaInicio, horaFin);
+      if (nh.error) return res.status(400).json({ message: nh.error });
+      const errH = validarVentanaOperativaTurno(nh.horaIni, nh.horaFin);
+      if (errH) return res.status(400).json({ message: errH });
+      const errDia = validarDiaReservaNoEnElPasado(fecha);
+      if (errDia) return res.status(400).json({ message: errDia });
+      const errPasado = validarInicioTurnoNoEnElPasado(fecha, nh.horaIni);
+      if (errPasado) return res.status(400).json({ message: errPasado });
+      const results = await getDisponibilidadTurno(fecha, nh.horaIni, nh.horaFin);
+      return res.json(results);
+    }
 
-    const resourceFilter = isPack
-      ? `WHERE r."idEspacio" = (SELECT "Espacio" FROM "Espacios" WHERE "Nombre" ILIKE '%Primer Piso%' LIMIT 1)
-         AND (r."Nombre" ILIKE '%Escritorio%' OR r."Nombre" ILIKE '%Oficina%')`
-      : "";
+    const queryFecha = fechaInicio;
+    const errDiaPack = validarDiaReservaNoEnElPasado(queryFecha);
+    if (errDiaPack) return res.status(400).json({ message: errDiaPack });
+    const dias = tipo === "semanal" ? 6 : 29;
+    const qHoraIni = "00:00";
+    const qHoraFin = "23:59";
+    const qTipo = tipo;
+
+    const resourceFilter = `WHERE r."idEspacio" = (SELECT "Espacio" FROM "Espacios" WHERE "Nombre" ILIKE '%Primer Piso%' LIMIT 1)
+         AND (r."Nombre" ILIKE '%Escritorio%' OR r."Nombre" ILIKE '%Oficina%')`;
 
     const { rows: recursos } = await pool.query(`
       SELECT r.*, e."Nombre" AS espacio_nombre
@@ -132,7 +155,6 @@ export const obtenerDisponibilidad = async (req, res) => {
       ORDER BY r."idEspacio", r."idRecursoPadre" NULLS FIRST, r."idRecurso"
     `);
 
-    // For each reservable resource, check conflicts
     const results = [];
     for (const rec of recursos) {
       const hasChildren = recursos.some((r) => r.idRecursoPadre === rec.idRecurso);
@@ -164,9 +186,6 @@ export const obtenerDisponibilidad = async (req, res) => {
       results.push({ ...rec, disponible: parseInt(conflict[0].n) === 0, esGrupo: false });
     }
 
-    // Apply "completo" logic: if a "completo" resource is NOT available,
-    // all siblings remain as-is. If ALL individual siblings are taken,
-    // the "completo" is also not available.
     for (const rec of results) {
       if (rec.esGrupo) continue;
       if (rec.esCompleto && rec.disponible) {
@@ -190,7 +209,6 @@ export const obtenerDisponibilidad = async (req, res) => {
             ((rec.idRecursoPadre && r.idRecursoPadre === rec.idRecursoPadre) ||
               (!rec.idRecursoPadre && r.idEspacio === rec.idEspacio && !r.idRecursoPadre))
         );
-        // if completo is taken, mark individual as unavailable
         if (completoRes && completoRes.disponible === false) {
           rec.disponible = false;
         }

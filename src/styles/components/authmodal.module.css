@@ -60,6 +60,22 @@
   border-color: #2aad7e !important;
 }
 
+.forgotRow {
+  text-align: right;
+  margin: -4px 0 12px;
+}
+
+.forgotLink {
+  font-size: 13px;
+  font-weight: 600;
+  color: #34c08f;
+  text-decoration: none;
+}
+
+.forgotLink:hover {
+  text-decoration: underline;
+}
+
 /* ── Divider ── */
 
 .divider {
@@ -105,6 +121,17 @@
 }
 
 .footerLink button:hover {
+  text-decoration: underline;
+}
+
+.footerLink a {
+  color: #34c08f;
+  font-weight: 600;
+  text-decoration: none;
+  margin-left: 4px;
+}
+
+.footerLink a:hover {
   text-decoration: underline;
 }
 

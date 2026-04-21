@@ -1,0 +1,75 @@
+.fab {
+  position: fixed;
+  right: max(16px, env(safe-area-inset-right));
+  bottom: max(20px, env(safe-area-inset-bottom));
+  /* Por debajo de modales/drawers de Ant Design (~1000+) para no tapar login */
+  z-index: 900;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(145deg, #34c08f 0%, #2aad7e 100%);
+  color: #fff;
+  box-shadow:
+    0 4px 14px rgba(42, 173, 126, 0.45),
+    0 2px 4px rgba(0, 0, 0, 0.12);
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    opacity 0.2s ease;
+}
+
+.fab:hover {
+  transform: scale(1.06);
+  box-shadow:
+    0 6px 20px rgba(42, 173, 126, 0.5),
+    0 2px 6px rgba(0, 0, 0, 0.14);
+}
+
+.fab:active {
+  transform: scale(0.98);
+}
+
+.fab:focus-visible {
+  outline: 3px solid rgba(52, 192, 143, 0.55);
+  outline-offset: 3px;
+}
+
+.fabHidden {
+  pointer-events: none;
+  opacity: 0;
+  transform: scale(0.85);
+}
+
+.fabIcon {
+  font-size: 26px;
+}
+
+.drawer :global(.ant-drawer-header) {
+  border-bottom: 1px solid #f0f0f0;
+  background: linear-gradient(180deg, #fafdfb 0%, #fff 100%);
+}
+
+.drawer :global(.ant-drawer-body) {
+  background: linear-gradient(180deg, #f8faf9 0%, #fff 42%);
+}
+
+.drawerHint {
+  margin: 1.25rem 0 0;
+  font-size: 13px;
+  color: #888;
+  line-height: 1.4;
+}
+
+.drawerHint a {
+  color: #34c08f;
+  font-weight: 600;
+}
+
+.drawerHint a:hover {
+  text-decoration: underline;
+}

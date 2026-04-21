@@ -1,293 +1,89 @@
-/* Layout base (no modifico el header) */
 .layout {
-  background: #f5f5f6;
   min-height: 100vh;
+  background: #f5f6fa;
 }
 
-/* Mantengo padding general, pero la grid interna se desplaza para pegar la tabla al margen izquierdo */
 .content {
-  padding: 28px 40px;
-  box-sizing: border-box;
+  padding: 0;
 }
 
-/* container ocupa todo el ancho (para poder desplazar el grid hacia la izquierda) */
 .container {
-  width: 100%;
+  max-width: 1200px;
   margin: 0 auto;
+  padding: 32px 24px;
   box-sizing: border-box;
-}
-
-
-/* --------------------------------------------------
-   edgeGrid: la clave.
-   - es una grid de 2 columnas: la izquierda flexible y la derecha fija.
-   - margin-left: -40px "compensa" el padding del content (40px),
-     dejando la columna izquierda pegada al margen izquierdo de la ventana.
-   - width: calc(100% + 40px) hace que el grid cubra el espacio adicional compensado.
-   -------------------------------------------------- */
-/* Más espacio entre tabla y formulario */
-.edgeGrid {
-  display: grid;
-  grid-template-columns: 1fr 380px;
-  gap: 40px;                 /* 🔹 más aire entre tabla y form */
-  align-items: start;
-  margin-left: -40px;
-  width: calc(100% + 40px);
-  box-sizing: border-box;
-}
-
-/* LEFT area: la tarjeta blanca estirada */
-/* Añadimos margen a la izquierda de la tabla */
-.leftArea {
   width: 100%;
-  margin-left: 20px; /* 🔹 separa la tabla del borde de la página */
 }
 
-/* Título ahora dentro del card */
-.tableTitle {
-  font-size: 20px;
-  font-weight: 600;
-  color: #222;
-  margin-bottom: 16px;
-}
-
-/* Card que contiene la tabla: debe estirarse para ocupar la columna izquierda completa */
-.tableCard {
-  background: #ffffff;
-  border-radius: 8px;
-  padding: 18px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
-  width: 100%;
-  box-sizing: border-box;
-}
-
-/* Header de la tabla */
-/* Header de tabla: título a la izquierda, controles a la derecha */
-.tableHeader {
+.pageHeader {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
+  margin-bottom: 20px;
 }
 
-.tableTitle {
-  font-size: 20px;
-  font-weight: 600;
+.pageTitle {
+  font-size: 24px;
+  font-weight: 700;
   color: #222;
   margin: 0;
 }
 
-/* Controles: filtros, búsqueda y selector de filas */
-.tableControls {
+.filtersRow {
   display: flex;
-  align-items: center;
   gap: 12px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
 }
 
-.filterSelect {
-  width: 140px;
+.tableCard {
   border-radius: 12px;
-  background: #f4f7f9;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
+  max-width: 100%;
+  min-width: 0;
 }
 
-.searchInput {
-  width: 220px;
-  border-radius: 12px;
-  background: #f4f7f9;
-  height: 40px;
+.tableCard :global(.ant-card-body) {
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
 }
 
-/* Wrapper de la tabla: ocupa todo el ancho disponible dentro del card */
-.tableWrapper {
-  width: 100%;
-  overflow-x: hidden; /* ya no habrá scroll horizontal */
-}
-
-/* Hacemos que la tabla ocupe el 100% del ancho disponible */
-.table {
-  width: 100%;
-}
-
-/* Evitamos propiedades internas que fuerzan min-width */
-.table .ant-table table {
-  width: 100% !important;
-  min-width: 0 !important;
-}
-
-/* Filas / estética */
-.table .ant-table-tbody > tr > td {
-  padding: 14px 12px;
-}
-
-/* Footer de tabla */
 .tableFooter {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 12px;
-}
-.tableInfo {
+  padding-top: 12px;
   font-size: 13px;
-  color: #666;
-}
-.actionLink {
-  color: #0073e6;
-  cursor: pointer;
+  color: #888;
 }
 
-.pagination {
-  margin: 0;/* the default antd pagination is compact; this keeps it aligned to the right */
-  align-items: center;
-}
-
-/* RIGHT area: formulario fijo a la derecha */
-.rightArea {
-  width: 380px; /* igual que la columna fija en grid */
-  min-width: 320px;
-}
-
-.formCard {
-  background: #f3f6f8;
-  border-radius: 8px;
-  padding: 20px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
-  width: 100%;
-  box-sizing: border-box;
-}
-
-.formTitle {
-  font-size: 18px;
-  font-weight: 600;
-  margin-bottom: 14px;
-  color: #333;
-}
-.formField {
-  margin-bottom: 14px;
-}
-.label {
-  display: block;
-  font-size: 14px;
-  margin-bottom: 6px;
-  color: #555;
-}
-.input {
-  border-radius: 6px;
-  height: 38px;
-}
-.select {
-  width: 100%;
-  border-radius: 6px;
-  height: 38px;
-}
-.formRow {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 14px;
-}
-
-.formFieldHalf {
-  flex: 1;
-}
-
-.actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  margin-top: 14px;
-}
-.btnGrey {
-  background: #d7dbe0;
-  color: #333;
-  border: none;
-  border-radius: 6px;
-}
-.btnRed {
-  background: #ff6b6b;
-  color: #fff;
-  border: none;
-  border-radius: 6px;
-}
-.btnGreen {
-  background: #34c08f;
-  color: #fff;
-  border: none;
-  border-radius: 6px;
-}
-
-/* ── Resource Picker ─────────────────────────── */
-
-.resourcePicker {
-  background: #fff;
-  border: 1px solid #e4e7eb;
-  border-radius: 8px;
-  padding: 10px;
-  min-height: 48px;
-  max-height: 56px;
-  overflow: hidden;
-  opacity: 0.6;
-  transition: max-height 0.35s cubic-bezier(.4,0,.2,1),
-              opacity 0.3s ease,
-              border-color 0.25s ease;
-}
-
-.resourcePickerOpen {
-  max-height: 600px;
-  opacity: 1;
-  border-color: #c8ced6;
-}
-
-.resourceHint {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: #aaa;
-  font-size: 13px;
-  padding: 4px 0;
-  user-select: none;
-}
-
-.resourceContent {
+/* Drawer form */
+.drawerForm {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 16px;
 }
 
-/* Each section fades + slides in */
-.resourceSection,
-.resourceDivider {
-  animation: sectionIn 0.3s ease both;
+.formField {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
-@keyframes sectionIn {
-  from { opacity: 0; transform: translateY(-6px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-
-.resourceSectionLabel {
-  display: block;
-  font-size: 11px;
+.label {
+  font-size: 12px;
   font-weight: 600;
+  color: #666;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: #8a919a;
-  margin-bottom: 6px;
-  padding-left: 2px;
+  letter-spacing: 0.3px;
 }
 
+/* Resource chips */
 .chipGrid {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 8px;
 }
 
-/* Divider before "Completo" options */
-.dividerLine {
-  height: 1px;
-  background: linear-gradient(90deg, transparent, #dde1e6 30%, #dde1e6 70%, transparent);
-  margin-bottom: 8px;
-}
-
-/* ── Chips ── */
 .chip {
   display: inline-flex;
   align-items: center;
@@ -300,27 +96,18 @@
   border: 1.5px solid #e2e6ea;
   border-radius: 20px;
   cursor: pointer;
-  transition: all 0.2s ease;
-  user-select: none;
-  white-space: nowrap;
+  transition: all 0.15s;
 }
 
 .chip:hover {
   background: #eaf0f5;
   border-color: #c0cad4;
-  transform: translateY(-1px);
 }
 
 .chipActive {
-  background: #34c08f;
-  color: #fff;
-  border-color: #2aad7e;
-  box-shadow: 0 2px 8px rgba(52, 192, 143, 0.30);
-}
-
-.chipActive:hover {
-  background: #2fb485;
-  border-color: #259e72;
+  background: #34c08f !important;
+  color: #fff !important;
+  border-color: #2aad7e !important;
 }
 
 .chipCompleto {
@@ -330,44 +117,99 @@
   color: #7a6b2a;
 }
 
-.chipCompleto:hover {
-  background: #fdf6e0;
-  border-color: #c9b15e;
+/* Occupancy view */
+.occupancyHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
 }
 
-.chipCompleto.chipActive {
-  background: #e8a830;
-  color: #fff;
-  border-color: #d49520;
-  border-style: solid;
-  box-shadow: 0 2px 8px rgba(232, 168, 48, 0.30);
+.occupancyHeader h3 {
+  font-size: 17px;
+  font-weight: 600;
+  margin: 0;
 }
 
-.chipCompleto.chipActive:hover {
-  background: #d69b28;
-  border-color: #c08d1e;
+.occupancyGrid {
+  overflow-x: auto;
 }
 
-.chipIcon {
+.occupancyTimeHeader {
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 8px;
+  margin-bottom: 4px;
+  min-width: 800px;
+}
+
+.occupancyLabel {
+  width: 140px;
+  min-width: 140px;
+  padding-right: 8px;
   font-size: 12px;
+  color: #555;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-/* Responsive: en pantallas chicas, apilamos y quitamos compensación lateral */
-@media (max-width: 992px) {
-  .edgeGrid {
-    display: block;
-    margin-left: 0;
-    width: 100%;
-  }
-  .rightArea {
-    width: 100%;
-    margin-top: 16px;
-  }
-  .tableCard, .formCard {
+.occupancyHour {
+  flex: 1;
+  text-align: center;
+  font-size: 11px;
+  color: #aaa;
+  font-weight: 600;
+}
+
+.occupancyRow {
+  display: flex;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid #f5f5f5;
+  min-width: 800px;
+}
+
+.occupancyTimeline {
+  flex: 1;
+  position: relative;
+  height: 28px;
+  background: #f8f9fb;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.occupancyBlock {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  background: #34c08f;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  padding: 0 6px;
+  overflow: hidden;
+}
+
+.occupancyBlock span {
+  font-size: 10px;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .container {
     padding: 16px;
   }
-  .searchInput {
-    width: 100%;
-    margin-bottom: 12px;
+  .pageHeader {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .filtersRow {
+    flex-direction: column;
   }
 }

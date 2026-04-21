@@ -1,287 +1,563 @@
-/* RESET BÁSICO */
-
-@font-face {
-    font-family: Inter;
-    src: url('../assets/fonts/Poppins-Light.ttf') format('truetype');
-    font-weight: normal;
-    font-style: normal;
+/* ── Scroll animations ── */
+.animateOnScroll {
+  opacity: 0;
+  transform: translateY(30px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
 }
 
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-    font-family: 'Inter', sans-serif;
-  }
-  
-  body {
-    background-color: #fff;
-    color: #333;
-    line-height: 1.6;
-  }
-  
-  img {
-    max-width: 100%;
-    display: block;
-  }
-  
-  a {
-    text-decoration: none;
-    color: inherit;
-  }
-  
-  /* COLORES */
+.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
 
-  
-  /* HERO SECTION */
-  .hero {
-    position: relative;
-    width: 100%;
-    height: 100vh;
-    background-image: url('/src/assets/escritorioblanco2.png'); /* actualizá la ruta */
-    background-size: cover;
-    background-position: center bottom;
-    background-repeat: no-repeat;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;
-  }
-  
-  .hero__overlay {
-    position: absolute;
-    width: 100%;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  
-  .hero__content {
-    position: absolute;
-    top: 10%;
-    left: 8%;
-    right: 8%;
-    width: 1500px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;  /* 👈 Alinea verticalmente el h1 y el box en el centro */
-    flex-wrap: nowrap;    /* 👈 NO PERMITE que los elementos se bajen */
-    color: rgb(0, 0, 0);
-    
-  }
-  
-  .hero__content h1 {
-    font-size: 4rem;
-    font-weight: bold;
-    line-height: 1.2;
-    max-width: none;      /* 👈 asegurate de no limitarlo innecesariamente */
-    white-space: nowrap; /* 🚀 ESTO FUERZA A QUE NO SE CORTE EN LÍNEA NUEVA */
-  }
-  
-  .highlight {
-    color: #77C38C;
+/* ── Section shared ── */
+.sectionTitle {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #1a1a2e;
+  text-align: center;
+  margin-bottom: 8px;
+}
 
-  }
-  
-  .hero__box {
-    border: 2px solid rgb(204, 201, 201);
-    padding: 1rem 1.5rem;
-    max-width: 400px;
-    color: rgb(0, 0, 0);
-    font-size: 1.1rem;
-  }
-  .hero__button {
-    width: 100%;
-    margin-top: 1rem;
-    padding: 0.6rem 1.2rem;
-    background-color: #77C38C;
-    color: white;
-    border: none;
-    border-radius: 6px;
-    font-size: 1rem;
-    cursor: pointer;
-    transition: background-color 0.3s ease;
-    font-weight: bold;
-  }
-  
-  .hero__button:hover {
-    background-color: #58b28a;
-  }
-  
-  /* ESPACIOS */
-  .espacios {
-    padding: 4rem 8%;
-    background-color: #E0E4E9;
-    text-align: center;
-  }
-  
-  .espacios h2 {
-    font-size: 2rem;
-    margin-bottom: 0.5rem;
-  }
-  
-  .espacios p {
-    margin-bottom: 2rem;
-    color: #555;
-  }
-  
-.espacios__cards {
+.sectionSub {
+  font-size: 16px;
+  color: #777;
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+/* ══════════════════════════════════
+   HERO
+   ══════════════════════════════════ */
+
+.hero {
+  position: relative;
+  min-height: 600px;
+  background: url("/src/assets/personaenterraza.png") center/cover no-repeat;
+}
+
+.heroOverlay {
+  min-height: 600px;
   display: flex;
-  gap: 2rem;
-  justify-content: center;
-  flex-wrap: wrap;
-
+  align-items: center;
+  background: linear-gradient(135deg, rgba(26, 26, 46, 0.85) 0%, rgba(52, 192, 143, 0.4) 100%);
+  padding: 80px 40px;
 }
 
-.card {
-  background: white;
-  border-radius: 1px;
-  overflow: hidden;
-  width: 280px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+.heroContent {
+  max-width: 640px;
+  color: #fff;
+}
+
+.heroBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(6px);
+  padding: 6px 16px;
+  border-radius: 20px;
+  margin-bottom: 20px;
+  letter-spacing: 0.3px;
+}
+
+.heroTitle {
+  font-size: 3rem;
+  font-weight: 800;
+  line-height: 1.15;
+  margin-bottom: 16px;
+}
+
+.highlight {
+  color: #34c08f;
+}
+
+.heroSub {
+  font-size: 18px;
+  color: rgba(255, 255, 255, 0.85);
+  margin-bottom: 32px;
+  line-height: 1.6;
+}
+
+.heroCtas {
+  display: flex;
+  gap: 14px;
+  margin-bottom: 48px;
+  flex-wrap: wrap;
+}
+
+.heroBtnPrimary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 32px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+  background: #34c08f;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.heroBtnPrimary:hover {
+  background: #2aad7e;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(52, 192, 143, 0.35);
+}
+
+.heroBtnSecondary {
+  padding: 14px 32px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1.5px solid rgba(255, 255, 255, 0.3);
+  border-radius: 10px;
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+  transition: all 0.2s;
+}
+
+.heroBtnSecondary:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.heroStats {
+  display: inline-flex;
+  align-items: center;
+  gap: 24px;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(8px);
+  padding: 16px 28px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.heroStat {
   display: flex;
   flex-direction: column;
-  height: 420px; /* Fija la altura para todas las cards */
+  align-items: center;
+}
+
+.heroStat strong {
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.heroStat span {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.heroStatDivider {
+  width: 1px;
+  height: 32px;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* ══════════════════════════════════
+   HOW IT WORKS
+   ══════════════════════════════════ */
+
+.howItWorks {
+  padding: 80px 40px;
+  background: #fff;
+}
+
+.stepsRow {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.stepCard {
   position: relative;
-  padding-bottom: 2.5rem; /* Espacio para el botón */
-}
-
-.card img {
-  height: 180px;
-  width: 100%;
-  object-fit: cover;
-  border-bottom: 1px solid #ddd;
-}
-  
-.card h3 {
-  font-size: 1.4rem;
-  margin: 0.8rem 0.4rem 0.4rem 0.4rem;
-}
-
-.card p {
-  color: #777;
-  margin: 0 2rem 1.5rem;
-  flex: 1 1 auto;
-}
-
-.card a {
+  flex: 1;
   text-align: center;
-  padding: 0.6rem 1.2rem;
-  background-color: #77C38C;
-  color: white;
-  border-radius: 6px;
-  font-size: 1rem;
-  font-weight: bold;
-
+  padding: 32px 24px;
+  background: #f8fafb;
+  border-radius: 16px;
+  border: 1px solid #eef1f4;
+  transition: all 0.3s;
 }
-  
 
-  /* BENEFICIOS */
-  .beneficios {
-    padding: 4rem 8%;
-    background-color: white;
-    text-align: center;
-  }
-  
-  .beneficios__grid {
-    display: flex;
-    gap: 2rem;
-    justify-content: center;
-    flex-wrap: wrap;
-    margin-top: 2rem;
-  }
-  
-  .beneficio {
-    width: 280px;
-    padding: 2rem;
-    border-radius: 1px;
-    background-color: #ffffff;
-  }
-  
-  .beneficio.destacado {
-    background-color: #FCCABB;
-    color: #ffffff;
-  }
-  
-  .beneficio img {
-    height: 40px;
-    margin-bottom: 1rem;
-    /* centrar imagen en el recuadro*/
-    display: block;
-    margin-left: auto;
-    margin-right: auto;
+.stepCard:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+  border-color: #34c08f;
+}
 
+.stepNumber {
+  position: absolute;
+  top: -14px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 28px;
+  height: 28px;
+  background: #34c08f;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.stepIcon {
+  font-size: 36px;
+  color: #34c08f;
+  margin-bottom: 12px;
+}
+
+.stepCard h3 {
+  font-size: 16px;
+  font-weight: 700;
+  color: #222;
+  margin-bottom: 6px;
+}
+
+.stepCard p {
+  font-size: 13px;
+  color: #888;
+  line-height: 1.5;
+}
+
+.stepArrow {
+  font-size: 20px;
+  color: #ccc;
+}
+
+/* ══════════════════════════════════
+   SPACES
+   ══════════════════════════════════ */
+
+.espacios {
+  padding: 80px 40px;
+  background: #f8fafb;
+}
+
+.espaciosCards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.spaceCard {
+  background: #fff;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid #eef1f4;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.spaceCard:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.08);
+}
+
+.spaceCardImg {
+  position: relative;
+  height: 200px;
+  overflow: hidden;
+}
+
+.spaceCardImg img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.4s;
+}
+
+.spaceCard:hover .spaceCardImg img {
+  transform: scale(1.05);
+}
+
+.spaceCardBadge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: rgba(52, 192, 143, 0.9);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 12px;
+  border-radius: 16px;
+  backdrop-filter: blur(4px);
+}
+
+.spaceCardBody {
+  padding: 20px;
+}
+
+.spaceCardBody h3 {
+  font-size: 18px;
+  font-weight: 700;
+  color: #222;
+  margin-bottom: 8px;
+}
+
+.spaceCardBody p {
+  font-size: 14px;
+  color: #777;
+  line-height: 1.5;
+  margin-bottom: 12px;
+}
+
+.spaceCardLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #34c08f;
+}
+
+/* ══════════════════════════════════
+   BENEFITS
+   ══════════════════════════════════ */
+
+.beneficios {
+  padding: 80px 40px;
+  background: #fff;
+}
+
+.beneficiosGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 24px;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.beneficioCard {
+  text-align: center;
+  padding: 32px 20px;
+  background: #f8fafb;
+  border-radius: 16px;
+  border: 1px solid #eef1f4;
+  transition: all 0.3s;
+}
+
+.beneficioCard:hover {
+  border-color: #34c08f;
+  transform: translateY(-3px);
+}
+
+.beneficioIcon {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 16px;
+  background: linear-gradient(135deg, #34c08f, #2aad7e);
+  color: #fff;
+  font-size: 24px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.beneficioCard h4 {
+  font-size: 15px;
+  font-weight: 700;
+  color: #222;
+  margin-bottom: 6px;
+}
+
+.beneficioCard p {
+  font-size: 13px;
+  color: #888;
+  line-height: 1.5;
+}
+
+/* ══════════════════════════════════
+   PACKS
+   ══════════════════════════════════ */
+
+.packs {
+  padding: 80px 40px;
+  background: #f8fafb;
+}
+
+.packsRow {
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+.packPreview {
+  flex: 1;
+  padding: 32px 28px;
+  background: #fff;
+  border: 2px solid #eef1f4;
+  border-radius: 16px;
+  transition: all 0.3s;
+}
+
+.packPreview:hover {
+  border-color: #34c08f;
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(52, 192, 143, 0.1);
+}
+
+.packPreviewHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 22px;
+  color: #34c08f;
+  margin-bottom: 12px;
+}
+
+.packPreviewHeader h3 {
+  font-size: 20px;
+  font-weight: 700;
+  color: #222;
+  margin: 0;
+}
+
+.packPreview p {
+  font-size: 14px;
+  color: #777;
+  line-height: 1.5;
+  margin-bottom: 20px;
+}
+
+.packPreviewBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 22px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #34c08f;
+  background: transparent;
+  border: 2px solid #34c08f;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.packPreviewBtn:hover {
+  background: #34c08f;
+  color: #fff;
+}
+
+/* ══════════════════════════════════
+   CTA FINAL
+   ══════════════════════════════════ */
+
+.ctaFinal {
+  padding: 80px 40px;
+  background: linear-gradient(135deg, #1a1a2e, #16213e);
+}
+
+.ctaContent {
+  max-width: 600px;
+  margin: 0 auto;
+  text-align: center;
+  color: #fff;
+}
+
+.ctaContent h2 {
+  font-size: 2.2rem;
+  font-weight: 800;
+  margin-bottom: 16px;
+}
+
+.ctaContent p {
+  font-size: 16px;
+  color: rgba(255, 255, 255, 0.75);
+  margin-bottom: 32px;
+}
+
+.ctaBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 40px;
+  font-size: 17px;
+  font-weight: 700;
+  color: #fff;
+  background: #34c08f;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.ctaBtn:hover {
+  background: #2aad7e;
+  transform: translateY(-3px);
+  box-shadow: 0 8px 32px rgba(52, 192, 143, 0.4);
+}
+
+/* ══════════════════════════════════
+   RESPONSIVE
+   ══════════════════════════════════ */
+
+@media (max-width: 768px) {
+  .heroTitle {
+    font-size: 2rem;
   }
-  
-  /* IMAGEN DESTACADA */
-  .imagen__destacada {
-    padding: 4rem 0;
-    margin-bottom: 50px;
+  .heroOverlay {
+    padding: 60px 20px;
+    min-height: 500px;
   }
-  
-  .imagen__destacada img {
-    width: 100%;
-    height: 700px;
-    object-fit: cover;
-    object-position: top top;
+  .heroStats {
+    flex-direction: column;
+    gap: 12px;
   }
-  
-  .cta__finalWrapper {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 4rem;
-    flex-wrap: wrap;
-    max-width: 1000px;
-    margin: 0 auto;
-    margin-bottom: 100px;
-  }
-  
-  .cta__final h2 {
-    text-align: left;
-    font-size: 2.5rem;
-    font-weight: bold;
-    line-height: 1.3;
-    flex: 1;
-  }
-  
-  .cta__finalParrafo {
-    flex: 1;
-    max-width: 400px;
-    font-size: 0.9rem;
-    color: #555;
-  }
-  
-  .cta__finalUnderline {
+  .heroStatDivider {
+    width: 40px;
     height: 1px;
-    background-color: rgb(160, 157, 157);
-    margin-top: 2rem;
+  }
+  .stepsRow {
+    flex-direction: column;
+    gap: 20px;
+  }
+  .stepArrow {
+    transform: rotate(90deg);
+  }
+  .espaciosCards {
+    grid-template-columns: 1fr;
+  }
+  .beneficiosGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .packsRow {
+    flex-direction: column;
+  }
+  .sectionTitle {
+    font-size: 1.6rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .beneficiosGrid {
+    grid-template-columns: 1fr;
+  }
+  .heroCtas {
+    flex-direction: column;
+  }
+  .heroBtnPrimary,
+  .heroBtnSecondary {
     width: 100%;
+    justify-content: center;
   }
-  
-  /* FOOTER Y HEADER tienen sus propios estilos por componente, se asume */
-  
-  /* RESPONSIVE */
-  @media (max-width: 768px) {
-    .hero {
-      flex-direction: column;
-      text-align: center;
-    }
-  
-    .hero__content h1 {
-      font-size: 2rem;
-    }
-  
-    .espacios__cards,
-    .beneficios__grid,
-    .cta__info {
-      flex-direction: column;
-      align-items: center;
-    }
-  
-    .card, .beneficio {
-      width: 90%;
-    }
-  }
-  
+}

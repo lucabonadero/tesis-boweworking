@@ -26,7 +26,7 @@ const columns = [
     render: payment => <div style={{ textAlign: 'center' }}>{payment}</div>,
   },
   {
-    title: <div style={{ textAlign: 'center' }}>Estado</div>,
+    title: <div style={{ textAlign: 'center' }}>Estado de pago</div>,
     dataIndex: 'EstadoPago',
     key: 'EstadoPago',
     render: status => (
@@ -41,14 +41,20 @@ const columns = [
 
 const TablaFinanciera = () => {
   const [transacciones, setTransacciones] = useState([]);
+  const [resumen, setResumen] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchTransacciones = async () => {
       try {
-        const res = await adminFetch(`${API_URL}/api/pagos`);
-        const data = await res.json();
-        setTransacciones(data.map((t) => ({ ...t, key: t.idTransaccion })));
+        const [resPagos, resResumen] = await Promise.all([
+          adminFetch(`${API_URL}/api/pagos?limit=50&offset=0`),
+          adminFetch(`${API_URL}/api/pagos/resumen`),
+        ]);
+        const data = await resPagos.json();
+        const items = data.items ?? [];
+        setTransacciones(items.map((t) => ({ ...t, key: t.idTransaccion })));
+        setResumen(await resResumen.json());
       } catch {
         message.error("Error al cargar transacciones");
       } finally {
@@ -58,11 +64,14 @@ const TablaFinanciera = () => {
     fetchTransacciones();
   }, []);
 
-  const totalIngresos = transacciones
-    .filter(t => t.EstadoPago === 'Pagado')
-    .reduce((sum, t) => sum + (parseFloat(t.Monto) || 0), 0);
+  const totalIngresos =
+    resumen != null
+      ? parseFloat(resumen.ingresosHoy) || 0
+      : transacciones
+          .filter((t) => t.EstadoPago === "Pagado")
+          .reduce((sum, t) => sum + (parseFloat(t.Monto) || 0), 0);
 
-  const pendientes = transacciones.filter(t => t.EstadoPago === 'Pendiente').length;
+  const pendientes = transacciones.filter((t) => t.EstadoPago === "Pendiente").length;
 
   if (loading) {
     return <div style={{ textAlign: 'center', padding: '2rem' }}><Spin /></div>;

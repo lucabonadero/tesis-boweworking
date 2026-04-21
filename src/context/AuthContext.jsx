@@ -22,6 +22,8 @@ export function AuthProvider({ children }) {
     localStorage.removeItem(TOKEN_KEY);
     setToken(null);
     setUser(null);
+    setAuthModalOpen(false);
+    setAuthModalView("login");
   }, []);
 
   const openAuthModal = useCallback((view = "login") => {
@@ -111,11 +113,28 @@ export function AuthProvider({ children }) {
     return data.usuario;
   };
 
+  const cambiarPasswordAction = async (passwordActual, passwordNueva) => {
+    const res = await authFetch(`${API_URL}/api/auth/cliente/cambiar-contrasena`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ passwordActual, passwordNueva }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || "No se pudo cambiar la contraseña");
+    saveAuth(data.token, data.usuario);
+    return data.usuario;
+  };
+
+  const isAdmin = user?.rol === "admin";
+  const isStaff = user?.rol === "admin" || user?.rol === "empleado";
+
   const value = {
     user,
     token,
     loading,
     isAuthenticated: !!user,
+    isAdmin,
+    isStaff,
     perfilCompleto: !!user?.perfil_completo,
     authModalOpen,
     authModalView,
@@ -125,6 +144,8 @@ export function AuthProvider({ children }) {
     register: registerAction,
     googleAuth: googleAuthAction,
     completarPerfil: completarPerfilAction,
+    cambiarPassword: cambiarPasswordAction,
+    setAuthSession: saveAuth,
     logout,
     authFetch,
   };

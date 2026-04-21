@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Link } from "react-router-dom";
 import { Modal, Form, Input, Button, message } from "antd";
 import { LockOutlined, MailOutlined, UserOutlined, IdcardOutlined, PhoneOutlined } from "@ant-design/icons";
 import { GoogleLogin } from "@react-oauth/google";
@@ -31,7 +32,9 @@ export default function AuthModal() {
       const usr = await login(values.email, values.password);
       message.success(`Bienvenido/a, ${usr.nombre}!`);
       loginForm.resetFields();
-      if (!usr.perfil_completo) {
+      if (usr.rol === "admin" || usr.rol === "empleado") {
+        closeAuthModal();
+      } else if (!usr.perfil_completo) {
         openAuthModal("completar-perfil");
       } else {
         closeAuthModal();
@@ -69,6 +72,10 @@ export default function AuthModal() {
   };
 
   const handleGoogle = async (credentialResponse) => {
+    if (!credentialResponse?.credential) {
+      message.warning("Inicio de sesión con Google cancelado o incompleto.");
+      return;
+    }
     setLoading(true);
     try {
       const usr = await googleAuth(credentialResponse.credential);
@@ -109,6 +116,11 @@ export default function AuthModal() {
         <Form.Item name="password" rules={[{ required: true, message: "Ingresá tu contraseña" }]}>
           <Input.Password prefix={<LockOutlined />} placeholder="Contraseña" size="large" />
         </Form.Item>
+        <div className={styles.forgotRow}>
+          <Link to="/olvide-contrasena" className={styles.forgotLink} onClick={closeAuthModal}>
+            ¿Olvidaste tu contraseña?
+          </Link>
+        </div>
         <Button htmlType="submit" className={styles.submitBtn} loading={loading}>
           Iniciar sesión
         </Button>
@@ -119,9 +131,13 @@ export default function AuthModal() {
         <span>o continuá con</span>
         <div className={styles.dividerLine} />
       </div>
-
       <div className={styles.googleRow}>
-        <GoogleLogin onSuccess={handleGoogle} onError={() => message.error("Error con Google")} shape="pill" width="100%" />
+        <GoogleLogin
+          onSuccess={handleGoogle}
+          onError={() => message.error("Error con Google. Revisá VITE_GOOGLE_CLIENT_ID y la consola del navegador.")}
+          shape="pill"
+          width="100%"
+        />
       </div>
 
       <div className={styles.footerLink}>
@@ -167,9 +183,12 @@ export default function AuthModal() {
         <span>o continuá con</span>
         <div className={styles.dividerLine} />
       </div>
-
       <div className={styles.googleRow}>
-        <GoogleLogin onSuccess={handleGoogle} onError={() => message.error("Error con Google")} shape="pill" />
+        <GoogleLogin
+          onSuccess={handleGoogle}
+          onError={() => message.error("Error con Google. Revisá VITE_GOOGLE_CLIENT_ID y la consola del navegador.")}
+          shape="pill"
+        />
       </div>
 
       <div className={styles.footerLink}>

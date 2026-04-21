@@ -1,15 +1,22 @@
-import RegistroCliente from "./pages/public/registrocliente";
-import Index from "./pages/public/index";
-import Espacios from "./pages/public/espacios";
-import ControlReservas from "./pages/admin/consultareservas";
-import Login from "./pages/admin/login";
-import GestionFinanciera from "./pages/admin/gestionfinanciera";
-import AltaClientes from "./pages/admin/altas";
-import EspaciosDashboard from "./pages/admin/espaciosdashboard";
-import ProtectedRoute from "./components/rutasprotegidas";
-import AuthModal from "./components/AuthModal";
-import { AuthProvider } from "./context/AuthContext";
+import RegistroCliente from "./pages/public/registrocliente.jsx";
+import OlvideContrasena from "./pages/public/olvideContrasena.jsx";
+import RestablecerContrasena from "./pages/public/restablecerContrasena.jsx";
+import Index from "./pages/public/index.jsx";
+import Espacios from "./pages/public/espacios.jsx";
+import Perfil from "./pages/public/perfil.jsx";
+import PagoConfirmacion from "./pages/public/pagoConfirmacion.jsx";
+import AsistenteReservas from "./pages/public/asistenteReservas.jsx";
+import ControlReservas from "./pages/admin/consultareservas.jsx";
+import GestionFinanciera from "./pages/admin/Gestionfinanciera.jsx";
+import AltaClientes from "./pages/admin/altas.jsx";
+import EspaciosDashboard from "./pages/admin/espaciosdashboard.jsx";
+import ProtectedRoute from "./components/rutasprotegidas.jsx";
+import AuthModal from "./components/AuthModal.jsx";
+import AuthRedirectHandler from "./components/AuthRedirectHandler.jsx";
+import AsistenteReservasFab from "./components/AsistenteReservasFab.jsx";
+import { AuthProvider } from "./context/AuthContext.jsx";
 import { GoogleOAuthProvider } from "@react-oauth/google";
+import "antd/dist/reset.css";
 import "./App.css";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import "slick-carousel/slick/slick.css";
@@ -25,13 +32,17 @@ function App() {
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/registro" element={<RegistroCliente />} />
+            <Route path="/olvide-contrasena" element={<OlvideContrasena />} />
+            <Route path="/restablecer-contrasena" element={<RestablecerContrasena />} />
             <Route path="/espacios" element={<Espacios />} />
-            <Route path="/login" element={<Login />} />
+            <Route path="/perfil" element={<Perfil />} />
+            <Route path="/pago/confirmacion" element={<PagoConfirmacion />} />
+            <Route path="/asistente" element={<AsistenteReservas />} />
             <Route path="/control" element={
               <ProtectedRoute><ControlReservas /></ProtectedRoute>
             } />
             <Route path="/gestion" element={
-              <ProtectedRoute><GestionFinanciera /></ProtectedRoute>
+              <ProtectedRoute adminOnly><GestionFinanciera /></ProtectedRoute>
             } />
             <Route path="/altas" element={
               <ProtectedRoute><AltaClientes /></ProtectedRoute>
@@ -41,7 +52,9 @@ function App() {
             } />
             <Route path="*" element={<h1>404 - Página no encontrada</h1>} />
           </Routes>
+          <AuthRedirectHandler />
           <AuthModal />
+          <AsistenteReservasFab />
         </BrowserRouter>
       </AuthProvider>
     </GoogleOAuthProvider>

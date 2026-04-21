@@ -17,3 +17,20 @@ export const verificarToken = (req, res, next) => {
     return res.status(401).json({ message: "Token inválido o expirado" });
   }
 };
+
+/** Solo administradores: alta de usuarios staff, API de pagos / gestión financiera. */
+export const verificarAdmin = (req, res, next) => {
+  if (!req.usuario || req.usuario.rol !== "admin") {
+    return res.status(403).json({ message: "Acceso restringido a administradores" });
+  }
+  next();
+};
+
+/** Admin o empleado (tabla `usuarios`): operación diaria (reservas, clientes en mostrador, espacios). */
+export const verificarStaff = (req, res, next) => {
+  const r = req.usuario?.rol;
+  if (r !== "admin" && r !== "empleado") {
+    return res.status(403).json({ message: "Acceso restringido al personal del coworking" });
+  }
+  next();
+};

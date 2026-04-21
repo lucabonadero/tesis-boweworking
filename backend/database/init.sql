@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS "Cliente" (
   "Nombre" VARCHAR(100),
   "Apellido" VARCHAR(100),
   "Email" VARCHAR(255),
+  "Telefono" VARCHAR(30),
   "idEmpresa" INT
 );
 
@@ -43,7 +44,10 @@ CREATE TABLE IF NOT EXISTS "Recursos" (
   "idRecursoPadre" INT,
   "Nombre" VARCHAR(255) NOT NULL,
   "Descripcion" VARCHAR(500),
-  "esCompleto" BOOLEAN DEFAULT false
+  "esCompleto" BOOLEAN DEFAULT false,
+  "PrecioHora" DECIMAL(10,2),
+  "PrecioSemanal" DECIMAL(10,2),
+  "PrecioMensual" DECIMAL(10,2)
 );
 
 -- Tabla de Reservas
@@ -52,11 +56,12 @@ CREATE TABLE IF NOT EXISTS "Reservas" (
   "DNI" VARCHAR(20),
   "Nombre" VARCHAR(255),
   "idRecurso" INT,
-  "HorarioReserva" VARCHAR(255),
-  "HorarioFin" VARCHAR(255),
+  "HorarioReserva" TIME,
+  "HorarioFin" TIME,
   "Monto" DECIMAL(10,2),
   "DiaReserva" DATE,
-  "TipoReserva" VARCHAR(20) DEFAULT 'turno'
+  "TipoReserva" VARCHAR(20) DEFAULT 'turno',
+  "Estado" VARCHAR(20) DEFAULT 'activa' CHECK ("Estado" IN ('activa', 'completada', 'cancelada', 'no_asistio'))
 );
 
 -- Tabla de ClienteUsuario (autenticacion de clientes)
@@ -70,7 +75,9 @@ CREATE TABLE IF NOT EXISTS "ClienteUsuario" (
   "dni" VARCHAR(20) UNIQUE,
   "telefono" VARCHAR(30),
   "perfil_completo" BOOLEAN DEFAULT false,
-  "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  "password_reset_token_hash" VARCHAR(64),
+  "password_reset_expires_at" TIMESTAMPTZ
 );
 
 -- Tabla de Transaccion
@@ -78,7 +85,10 @@ CREATE TABLE IF NOT EXISTS "Transaccion" (
   "idTransaccion" SERIAL PRIMARY KEY,
   "idReserva" INT,
   "MetodoPago" VARCHAR(50),
-  "EstadoPago" VARCHAR(50)
+  "EstadoPago" VARCHAR(50),
+  "TipoPago" VARCHAR(20) DEFAULT 'presencial' CHECK ("TipoPago" IN ('online', 'presencial')),
+  "mp_preference_id" VARCHAR(255),
+  "mp_payment_id" VARCHAR(255)
 );
 
 -- Foreign Keys
@@ -131,3 +141,13 @@ INSERT INTO "Recursos" ("idEspacio", "Nombre", "esCompleto") VALUES
   (3, 'Mesa 1', false), (3, 'Mesa 2', false), (3, 'Mesa 3', false),
   (3, 'Mesa 4', false), (3, 'Mesa 5', false),
   (3, 'Terraza Completa', true);
+
+-- Precios de referencia (ajustar según tarifas reales)
+UPDATE "Recursos" SET "PrecioHora" = 2500  WHERE "Nombre" LIKE 'Banco%';
+UPDATE "Recursos" SET "PrecioHora" = 3000  WHERE "Nombre" LIKE 'Sill%';
+UPDATE "Recursos" SET "PrecioHora" = 15000 WHERE "Nombre" = 'Planta Baja Completa';
+UPDATE "Recursos" SET "PrecioSemanal" = 45000,  "PrecioMensual" = 150000 WHERE "Nombre" LIKE 'Escritorio%';
+UPDATE "Recursos" SET "PrecioSemanal" = 150000, "PrecioMensual" = 500000 WHERE "Nombre" = 'Oficina Completa';
+UPDATE "Recursos" SET "PrecioHora" = 8000 WHERE "Nombre" = 'Sala de Conferencias';
+UPDATE "Recursos" SET "PrecioHora" = 2000  WHERE "Nombre" LIKE 'Mesa%';
+UPDATE "Recursos" SET "PrecioHora" = 10000 WHERE "Nombre" = 'Terraza Completa';

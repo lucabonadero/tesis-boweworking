@@ -1,120 +1,243 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import styles from "../../styles/public/index.module.css";
 import Header from "../../components/header.jsx";
 import Footer from "../../components/footer.jsx";
 import "../../styles/global.css";
 import { useNavigate } from "react-router-dom";
+import {
+  WifiOutlined,
+  CoffeeOutlined,
+  AppstoreOutlined,
+  CalendarOutlined,
+  ClockCircleOutlined,
+  CheckCircleOutlined,
+  ArrowRightOutlined,
+  TeamOutlined,
+  EnvironmentOutlined,
+} from "@ant-design/icons";
 
 export default function Index() {
   const navigate = useNavigate();
+  const observerRef = useRef(null);
 
-  const handleVerMas = (seccionId) => {
-    navigate("/espacios", { state: { scrollTo: seccionId } });
-  };
-  
+  useEffect(() => {
+    observerRef.current = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add(styles.visible);
+          }
+        });
+      },
+      { threshold: 0.15 }
+    );
+
+    document.querySelectorAll(`.${styles.animateOnScroll}`).forEach((el) => {
+      observerRef.current.observe(el);
+    });
+
+    return () => observerRef.current?.disconnect();
+  }, []);
+
   return (
     <div>
       <Header />
 
-      {/* HERO SECTION */}
+      {/* HERO */}
       <section className={styles.hero}>
-        <div className={styles.hero__overlay}>
-          <div className={styles.hero__content}>
-            <h1>
-              Encontrá el mejor<br /> lugar para <span className={styles.highlight}>Trabajar</span>
+        <div className={styles.heroOverlay}>
+          <div className={styles.heroContent}>
+            <span className={styles.heroBadge}>
+              <EnvironmentOutlined /> Coworking en tu ciudad
+            </span>
+            <h1 className={styles.heroTitle}>
+              Tu espacio ideal para <span className={styles.highlight}>trabajar</span>
             </h1>
-            <div className={styles.hero__box}>
-              <p>
-                Su productividad está influenciada por el lugar donde trabaja.<br />
-                ¡Busque el mejor lugar para trabajar!
-              </p>
-              <form action="/espacios">
-                <button className={styles.hero__button}>Buscar</button>
-              </form>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ESPACIOS DISPONIBLES */}
-      <section className={styles.espacios}>
-        <h2>Nuestros espacios.</h2>
-        <p>Te mostramos imágenes de los diferentes espacios con los que contamos.</p>
-        <div className={styles.espacios__cards}>
-          <div className={styles.card}>
-            <img src="./src/assets/plantabaja.png" alt="Planta Baja" />
-            <h3>Planta Baja</h3>
-            <p>Escritorios individuales, espacio para eventos, reuniones, clases.</p>
-            <div className={styles.spaceLink}>
-              <a href="/espacios">
-                Ver más
-              </a>
-              </div>
-          </div>
-          <div className={styles.card}>
-            <img src="./src/assets/primerpiso.png" alt="Primer Piso" />
-            <h3>Primer Piso</h3>
-            <p>Oficinas y sala para reuniones, con opción de alquiler mensual.</p>
-            <div className={styles.spaceLink}>
-              <a href="/espacios">
-                Ver más
-              </a>
-            </div>
-          </div>
-          <div className={styles.card}>
-            <img src="./src/assets/terrazarda.png" alt="Terraza" />
-            <h3>Terraza</h3>
-            <p>Espacio al aire libre ideal para reuniones con amigos o festejos.</p>
-            <div className={styles.spaceLink}>
-              <a href="/espacios">
-                Ver más
-              </a>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* BENEFICIOS / INFO */}
-      <section className={styles.beneficios}>
-        <h2>Queremos lo mejor para nuestros clientes.</h2>
-        <p>Disponemos de los mejores beneficios para que puedas disfrutar de tu espacio de trabajo.</p>
-        <div className={styles.beneficios__grid}>
-          <div className={styles.beneficio}>
-            <img src="./src/assets/internet.png" alt="Icono 1" />
-            <h4>Internet de alta velocidad</h4>
-            <p>Contamos con la mejor velocidad de internet para que puedas navegar tranquilo.</p>
-          </div>
-          <div className={`${styles.beneficio} ${styles.destacado}`}>
-            <img src="./src/assets/serviciosvarios.png" alt="Icono 2" />
-            <h4>Servicios varios</h4>
-            <p>Contamos con cocina, café, heladera, microondas y otros servicios a tu disponibilidad para mayor comodidad.</p>
-          </div>
-          <div className={styles.beneficio}>
-            <img src="./src/assets/masveinte.png" alt="Icono 3" />
-            <h4>20+ Espacios disponibles</h4>
-            <p>Existen varias disposiciones de espacios en el lugar.</p>
-          </div>
-        </div>
-      </section>
-
-      {/* IMAGEN DESTACADA */}
-      <section className={styles.imagen__destacada}>
-        <img src="./src/assets/personaenterraza.png" alt="Persona en coworking" />
-      </section>
-
-      <section className={styles.cta__final}>
-        <div className={styles.cta__finalWrapper}>
-          <h2>
-            Sentite libre de<br />
-            consultar por el<br />
-            espacio de tu interés.
-          </h2>
-          <div className={styles.cta__finalParrafo}>
-            <p>
-              Para cualquier consulta, escribinos por nuestros medios o acercate. ¡Te esperamos!
+            <p className={styles.heroSub}>
+              Espacios flexibles, modernos y equipados para que tu productividad no tenga limites.
             </p>
-            <div className={styles.cta__finalUnderline}></div>
+            <div className={styles.heroCtas}>
+              <button className={styles.heroBtnPrimary} onClick={() => navigate("/registro")}>
+                Reservar ahora <ArrowRightOutlined />
+              </button>
+              <button className={styles.heroBtnSecondary} onClick={() => navigate("/espacios")}>
+                Ver espacios
+              </button>
+            </div>
+            <div className={styles.heroStats}>
+              <div className={styles.heroStat}>
+                <strong>20+</strong>
+                <span>Espacios</span>
+              </div>
+              <div className={styles.heroStatDivider} />
+              <div className={styles.heroStat}>
+                <strong>3</strong>
+                <span>Pisos</span>
+              </div>
+              <div className={styles.heroStatDivider} />
+              <div className={styles.heroStat}>
+                <strong>100%</strong>
+                <span>Equipado</span>
+              </div>
+            </div>
           </div>
+        </div>
+      </section>
+
+      {/* HOW IT WORKS */}
+      <section className={`${styles.howItWorks} ${styles.animateOnScroll}`}>
+        <h2 className={styles.sectionTitle}>Como funciona?</h2>
+        <p className={styles.sectionSub}>Reservar tu espacio es muy simple</p>
+        <div className={styles.stepsRow}>
+          <div className={styles.stepCard}>
+            <div className={styles.stepNumber}>1</div>
+            <CalendarOutlined className={styles.stepIcon} />
+            <h3>Elegi fecha y hora</h3>
+            <p>Selecciona cuando queres venir y por cuanto tiempo.</p>
+          </div>
+          <div className={styles.stepArrow}><ArrowRightOutlined /></div>
+          <div className={styles.stepCard}>
+            <div className={styles.stepNumber}>2</div>
+            <AppstoreOutlined className={styles.stepIcon} />
+            <h3>Elegi tu espacio</h3>
+            <p>Te mostramos los espacios disponibles en tiempo real.</p>
+          </div>
+          <div className={styles.stepArrow}><ArrowRightOutlined /></div>
+          <div className={styles.stepCard}>
+            <div className={styles.stepNumber}>3</div>
+            <CheckCircleOutlined className={styles.stepIcon} />
+            <h3>Confirma y listo</h3>
+            <p>Reserva confirmada. Paga online o al llegar.</p>
+          </div>
+        </div>
+      </section>
+
+      {/* SPACES */}
+      <section className={`${styles.espacios} ${styles.animateOnScroll}`}>
+        <h2 className={styles.sectionTitle}>Nuestros espacios</h2>
+        <p className={styles.sectionSub}>Tres pisos, multiples posibilidades</p>
+        <div className={styles.espaciosCards}>
+          <div
+            className={styles.spaceCard}
+            onClick={() =>
+              navigate("/espacios", { state: { scrollTo: "espacio-planta-baja" } })
+            }
+          >
+            <div className={styles.spaceCardImg}>
+              <img src="/src/assets/plantabaja.png" alt="Planta Baja" />
+              <span className={styles.spaceCardBadge}>20 lugares</span>
+            </div>
+            <div className={styles.spaceCardBody}>
+              <h3>Planta Baja</h3>
+              <p>Puestos tipo escritorio, sillones y espacio abierto para trabajar con total comodidad.</p>
+              <span className={styles.spaceCardLink}>
+                Explorar <ArrowRightOutlined />
+              </span>
+            </div>
+          </div>
+          <div
+            className={styles.spaceCard}
+            onClick={() =>
+              navigate("/espacios", { state: { scrollTo: "espacio-primer-piso" } })
+            }
+          >
+            <div className={styles.spaceCardImg}>
+              <img src="/src/assets/primerpiso.png" alt="Primer Piso" />
+              <span className={styles.spaceCardBadge}>Oficinas privadas</span>
+            </div>
+            <div className={styles.spaceCardBody}>
+              <h3>Primer Piso</h3>
+              <p>Oficina privada con escritorios, sala de conferencias con proyector y TV.</p>
+              <span className={styles.spaceCardLink}>
+                Explorar <ArrowRightOutlined />
+              </span>
+            </div>
+          </div>
+          <div
+            className={styles.spaceCard}
+            onClick={() =>
+              navigate("/espacios", { state: { scrollTo: "espacio-terraza" } })
+            }
+          >
+            <div className={styles.spaceCardImg}>
+              <img src="/src/assets/terrazarda.png" alt="Terraza" />
+              <span className={styles.spaceCardBadge}>Aire libre</span>
+            </div>
+            <div className={styles.spaceCardBody}>
+              <h3>Terraza</h3>
+              <p>Espacio al aire libre con mesas, ideal para reuniones informales o descansar.</p>
+              <span className={styles.spaceCardLink}>
+                Explorar <ArrowRightOutlined />
+              </span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* BENEFITS */}
+      <section className={`${styles.beneficios} ${styles.animateOnScroll}`}>
+        <h2 className={styles.sectionTitle}>Todo lo que necesitas</h2>
+        <p className={styles.sectionSub}>Equipados para que solo te preocupes por trabajar</p>
+        <div className={styles.beneficiosGrid}>
+          <div className={styles.beneficioCard}>
+            <div className={styles.beneficioIcon}><WifiOutlined /></div>
+            <h4>Internet de alta velocidad</h4>
+            <p>Conexion estable y rapida para que trabajes sin interrupciones.</p>
+          </div>
+          <div className={styles.beneficioCard}>
+            <div className={styles.beneficioIcon}><CoffeeOutlined /></div>
+            <h4>Cocina y cafe libre</h4>
+            <p>Cocina equipada, cafe, heladera y microondas a tu disposicion.</p>
+          </div>
+          <div className={styles.beneficioCard}>
+            <div className={styles.beneficioIcon}><TeamOutlined /></div>
+            <h4>Comunidad</h4>
+            <p>Conecta con otros profesionales y amplia tu red de contactos.</p>
+          </div>
+          <div className={styles.beneficioCard}>
+            <div className={styles.beneficioIcon}><ClockCircleOutlined /></div>
+            <h4>Horarios flexibles</h4>
+            <p>Turnos de 09:00 a 21:00 hs, y packs por semana o mes para oficina privada.</p>
+          </div>
+        </div>
+      </section>
+
+      {/* PACKS PREVIEW */}
+      <section className={`${styles.packs} ${styles.animateOnScroll}`}>
+        <h2 className={styles.sectionTitle}>Packs semanales y mensuales</h2>
+        <p className={styles.sectionSub}>Ahorra con nuestros planes extendidos para oficinas privadas</p>
+        <div className={styles.packsRow}>
+          <div className={styles.packPreview}>
+            <div className={styles.packPreviewHeader}>
+              <CalendarOutlined />
+              <h3>Pack Semanal</h3>
+            </div>
+            <p>7 dias continuos de uso exclusivo de escritorio u oficina completa.</p>
+            <button className={styles.packPreviewBtn} onClick={() => navigate("/registro")}>
+              Reservar <ArrowRightOutlined />
+            </button>
+          </div>
+          <div className={styles.packPreview}>
+            <div className={styles.packPreviewHeader}>
+              <CalendarOutlined />
+              <h3>Pack Mensual</h3>
+            </div>
+            <p>30 dias de acceso a tu espacio privado en el primer piso.</p>
+            <button className={styles.packPreviewBtn} onClick={() => navigate("/registro")}>
+              Reservar <ArrowRightOutlined />
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* CTA */}
+      <section className={`${styles.ctaFinal} ${styles.animateOnScroll}`}>
+        <div className={styles.ctaContent}>
+          <h2>Listo para empezar?</h2>
+          <p>Reserva tu espacio en minutos y transforma tu manera de trabajar.</p>
+          <button className={styles.ctaBtn} onClick={() => navigate("/registro")}>
+            Reservar mi espacio <ArrowRightOutlined />
+          </button>
         </div>
       </section>
 
