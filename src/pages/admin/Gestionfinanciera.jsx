@@ -95,6 +95,63 @@ export default function GestionFinanciera() {
   const [formMetodo, setFormMetodo] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
+  /** Una fila por serie o por lote multi-recurso (evita duplicar cobros/pendientes en UI). */
+  const reservasPendientesVista = useMemo(() => {
+    const list = reservasPendientes || [];
+    const bySerie = new Map();
+    const byGrupo = new Map();
+    for (const r of list) {
+      if (r.idSerie) {
+        if (!bySerie.has(r.idSerie)) bySerie.set(r.idSerie, []);
+        bySerie.get(r.idSerie).push(r);
+      }
+      if (r.idReservaGrupo) {
+        if (!byGrupo.has(r.idReservaGrupo)) byGrupo.set(r.idReservaGrupo, []);
+        byGrupo.get(r.idReservaGrupo).push(r);
+      }
+    }
+    const doneS = new Set();
+    const doneG = new Set();
+    const out = [];
+    for (const r of list) {
+      if (r.idSerie) {
+        if (doneS.has(r.idSerie)) continue;
+        doneS.add(r.idSerie);
+        const grp = bySerie.get(r.idSerie) || [];
+        const sorted = [...grp].sort((a, b) => String(a.DiaReserva).localeCompare(String(b.DiaReserva)));
+        const first = sorted[0];
+        const monto = sorted.reduce((s, x) => s + (parseFloat(x.Monto) || 0), 0);
+        const recs = [...new Set(sorted.map((x) => x.recurso_nombre).filter(Boolean))];
+        out.push({
+          ...first,
+          key: `serie-pend-${r.idSerie}`,
+          idReserva: Math.min(...sorted.map((x) => x.idReserva)),
+          Monto: monto,
+          recurso_nombre: recs.join(", "),
+        });
+        continue;
+      }
+      if (r.idReservaGrupo) {
+        if (doneG.has(r.idReservaGrupo)) continue;
+        doneG.add(r.idReservaGrupo);
+        const grp = byGrupo.get(r.idReservaGrupo) || [];
+        const sorted = [...grp].sort((a, b) => (a.idReserva || 0) - (b.idReserva || 0));
+        const first = sorted[0];
+        const monto = sorted.reduce((s, x) => s + (parseFloat(x.Monto) || 0), 0);
+        out.push({
+          ...first,
+          key: `grupo-pend-${r.idReservaGrupo}`,
+          idReserva: r.idReservaGrupo,
+          Monto: monto,
+          recurso_nombre: sorted.map((x) => x.recurso_nombre).filter(Boolean).join(", "),
+        });
+        continue;
+      }
+      out.push({ ...r, key: `pend-${r.idReserva}` });
+    }
+    return out;
+  }, [reservasPendientes]);
+
   const fetchTransaccionesPage = async (page = 1) => {
     const limit = pageSize;
     const offset = (page - 1) * limit;
@@ -168,12 +225,13 @@ export default function GestionFinanciera() {
 
   /* ── Stats ── */
   const stats = useMemo(() => {
+    const pendN = reservasPendientesVista.length;
     if (resumen) {
       return {
         totalIngresos: resumen.totalIngresosPagados ?? 0,
         ingresosHoy: resumen.ingresosHoy ?? 0,
         totalTransacciones: resumen.totalTransacciones ?? 0,
-        pendientesCobro: resumen.pendientesCobro ?? reservasPendientes.length,
+        pendientesCobro: pendN,
         pagosPresencial: resumen.pagosPresencial ?? 0,
         pagosOnline: resumen.pagosOnline ?? 0,
       };
@@ -182,11 +240,11 @@ export default function GestionFinanciera() {
       totalIngresos: 0,
       ingresosHoy: 0,
       totalTransacciones: transaccionesTotal,
-      pendientesCobro: reservasPendientes.length,
+      pendientesCobro: pendN,
       pagosPresencial: 0,
       pagosOnline: 0,
     };
-  }, [resumen, reservasPendientes.length, transaccionesTotal]);
+  }, [resumen, reservasPendientesVista.length, transaccionesTotal]);
 
   const tableRangeStart = transacciones.length === 0 ? 0 : (tablePage - 1) * pageSize + 1;
   const tableRangeEnd = (tablePage - 1) * pageSize + transacciones.length;
@@ -256,6 +314,29 @@ export default function GestionFinanciera() {
           {r.recurso_nombre && <div style={{ fontSize: 11, color: "#999" }}>{r.recurso_nombre}</div>}
         </div>
       ),
+    },
+    {
+      title: "Concepto",
+      key: "clasificacion",
+      width: 128,
+      render: (_, r) => {
+        const c = r.ClasificacionPago;
+        if (c === "reserva_fija") {
+          return (
+            <Tag color="cyan" title="Monto paquete 4 semanas (incluye promoción)">
+              Reserva fija
+            </Tag>
+          );
+        }
+        if (c === "multirecurso") {
+          return (
+            <Tag color="geekblue" title="Un pago por varios lugares el mismo turno">
+              Varios lugares
+            </Tag>
+          );
+        }
+        return <span style={{ fontSize: 12, color: "#94a3b8" }}>Turno</span>;
+      },
     },
     {
       title: "Fecha",
@@ -441,14 +522,14 @@ export default function GestionFinanciera() {
           {/* Right panel */}
           <div className={styles.rightPanel}>
             {/* Register payment */}
-            <div className={`${styles.formCard} ${reservasPendientes.length > 0 ? styles.formCardPendientesHighlight : ""}`}>
+            <div className={`${styles.formCard} ${reservasPendientesVista.length > 0 ? styles.formCardPendientesHighlight : ""}`}>
               <div className={styles.formTitleRow}>
                 <h3 className={styles.formTitle}>Registrar Cobro</h3>
-                <Badge count={reservasPendientes.length} showZero overflowCount={99}
-                  style={{ backgroundColor: reservasPendientes.length > 0 ? "#d97706" : "#94a3b8" }} />
+                <Badge count={reservasPendientesVista.length} showZero overflowCount={99}
+                  style={{ backgroundColor: reservasPendientesVista.length > 0 ? "#d97706" : "#94a3b8" }} />
               </div>
 
-              {reservasPendientes.length === 0 ? (
+              {reservasPendientesVista.length === 0 ? (
                 <Empty
                   description="No hay reservas pendientes de cobro"
                   image={Empty.PRESENTED_IMAGE_SIMPLE}
@@ -471,10 +552,10 @@ export default function GestionFinanciera() {
                           .includes(input.toLowerCase())
                       }
                     >
-                      {reservasPendientes.map((r) => {
+                      {reservasPendientesVista.map((r) => {
                         const label = `${r.Nombre} — ${r.espacio_nombre || "?"} (${r.DiaReserva ? dayjs(r.DiaReserva).format("DD/MM") : "?"})`;
                         return (
-                          <Option key={r.idReserva} value={r.idReserva} label={label}>
+                          <Option key={r.key || r.idReserva} value={r.idReserva} label={label}>
                             <div className={styles.pendienteOptionRow}>
                               <span className={styles.pendienteOptionText}>{label}</span>
                               <span className={styles.estadoMiniPendiente}>

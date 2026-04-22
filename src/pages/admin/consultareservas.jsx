@@ -125,6 +125,67 @@ export default function ControlReservas() {
   const reservas = reservasQueryData?.items ?? [];
   const reservasTotal = reservasQueryData?.total ?? 0;
 
+  /** Una fila por serie fija o por lote multi-recurso; el resto sin agrupar. */
+  const reservasVista = useMemo(() => {
+    const list = reservas || [];
+    const bySerie = new Map();
+    const byGrupo = new Map();
+    for (const r of list) {
+      if (r.idSerie) {
+        if (!bySerie.has(r.idSerie)) bySerie.set(r.idSerie, []);
+        bySerie.get(r.idSerie).push(r);
+      }
+      if (r.idReservaGrupo) {
+        if (!byGrupo.has(r.idReservaGrupo)) byGrupo.set(r.idReservaGrupo, []);
+        byGrupo.get(r.idReservaGrupo).push(r);
+      }
+    }
+    const doneSerie = new Set();
+    const doneGrupo = new Set();
+    const out = [];
+    for (const r of list) {
+      if (r.idSerie) {
+        if (doneSerie.has(r.idSerie)) continue;
+        doneSerie.add(r.idSerie);
+        const grp = bySerie.get(r.idSerie) || [];
+        const sorted = [...grp].sort((a, b) => String(a.DiaReserva).localeCompare(String(b.DiaReserva)));
+        const first = sorted[0];
+        const total =
+          first.serie_precioFinalTotal != null
+            ? parseFloat(first.serie_precioFinalTotal)
+            : sorted.reduce((s, x) => s + (parseFloat(x.Monto) || 0), 0);
+        out.push({
+          ...first,
+          key: `serie-${r.idSerie}`,
+          _serieN: sorted.length,
+          Monto: total,
+          DiaReserva: first.DiaReserva,
+        });
+        continue;
+      }
+      if (r.idReservaGrupo) {
+        if (doneGrupo.has(r.idReservaGrupo)) continue;
+        doneGrupo.add(r.idReservaGrupo);
+        const grp = byGrupo.get(r.idReservaGrupo) || [];
+        const sorted = [...grp].sort((a, b) => (a.idReserva || 0) - (b.idReserva || 0));
+        const first = sorted[0];
+        const total = sorted.reduce((s, x) => s + (parseFloat(x.Monto) || 0), 0);
+        const nombres = sorted.map((x) => x.recurso_nombre).filter(Boolean);
+        out.push({
+          ...first,
+          key: `grupo-${r.idReservaGrupo}`,
+          idReserva: first.idReserva,
+          _grupoN: sorted.length,
+          Monto: total,
+          recurso_nombre: nombres.join(", "),
+        });
+        continue;
+      }
+      out.push({ ...r, key: r.idReserva });
+    }
+    return out;
+  }, [reservas]);
+
   const fetchEspacios = async () => {
     try {
       const res = await fetch(`${API_URL}/api/espacios`);
@@ -351,8 +412,8 @@ export default function ControlReservas() {
     setDrawerOpen(false);
   };
 
-  const tableRangeStart = reservas.length === 0 ? 0 : (tablePage - 1) * pageSize + 1;
-  const tableRangeEnd = (tablePage - 1) * pageSize + reservas.length;
+  const tableRangeStart = reservasVista.length === 0 ? 0 : (tablePage - 1) * pageSize + 1;
+  const tableRangeEnd = (tablePage - 1) * pageSize + reservasVista.length;
 
   const columns = [
     {
@@ -377,13 +438,49 @@ export default function ControlReservas() {
     {
       title: "Fecha", dataIndex: "DiaReserva", key: "fecha",
       sorter: (a, b) => new Date(a.DiaReserva || 0) - new Date(b.DiaReserva || 0),
-      render: (v) => v ? dayjs(v).format("DD/MM/YYYY") : "-",
+      render: (v) => (v ? dayjs(v).format("DD/MM/YYYY") : "-"),
     },
     {
       title: "Horario", key: "horario",
       render: (_, r) => {
         if (r.TipoReserva === "semanal") return <Tag color="blue">Semanal</Tag>;
-        if (r.TipoReserva === "mensual") return <Tag color="purple">Mensual</Tag>;
+        if (r.TipoReserva === "mensual") return <Tag color="purple">Mensual pack</Tag>;
+        if (r.idSerie) {
+          const horaTxt = r.HorarioReserva ? `${r.HorarioReserva} - ${r.HorarioFin || ""}` : "-";
+          return (
+            <span
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                justifyContent: "space-between",
+                flexWrap: "wrap",
+                width: "100%",
+              }}
+            >
+              <span>{horaTxt}</span>
+              <Tag color="cyan">Fijo 4 sem.</Tag>
+            </span>
+          );
+        }
+        if (r._grupoN > 1) {
+          const horaGrupo = r.HorarioReserva ? `${r.HorarioReserva} - ${r.HorarioFin || ""}` : "-";
+          return (
+            <span
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                justifyContent: "space-between",
+                flexWrap: "wrap",
+                width: "100%",
+              }}
+            >
+              <span>{horaGrupo}</span>
+              <Tag color="geekblue">Varios lugares</Tag>
+            </span>
+          );
+        }
         return r.HorarioReserva ? `${r.HorarioReserva} - ${r.HorarioFin || ""}` : "-";
       },
     },
@@ -409,7 +506,8 @@ export default function ControlReservas() {
     {
       title: "Acciones", key: "acciones", width: 160,
       render: (_, record) => {
-        const puedeEditar = record.puedeEditar === true;
+        const bloquearEdicionGrupo = (record._grupoN > 1 || record._serieN > 1);
+        const puedeEditar = record.puedeEditar === true && !bloquearEdicionGrupo;
         const puedeEliminar = record.puedeEliminar === true;
         const motivo = record.mensajeMutacion || "No se puede modificar esta reserva.";
         const motivoEliminar = record.mensajeNoEliminar || record.mensajeMutacion || "No se puede eliminar esta reserva.";
@@ -520,7 +618,7 @@ export default function ControlReservas() {
             <Card bordered={false} className={styles.tableCard}>
               <Table
                 columns={columns}
-                dataSource={reservas}
+                dataSource={reservasVista}
                 loading={reservasFetching}
                 pagination={{
                   current: tablePage,

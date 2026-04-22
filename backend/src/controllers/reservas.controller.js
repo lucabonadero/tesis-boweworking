@@ -16,6 +16,16 @@ import {
   serializarHorariosReservaEnFilas,
 } from "../services/horarioReserva.service.js";
 import { enriquecerFilaConMutacion, evaluarMutacionReserva } from "../services/reservaMutability.service.js";
+import { lateralUltimaTransaccion } from "../services/transaccionUltimaJoin.service.js";
+import {
+  descuentoSerieMensualDefault,
+  fechasSerieMensualRodante,
+  filtrarDesdeFecha,
+  repartirMontoTotal,
+  fechaFinPeriodoExclusiva,
+  serieSoloDiasHabiles,
+  diaSemanaIsoDesdeYmd,
+} from "../services/reservaSerieMensual.service.js";
 
 function esStaff(usuario) {
   return usuario?.rol === "admin" || usuario?.rol === "empleado";
@@ -32,6 +42,24 @@ function puedeOperarReserva(usuario, rowReserva) {
   const tokenDni = usuario.dni != null ? String(usuario.dni).trim() : "";
   const resDni = rowReserva.DNI != null ? String(rowReserva.DNI).trim() : "";
   return Boolean(tokenDni && resDni && tokenDni === resDni);
+}
+
+/** Todas las filas de reserva del mismo lote multi-recurso (idReservaGrupo), o [idReserva] si no aplica. */
+async function idsReservasMismoGrupo(q, idReserva) {
+  try {
+    const { rows: one } = await q.query('SELECT "idReservaGrupo" FROM "Reservas" WHERE "idReserva" = $1', [idReserva]);
+    if (one.length === 0) return [idReserva];
+    const g = one[0].idReservaGrupo;
+    if (g == null) return [idReserva];
+    const { rows } = await q.query(
+      'SELECT "idReserva" FROM "Reservas" WHERE "idReservaGrupo" = $1 ORDER BY "idReserva" ASC',
+      [g]
+    );
+    return rows.length ? rows.map((r) => r.idReserva) : [idReserva];
+  } catch (e) {
+    if (e.code === "42703" && String(e.message || "").includes("idReservaGrupo")) return [idReserva];
+    throw e;
+  }
 }
 
 /** Titular para INSERT: staff usa body; cliente usa ClienteUsuario por req.usuario.id. */
@@ -317,6 +345,235 @@ async function calcularMonto(idRecurso, tipo, horaInicio, horaFin) {
   return 0;
 }
 
+/** Cotización pública de reserva fija: 4 semanas consecutivas desde fecha inicio (sin persistencia). */
+export const cotizarSerieMensual = async (req, res) => {
+  try {
+    const { fechaInicio, diaSemana, idRecurso, HorarioReserva, HorarioFin } = req.query;
+    const fi = String(fechaInicio || "").trim();
+    if (serieSoloDiasHabiles() && diaSemana >= 6) {
+      return res.status(400).json({
+        message: "El día recurrente debe ser hábil (lunes a viernes). Para incluir fines de semana configurá RESERVA_SERIE_SOLO_DIAS_HABILES=false.",
+      });
+    }
+    const errDiaIni = validarDiaReservaNoEnElPasado(fi);
+    if (errDiaIni) return res.status(400).json({ message: errDiaIni });
+
+    const nh = horariosParaReservaTurno(HorarioReserva, HorarioFin);
+    if (nh.error) return res.status(400).json({ message: nh.error });
+    const errH = validarVentanaOperativaTurno(nh.horaIni, nh.horaFin);
+    if (errH) return res.status(400).json({ message: errH });
+
+    if (diaSemanaIsoDesdeYmd(fi) !== diaSemana) {
+      return res.status(400).json({
+        message:
+          "La fecha de inicio debe ser el mismo día de la semana que elegiste (por ejemplo, si elegís viernes, la fecha tiene que ser un viernes). Se reservan 4 turnos en semanas consecutivas.",
+      });
+    }
+
+    const hoy = new Date().toISOString().slice(0, 10);
+    const fechasAll = fechasSerieMensualRodante(fi, diaSemana);
+    const fechas = filtrarDesdeFecha(fechasAll, hoy);
+    if (fechas.length === 0) {
+      return res.status(400).json({
+        message:
+          "No hay turnos en la serie de 4 semanas para el día elegido, o ya pasaron. Probá otra fecha de inicio u horario.",
+      });
+    }
+
+    let precioListaTotal = 0;
+    for (const _f of fechas) {
+      precioListaTotal += await calcularMonto(idRecurso, "turno", nh.horaIni, nh.horaFin);
+    }
+    const desc = descuentoSerieMensualDefault();
+    const precioFinalTotal = Math.round(precioListaTotal * (1 - desc) * 100) / 100;
+    const finEx = fechaFinPeriodoExclusiva(fi);
+
+    res.json({
+      fechaInicio: fi,
+      fechaFinPeriodoExclusiva: finEx,
+      periodoHasta: fechas[fechas.length - 1],
+      diaSemana,
+      nOcurrencias: fechas.length,
+      fechas,
+      descuentoAplicado: desc,
+      precioListaTotal: Math.round(precioListaTotal * 100) / 100,
+      precioFinalTotal,
+    });
+  } catch (error) {
+    console.error("Error al cotizar serie mensual:", error);
+    res.status(500).json({ message: "Error interno del servidor" });
+  }
+};
+
+/** Crea cabecera ReservaSeria + N filas turno enlazadas (un pago grupal vía MP). */
+export const crearSerieMensual = async (req, res) => {
+  try {
+    const titular = await resolverTitularReserva(req, res);
+    if (!titular) return;
+
+    const { fechaInicio, diaSemana, idRecurso: idRecursoRaw, HorarioReserva, HorarioFin } = req.body;
+    const fi = String(fechaInicio || "").trim();
+    const idRecurso = Number(idRecursoRaw);
+    if (!Number.isFinite(idRecurso) || idRecurso <= 0) {
+      return res.status(400).json({ message: "Debés seleccionar un recurso válido a reservar." });
+    }
+    if (serieSoloDiasHabiles() && diaSemana >= 6) {
+      return res.status(400).json({
+        message: "El día recurrente debe ser hábil (lunes a viernes).",
+      });
+    }
+    const errDiaIniC = validarDiaReservaNoEnElPasado(fi);
+    if (errDiaIniC) return res.status(400).json({ message: errDiaIniC });
+
+    const nh = horariosParaReservaTurno(HorarioReserva, HorarioFin);
+    if (nh.error) return res.status(400).json({ message: nh.error });
+    const errH = validarVentanaOperativaTurno(nh.horaIni, nh.horaFin);
+    if (errH) return res.status(400).json({ message: errH });
+
+    if (diaSemanaIsoDesdeYmd(fi) !== diaSemana) {
+      return res.status(400).json({
+        message:
+          "La fecha de inicio debe ser el mismo día de la semana que elegiste. Se reservan 4 turnos en semanas consecutivas.",
+      });
+    }
+
+    const msgTurno = await mensajeTurnoNoDisponibleParaRecurso(idRecurso);
+    if (msgTurno) return res.status(400).json({ message: msgTurno });
+
+    const hoy = new Date().toISOString().slice(0, 10);
+    const fechasAll = fechasSerieMensualRodante(fi, diaSemana);
+    const fechas = filtrarDesdeFecha(fechasAll, hoy);
+    if (fechas.length === 0) {
+      return res.status(400).json({
+        message:
+          "No hay turnos en la serie de 4 semanas para el día elegido, o ya pasaron.",
+      });
+    }
+
+    const errPrimera = validarDiaReservaNoEnElPasado(fechas[0]);
+    if (errPrimera) return res.status(400).json({ message: errPrimera });
+    const errPasado = validarInicioTurnoNoEnElPasado(fechas[0], nh.horaIni);
+    if (errPasado) return res.status(400).json({ message: errPasado });
+
+    let precioListaTotal = 0;
+    for (const _f of fechas) {
+      precioListaTotal += await calcularMonto(idRecurso, "turno", nh.horaIni, nh.horaFin);
+    }
+    const desc = descuentoSerieMensualDefault();
+    const precioFinalTotal = Math.round(precioListaTotal * (1 - desc) * 100) / 100;
+    const montos = repartirMontoTotal(precioFinalTotal, fechas.length);
+
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      await bloquearEspaciosDeRecursos(client, [idRecurso]);
+
+      for (const fecha of fechas) {
+        const conflicto = await verificarConflictos(client, idRecurso, fecha, nh.horaIni, nh.horaFin, "turno", null);
+        if (conflicto) {
+          await client.query("ROLLBACK");
+          return res.status(409).json({ message: conflicto, fechaConflictiva: fecha });
+        }
+      }
+
+      const [yy, mm] = fi.split("-").map(Number);
+      const periodoHasta = fechas[fechas.length - 1];
+      const insSerie = await client.query(
+        `INSERT INTO "ReservaSerie" (
+          "DNI","Nombre","idRecurso","anio","mes","diaSemana",
+          "HorarioReserva","HorarioFin","descuentoAplicado",
+          "precioListaTotal","precioFinalTotal","nOcurrencias","Estado",
+          "periodoDesde","periodoHasta"
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7::time,$8::time,$9,$10,$11,$12,'activa',$13::date,$14::date)
+        RETURNING *`,
+        [
+          titular.dni,
+          titular.nombre,
+          idRecurso,
+          yy,
+          mm,
+          diaSemana,
+          nh.horaIni,
+          nh.horaFin,
+          desc,
+          Math.round(precioListaTotal * 100) / 100,
+          precioFinalTotal,
+          fechas.length,
+          fi,
+          periodoHasta,
+        ]
+      );
+      const serie = insSerie.rows[0];
+      const idSerie = serie.idSerie;
+
+      const creadas = [];
+      for (let i = 0; i < fechas.length; i++) {
+        const ins = await client.query(
+          `INSERT INTO "Reservas" (
+            "DNI","Nombre","idRecurso","HorarioReserva","HorarioFin","Monto","DiaReserva","TipoReserva","Estado","idSerie"
+          ) VALUES ($1,$2,$3,$4::time,$5::time,$6,$7,'turno','activa',$8)
+          RETURNING *`,
+          [
+            titular.dni,
+            titular.nombre,
+            idRecurso,
+            nh.horaIni,
+            nh.horaFin,
+            montos[i],
+            fechas[i],
+            idSerie,
+          ]
+        );
+        creadas.push(ins.rows[0]);
+      }
+
+      await client.query("COMMIT");
+      enviarConfirmacionReservaEnBackground(
+        pool,
+        creadas.map((r) => r.idReserva)
+      );
+      res.status(201).json({
+        idSerie,
+        idReservaPago: creadas[0].idReserva,
+        precioFinalTotal,
+        precioListaTotal: Math.round(precioListaTotal * 100) / 100,
+        descuentoAplicado: desc,
+        nOcurrencias: fechas.length,
+        fechaInicio: fi,
+        fechaFinPeriodoExclusiva: fechaFinPeriodoExclusiva(fi),
+        periodoHasta,
+        reservas: serializarHorariosReservaEnFilas(creadas),
+      });
+    } catch (err) {
+      try {
+        await client.query("ROLLBACK");
+      } catch {
+        /* */
+      }
+      throw err;
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    console.error("Error al crear serie mensual:", error);
+    if (error.code === "23503")
+      return res.status(400).json({ message: "El DNI no corresponde a un cliente registrado." });
+    if (error.code === "42703" && String(error.message || "").includes("periodoDesde")) {
+      return res.status(503).json({
+        message:
+          "Falta en la BD la migración de período rodante: ejecutá el bloque final de backend/database/migration_reserva_serie_mensual.sql (periodoDesde / periodoHasta).",
+      });
+    }
+    if (error.code === "42P01" || String(error.message || "").includes('ReservaSerie')) {
+      return res.status(503).json({
+        message:
+          "El servidor no tiene aplicada la migración de reservas fijas mensuales. Ejecutá backend/database/migration_reserva_serie_mensual.sql",
+      });
+    }
+    res.status(500).json({ message: "Error interno del servidor" });
+  }
+};
+
 // ── CRUD ────────────────────────────────────────────────────
 
 export const obtenerReservas = async (req, res) => {
@@ -329,13 +586,8 @@ export const obtenerReservas = async (req, res) => {
       LEFT JOIN "Cliente" c ON r."DNI" = c."DNI"
       LEFT JOIN "Recursos" rec ON r."idRecurso" = rec."idRecurso"
       LEFT JOIN "Espacios" e ON rec."idEspacio" = e."Espacio"
-      LEFT JOIN LATERAL (
-        SELECT t."EstadoPago"
-        FROM "Transaccion" t
-        WHERE t."idReserva" = r."idReserva"
-        ORDER BY t."idTransaccion" DESC NULLS LAST
-        LIMIT 1
-      ) tx ON true
+      LEFT JOIN "ReservaSerie" rs ON r."idSerie" = rs."idSerie"
+      ${lateralUltimaTransaccion("r", "tx")}
     `;
 
     const { rows: countRows } = await pool.query(`SELECT COUNT(*)::int AS c ${baseFrom} ${where}`, params);
@@ -347,7 +599,15 @@ export const obtenerReservas = async (req, res) => {
              c."Nombre" AS cliente_nombre, c."Apellido" AS cliente_apellido,
              rec."Nombre" AS recurso_nombre, rec."esCompleto",
              e."Nombre" AS espacio_nombre,
-             tx."EstadoPago"
+             tx."EstadoPago",
+             rs."anio" AS "serie_anio",
+             rs."mes" AS "serie_mes",
+             rs."diaSemana" AS "serie_diaSemana",
+             rs."nOcurrencias" AS "serie_nOcurrencias",
+             rs."precioFinalTotal" AS "serie_precioFinalTotal",
+             rs."descuentoAplicado" AS "serie_descuentoAplicado",
+             rs."periodoDesde" AS "serie_periodoDesde",
+             rs."periodoHasta" AS "serie_periodoHasta"
       ${baseFrom}
       ${where}
       ORDER BY r."DiaReserva" DESC NULLS LAST, r."idReserva" DESC
@@ -381,13 +641,7 @@ export const obtenerReservasOcupacionDia = async (req, res) => {
       LEFT JOIN "Cliente" c ON r."DNI" = c."DNI"
       LEFT JOIN "Recursos" rec ON r."idRecurso" = rec."idRecurso"
       LEFT JOIN "Espacios" e ON rec."idEspacio" = e."Espacio"
-      LEFT JOIN LATERAL (
-        SELECT t."EstadoPago"
-        FROM "Transaccion" t
-        WHERE t."idReserva" = r."idReserva"
-        ORDER BY t."idTransaccion" DESC NULLS LAST
-        LIMIT 1
-      ) tx ON true
+      ${lateralUltimaTransaccion("r", "tx")}
     `;
     const { rows } = await pool.query(
       `
@@ -427,13 +681,7 @@ export const obtenerReservaPorId = async (req, res) => {
        LEFT JOIN "Cliente" c ON r."DNI" = c."DNI"
        LEFT JOIN "Recursos" rec ON r."idRecurso" = rec."idRecurso"
        LEFT JOIN "Espacios" e ON rec."idEspacio" = e."Espacio"
-       LEFT JOIN LATERAL (
-         SELECT t."EstadoPago", t."MetodoPago", t."TipoPago"
-         FROM "Transaccion" t
-         WHERE t."idReserva" = r."idReserva"
-         ORDER BY t."idTransaccion" DESC NULLS LAST
-         LIMIT 1
-       ) tx ON true
+       ${lateralUltimaTransaccion("r", "tx")}
        WHERE r."idReserva" = $1`,
       [req.params.id]
     );
@@ -624,12 +872,34 @@ export const crearReservasMultiples = async (req, res) => {
       creadas.push(ins.rows[0]);
     }
 
+    const idsCreadas = creadas.map((r) => r.idReserva);
+    const idReservaGrupo = Math.min(...idsCreadas);
+    try {
+      await client.query(
+        `UPDATE "Reservas" SET "idReservaGrupo" = $1 WHERE "idReserva" = ANY($2::int[])`,
+        [idReservaGrupo, idsCreadas]
+      );
+    } catch (err) {
+      if (err.code === "42703" && String(err.message || "").includes("idReservaGrupo")) {
+        await client.query("ROLLBACK");
+        return res.status(503).json({
+          message:
+            "Ejecutá la migración backend/database/migration_reserva_grupo_multiples.sql para unificar reservas múltiples.",
+        });
+      }
+      throw err;
+    }
+
     await client.query("COMMIT");
     enviarConfirmacionReservaEnBackground(
       pool,
       creadas.map((r) => r.idReserva)
     );
-    res.status(201).json({ reservas: serializarHorariosReservaEnFilas(creadas), count: creadas.length });
+    res.status(201).json({
+      reservas: serializarHorariosReservaEnFilas(creadas),
+      count: creadas.length,
+      idReservaGrupo,
+    });
   } catch (error) {
     try {
       await client.query("ROLLBACK");
@@ -797,6 +1067,8 @@ export const cambiarEstadoReserva = async (req, res) => {
     );
     if (prevEst.length === 0) return res.status(404).json({ message: "Reserva no encontrada" });
 
+    const idsEstado = await idsReservasMismoGrupo(pool, idReserva);
+
     if (estado === "completada" || estado === "no_asistio") {
       const row0 = prevEst[0];
       const tipo0 = row0.TipoReserva || "turno";
@@ -809,8 +1081,15 @@ export const cambiarEstadoReserva = async (req, res) => {
 
     if (estado === "cancelada") {
       const { rows: txRows } = await pool.query(
-        'SELECT "EstadoPago" FROM "Transaccion" WHERE "idReserva" = $1',
-        [idReserva]
+        `SELECT t."EstadoPago"
+         FROM "Transaccion" t
+         WHERE t."idReserva" = ANY($1::int[])
+            OR t."idTransaccion" IN (
+              SELECT tr."idTransaccion" FROM "TransaccionReserva" tr WHERE tr."idReserva" = ANY($1::int[])
+            )
+         ORDER BY CASE WHEN t."EstadoPago" = 'Pagado' THEN 0 ELSE 1 END, t."idTransaccion" DESC
+         LIMIT 1`,
+        [idsEstado]
       );
       const pago = txRows[0]?.EstadoPago;
       if (pago === "Pagado" && req.usuario?.rol !== "admin") {
@@ -821,10 +1100,10 @@ export const cambiarEstadoReserva = async (req, res) => {
       }
     }
 
-    const result = await pool.query(
-      'UPDATE "Reservas" SET "Estado" = $1 WHERE "idReserva" = $2',
-      [estado, idReserva]
-    );
+    const result = await pool.query('UPDATE "Reservas" SET "Estado" = $1 WHERE "idReserva" = ANY($2::int[])', [
+      estado,
+      idsEstado,
+    ]);
     if (result.rowCount === 0) return res.status(404).json({ message: "Reserva no encontrada" });
     res.json({ message: "Estado actualizado" });
   } catch (error) {
@@ -845,13 +1124,7 @@ export const obtenerMisReservas = async (req, res) => {
       FROM "Reservas" r
       LEFT JOIN "Recursos" rec ON r."idRecurso" = rec."idRecurso"
       LEFT JOIN "Espacios" e ON rec."idEspacio" = e."Espacio"
-      LEFT JOIN LATERAL (
-        SELECT t."EstadoPago", t."MetodoPago", t."TipoPago"
-        FROM "Transaccion" t
-        WHERE t."idReserva" = r."idReserva"
-        ORDER BY t."idTransaccion" DESC NULLS LAST
-        LIMIT 1
-      ) t ON true
+      ${lateralUltimaTransaccion("r", "t")}
       WHERE r."DNI" = $1
     `;
     const { rows: countRows } = await pool.query(`SELECT COUNT(*)::int AS c ${baseFrom}`, [dni]);
@@ -894,10 +1167,28 @@ export const eliminarReserva = async (req, res) => {
       return res.status(403).json({ message: "No tenés permiso para eliminar esta reserva." });
     }
 
+    const idsBorrar = await idsReservasMismoGrupo(pool, idReserva);
+
+    for (const rid of idsBorrar) {
+      const { rows: rOne } = await pool.query('SELECT * FROM "Reservas" WHERE "idReserva" = $1', [rid]);
+      if (rOne.length === 0) continue;
+      const mut = evaluarMutacionReserva(rOne[0]);
+      if (!mut.puedeEliminar) {
+        return res.status(403).json({ message: mut.mensaje, codigo: mut.codigo });
+      }
+    }
+
     if (esStaff(req.usuario)) {
       const { rows: txRows } = await pool.query(
-        'SELECT "EstadoPago" FROM "Transaccion" WHERE "idReserva" = $1 ORDER BY "idTransaccion" DESC NULLS LAST LIMIT 1',
-        [idReserva]
+        `SELECT t."EstadoPago"
+         FROM "Transaccion" t
+         WHERE t."idReserva" = ANY($1::int[])
+            OR t."idTransaccion" IN (
+              SELECT tr."idTransaccion" FROM "TransaccionReserva" tr WHERE tr."idReserva" = ANY($1::int[])
+            )
+         ORDER BY CASE WHEN t."EstadoPago" = 'Pagado' THEN 0 ELSE 1 END, t."idTransaccion" DESC
+         LIMIT 1`,
+        [idsBorrar]
       );
       if (String(txRows[0]?.EstadoPago ?? "").trim() === "Pagado") {
         return res.status(403).json({
@@ -908,16 +1199,23 @@ export const eliminarReserva = async (req, res) => {
       }
     }
 
-    const mut = evaluarMutacionReserva(ex);
-    if (!mut.puedeEliminar) {
-      return res.status(403).json({ message: mut.mensaje, codigo: mut.codigo });
-    }
-
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
-      await client.query('DELETE FROM "Transaccion" WHERE "idReserva" = $1', [idReserva]);
-      const result = await client.query('DELETE FROM "Reservas" WHERE "idReserva" = $1', [idReserva]);
+      const { rows: txIdRows } = await client.query(
+        `SELECT DISTINCT t."idTransaccion"
+         FROM "Transaccion" t
+         WHERE t."idReserva" = ANY($1::int[])
+         UNION
+         SELECT DISTINCT tr."idTransaccion" FROM "TransaccionReserva" tr WHERE tr."idReserva" = ANY($1::int[])`,
+        [idsBorrar]
+      );
+      const txIds = txIdRows.map((x) => x.idTransaccion).filter((x) => x != null);
+      if (txIds.length > 0) {
+        await client.query('DELETE FROM "TransaccionReserva" WHERE "idTransaccion" = ANY($1::int[])', [txIds]);
+        await client.query('DELETE FROM "Transaccion" WHERE "idTransaccion" = ANY($1::int[])', [txIds]);
+      }
+      const result = await client.query('DELETE FROM "Reservas" WHERE "idReserva" = ANY($1::int[])', [idsBorrar]);
       await client.query("COMMIT");
       if (result.rowCount === 0) return res.status(404).json({ message: "Reserva no encontrada" });
       res.json({ message: "Reserva eliminada" });

@@ -69,6 +69,29 @@ function verifyMercadoPagoWebhookSignature(req) {
   return { ok: true, skipped: false };
 }
 
+/** 'reserva_fija' | 'multirecurso' | null — para interpretar montos en reportes. */
+async function inferClasificacionPago(idReserva) {
+  try {
+    const { rows } = await pool.query(
+      'SELECT "idSerie", "idReservaGrupo" FROM "Reservas" WHERE "idReserva" = $1',
+      [idReserva]
+    );
+    if (!rows[0]) return null;
+    if (rows[0].idSerie != null) return "reserva_fija";
+    if (rows[0].idReservaGrupo != null) {
+      const { rows: c } = await pool.query(
+        'SELECT COUNT(*)::int AS n FROM "Reservas" WHERE "idReservaGrupo" = $1',
+        [rows[0].idReservaGrupo]
+      );
+      if ((c[0]?.n ?? 0) > 1) return "multirecurso";
+    }
+    return null;
+  } catch (e) {
+    if (e.code === "42703") return null;
+    throw e;
+  }
+}
+
 export function mapMPStatus(mpStatus) {
   switch (mpStatus) {
     case "approved":
@@ -99,6 +122,7 @@ async function persistMercadoPagoPayment(payment, paymentId) {
 
   const estadoPago = mapMPStatus(payment.status);
   const pid = String(paymentId);
+  const clasificacion = await inferClasificacionPago(idReserva);
 
   const txExists = await pool.query(
     'SELECT "idTransaccion", "mp_payment_id", "EstadoPago" FROM "Transaccion" WHERE "idReserva" = $1',
@@ -112,15 +136,16 @@ async function persistMercadoPagoPayment(payment, paymentId) {
     }
     await pool.query(
       `UPDATE "Transaccion"
-       SET "EstadoPago" = $1, "mp_payment_id" = $2, "TipoPago" = 'online', "MetodoPago" = 'mercadopago'
+       SET "EstadoPago" = $1, "mp_payment_id" = $2, "TipoPago" = 'online', "MetodoPago" = 'mercadopago',
+           "ClasificacionPago" = COALESCE("ClasificacionPago", $4)
        WHERE "idReserva" = $3`,
-      [estadoPago, pid, idReserva]
+      [estadoPago, pid, idReserva, clasificacion]
     );
   } else {
     await pool.query(
-      `INSERT INTO "Transaccion" ("idReserva", "MetodoPago", "EstadoPago", "TipoPago", "mp_payment_id")
-       VALUES ($1, 'mercadopago', $2, 'online', $3)`,
-      [idReserva, estadoPago, pid]
+      `INSERT INTO "Transaccion" ("idReserva", "MetodoPago", "EstadoPago", "TipoPago", "mp_payment_id", "ClasificacionPago")
+       VALUES ($1, 'mercadopago', $2, 'online', $3, $4)`,
+      [idReserva, estadoPago, pid, clasificacion]
     );
   }
 
@@ -133,37 +158,134 @@ export const crearPreferencia = async (req, res) => {
       return res.status(503).json({ message: "Mercado Pago no configurado. Configure MP_ACCESS_TOKEN." });
     }
 
-    const { idReserva } = req.body;
-    if (!idReserva) return res.status(400).json({ message: "idReserva es requerido." });
+    const { idReserva: idReservaRaw, idSerie: idSerieRaw, idReservaGrupo: idGrupoRaw } = req.body;
+    let idSerie = idSerieRaw != null ? Number(idSerieRaw) : null;
+    const idReservaSingle = idReservaRaw != null ? Number(idReservaRaw) : null;
+    const idReservaGrupo = idGrupoRaw != null ? Number(idGrupoRaw) : null;
 
-    const { rows } = await pool.query(
-      `SELECT r.*, rec."Nombre" AS recurso_nombre, e."Nombre" AS espacio_nombre
-       FROM "Reservas" r
-       LEFT JOIN "Recursos" rec ON r."idRecurso" = rec."idRecurso"
-       LEFT JOIN "Espacios" e ON rec."idEspacio" = e."Espacio"
-       WHERE r."idReserva" = $1`,
-      [idReserva]
-    );
-    if (rows.length === 0) return res.status(404).json({ message: "Reserva no encontrada." });
-
-    const reserva = rows[0];
-    if (esClientePago(req.usuario) && !esStaffPago(req.usuario)) {
-      const tokenDni = req.usuario.dni != null ? String(req.usuario.dni).trim() : "";
-      const resDni = reserva.DNI != null ? String(reserva.DNI).trim() : "";
-      if (!tokenDni || resDni !== tokenDni) {
-        return res.status(403).json({ message: "No podés iniciar el pago de una reserva que no es tuya." });
+    if (
+      (!idSerie || !Number.isFinite(idSerie) || idSerie <= 0) &&
+      (idReservaGrupo == null || !Number.isFinite(idReservaGrupo)) &&
+      idReservaSingle != null &&
+      Number.isFinite(idReservaSingle) &&
+      idReservaSingle > 0
+    ) {
+      const { rows: probe } = await pool.query('SELECT "idSerie" FROM "Reservas" WHERE "idReserva" = $1', [
+        idReservaSingle,
+      ]);
+      if (probe[0]?.idSerie != null) {
+        idSerie = Number(probe[0].idSerie);
       }
     }
-    const monto = parseFloat(reserva.Monto) || 0;
+
+    let idReservaPago;
+    let monto;
+    let title;
+    let idsTransaccionReserva = [];
+    /** @type {string | null} */
+    let clasificacionPago = null;
+
+    if (idSerie != null && Number.isFinite(idSerie) && idSerie > 0) {
+      clasificacionPago = "reserva_fija";
+      const { rows: serieRows } = await pool.query(
+        `SELECT r."idReserva", r."DNI", rs."precioFinalTotal",
+                rec."Nombre" AS recurso_nombre, e."Nombre" AS espacio_nombre,
+                rs."anio", rs."mes", rs."nOcurrencias",
+                rs."periodoDesde", rs."periodoHasta"
+         FROM "ReservaSerie" rs
+         INNER JOIN "Reservas" r ON r."idSerie" = rs."idSerie"
+         LEFT JOIN "Recursos" rec ON r."idRecurso" = rec."idRecurso"
+         LEFT JOIN "Espacios" e ON rec."idEspacio" = e."Espacio"
+         WHERE rs."idSerie" = $1
+         ORDER BY r."DiaReserva" ASC, r."idReserva" ASC`,
+        [idSerie]
+      );
+      if (serieRows.length === 0) {
+        return res.status(404).json({ message: "Serie de reservas no encontrada." });
+      }
+      const tokenDni = req.usuario?.dni != null ? String(req.usuario.dni).trim() : "";
+      const ownerDni = serieRows[0].DNI != null ? String(serieRows[0].DNI).trim() : "";
+      if (esClientePago(req.usuario) && !esStaffPago(req.usuario)) {
+        if (!tokenDni || ownerDni !== tokenDni) {
+          return res.status(403).json({ message: "No podés iniciar el pago de una reserva que no es tuya." });
+        }
+      }
+      idReservaPago = serieRows[0].idReserva;
+      idsTransaccionReserva = serieRows.map((x) => x.idReserva);
+      monto = parseFloat(serieRows[0].precioFinalTotal) || 0;
+      const sn = serieRows[0];
+      const rango =
+        sn.periodoDesde && sn.periodoHasta
+          ? `${sn.periodoDesde} → ${sn.periodoHasta}`
+          : sn.anio && sn.mes
+            ? `${sn.anio}-${String(sn.mes).padStart(2, "0")}`
+            : "";
+      title = `Reserva fija 4 semanas (${sn.nOcurrencias} turnos${rango ? ` · ${rango}` : ""}) ${sn.espacio_nombre || ""} - ${sn.recurso_nombre || ""}`.trim();
+    } else if (idReservaGrupo != null && Number.isFinite(idReservaGrupo) && idReservaGrupo > 0) {
+      clasificacionPago = "multirecurso";
+      const { rows: grupoRows } = await pool.query(
+        `SELECT r."idReserva", r."DNI", r."Monto",
+                rec."Nombre" AS recurso_nombre, e."Nombre" AS espacio_nombre
+         FROM "Reservas" r
+         LEFT JOIN "Recursos" rec ON r."idRecurso" = rec."idRecurso"
+         LEFT JOIN "Espacios" e ON rec."idEspacio" = e."Espacio"
+         WHERE r."idReservaGrupo" = $1
+         ORDER BY r."idReserva" ASC`,
+        [idReservaGrupo]
+      );
+      if (grupoRows.length === 0) {
+        return res.status(404).json({ message: "Reserva grupal no encontrada." });
+      }
+      const tokenDni = req.usuario?.dni != null ? String(req.usuario.dni).trim() : "";
+      const ownerDni = grupoRows[0].DNI != null ? String(grupoRows[0].DNI).trim() : "";
+      if (esClientePago(req.usuario) && !esStaffPago(req.usuario)) {
+        if (!tokenDni || ownerDni !== tokenDni) {
+          return res.status(403).json({ message: "No podés iniciar el pago de una reserva que no es tuya." });
+        }
+      }
+      idReservaPago = grupoRows[0].idReserva;
+      idsTransaccionReserva = grupoRows.map((x) => x.idReserva);
+      monto = grupoRows.reduce((s, x) => s + (parseFloat(x.Monto) || 0), 0);
+      const esp = grupoRows[0].espacio_nombre || "";
+      const nombres = grupoRows.map((x) => x.recurso_nombre).filter(Boolean);
+      const recTxt = nombres.length > 2 ? `${nombres.length} lugares` : nombres.join(" + ");
+      title = `Reserva múltiple (${grupoRows.length}) ${esp} — ${recTxt}`.trim();
+    } else if (idReservaSingle != null && Number.isFinite(idReservaSingle) && idReservaSingle > 0) {
+      idReservaPago = idReservaSingle;
+      const { rows } = await pool.query(
+        `SELECT r.*, rec."Nombre" AS recurso_nombre, e."Nombre" AS espacio_nombre
+         FROM "Reservas" r
+         LEFT JOIN "Recursos" rec ON r."idRecurso" = rec."idRecurso"
+         LEFT JOIN "Espacios" e ON rec."idEspacio" = e."Espacio"
+         WHERE r."idReserva" = $1`,
+        [idReservaPago]
+      );
+      if (rows.length === 0) return res.status(404).json({ message: "Reserva no encontrada." });
+      const reserva = rows[0];
+      if (esClientePago(req.usuario) && !esStaffPago(req.usuario)) {
+        const tokenDni = req.usuario.dni != null ? String(req.usuario.dni).trim() : "";
+        const resDni = reserva.DNI != null ? String(reserva.DNI).trim() : "";
+        if (!tokenDni || resDni !== tokenDni) {
+          return res.status(403).json({ message: "No podés iniciar el pago de una reserva que no es tuya." });
+        }
+      }
+      monto = parseFloat(reserva.Monto) || 0;
+      title = `Reserva ${reserva.espacio_nombre || ""} - ${reserva.recurso_nombre || ""}`.trim();
+      idsTransaccionReserva = [idReservaPago];
+    } else {
+      return res.status(400).json({ message: "Enviá idReserva, idSerie o idReservaGrupo." });
+    }
+
     if (monto <= 0) {
       return res.status(400).json({
-        message: "El monto de la reserva debe ser mayor a 0 para pagar online. Contacta al administrador para que asigne el precio.",
+        message:
+          "El monto debe ser mayor a 0 para pagar online. Contacta al administrador para que asigne el precio.",
       });
     }
 
     const existing = await pool.query(
       'SELECT "idTransaccion", "EstadoPago" FROM "Transaccion" WHERE "idReserva" = $1',
-      [idReserva]
+      [idReservaPago]
     );
     if (existing.rows.length > 0 && existing.rows[0].EstadoPago === "Pagado") {
       return res.status(409).json({ message: "Esta reserva ya está pagada." });
@@ -174,7 +296,7 @@ export const crearPreferencia = async (req, res) => {
       return res.status(503).json({ message: "Configure FRONTEND_URL en .env (URL del frontend, ej. http://localhost:5173)." });
     }
 
-    const q = encodeURIComponent(String(idReserva));
+    const q = encodeURIComponent(String(idReservaPago));
     const successUrl = `${frontend}/pago/confirmacion?idReserva=${q}`;
     const failureUrl = `${frontend}/pago/confirmacion?idReserva=${q}&resultado=error`;
     const pendingUrl = `${frontend}/pago/confirmacion?idReserva=${q}&resultado=pendiente`;
@@ -182,13 +304,13 @@ export const crearPreferencia = async (req, res) => {
     const preference = {
       items: [
         {
-          title: `Reserva ${reserva.espacio_nombre || ""} - ${reserva.recurso_nombre || ""}`.trim(),
+          title: title || "Reserva Boweworking",
           quantity: 1,
           unit_price: monto,
           currency_id: "ARS",
         },
       ],
-      external_reference: String(idReserva),
+      external_reference: String(idReservaPago),
       back_urls: {
         success: successUrl,
         failure: failureUrl,
@@ -213,19 +335,37 @@ export const crearPreferencia = async (req, res) => {
       return res.status(502).json({ message: "Error al crear preferencia en Mercado Pago.", detail: mpData.message });
     }
 
+    let idTransaccion;
     if (existing.rows.length > 0) {
+      idTransaccion = existing.rows[0].idTransaccion;
       await pool.query(
         `UPDATE "Transaccion"
-         SET "mp_preference_id" = $1, "TipoPago" = 'online', "MetodoPago" = 'mercadopago', "EstadoPago" = 'Pendiente'
+         SET "mp_preference_id" = $1, "TipoPago" = 'online', "MetodoPago" = 'mercadopago', "EstadoPago" = 'Pendiente',
+             "ClasificacionPago" = COALESCE($3, "ClasificacionPago")
          WHERE "idReserva" = $2`,
-        [mpData.id, idReserva]
+        [mpData.id, idReservaPago, clasificacionPago]
       );
     } else {
-      await pool.query(
-        `INSERT INTO "Transaccion" ("idReserva", "MetodoPago", "EstadoPago", "TipoPago", "mp_preference_id")
-         VALUES ($1, 'mercadopago', 'Pendiente', 'online', $2)`,
-        [idReserva, mpData.id]
+      const ins = await pool.query(
+        `INSERT INTO "Transaccion" ("idReserva", "MetodoPago", "EstadoPago", "TipoPago", "mp_preference_id", "ClasificacionPago")
+         VALUES ($1, 'mercadopago', 'Pendiente', 'online', $2, $3)
+         RETURNING "idTransaccion"`,
+        [idReservaPago, mpData.id, clasificacionPago]
       );
+      idTransaccion = ins.rows[0].idTransaccion;
+    }
+
+    try {
+      await pool.query('DELETE FROM "TransaccionReserva" WHERE "idTransaccion" = $1', [idTransaccion]);
+      for (const rid of idsTransaccionReserva) {
+        await pool.query(
+          `INSERT INTO "TransaccionReserva" ("idTransaccion", "idReserva") VALUES ($1, $2)
+           ON CONFLICT ("idTransaccion", "idReserva") DO NOTHING`,
+          [idTransaccion, rid]
+        );
+      }
+    } catch (e) {
+      if (e.code !== "42P01") throw e;
     }
 
     res.json({

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import dayjs from "dayjs";
 import Header from "../../components/header.jsx";
 import Footer from "../../components/footer.jsx";
@@ -67,6 +67,62 @@ export default function Perfil() {
     loadReservas();
   }, [loadReservas]);
 
+  const reservasVista = useMemo(() => {
+    const list = reservas || [];
+    const bySerie = new Map();
+    const byGrupo = new Map();
+    for (const r of list) {
+      if (r.idSerie) {
+        if (!bySerie.has(r.idSerie)) bySerie.set(r.idSerie, []);
+        bySerie.get(r.idSerie).push(r);
+      }
+      if (r.idReservaGrupo) {
+        if (!byGrupo.has(r.idReservaGrupo)) byGrupo.set(r.idReservaGrupo, []);
+        byGrupo.get(r.idReservaGrupo).push(r);
+      }
+    }
+    const doneS = new Set();
+    const doneG = new Set();
+    const out = [];
+    for (const r of list) {
+      if (r.idSerie) {
+        if (doneS.has(r.idSerie)) continue;
+        doneS.add(r.idSerie);
+        const grp = bySerie.get(r.idSerie) || [];
+        const sorted = [...grp].sort((a, b) => String(a.DiaReserva).localeCompare(String(b.DiaReserva)));
+        const first = sorted[0];
+        const monto = sorted.reduce((s, x) => s + (parseFloat(x.Monto) || 0), 0);
+        const recs = [...new Set(sorted.map((x) => x.recurso_nombre).filter(Boolean))];
+        out.push({
+          ...first,
+          key: `serie-${r.idSerie}`,
+          idReserva: Math.min(...sorted.map((x) => x.idReserva)),
+          Monto: monto,
+          recurso_nombre: recs.join(", "),
+        });
+        continue;
+      }
+      if (r.idReservaGrupo) {
+        if (doneG.has(r.idReservaGrupo)) continue;
+        doneG.add(r.idReservaGrupo);
+        const grp = byGrupo.get(r.idReservaGrupo) || [];
+        const sorted = [...grp].sort((a, b) => (a.idReserva || 0) - (b.idReserva || 0));
+        const first = sorted[0];
+        const monto = sorted.reduce((s, x) => s + (parseFloat(x.Monto) || 0), 0);
+        out.push({
+          ...first,
+          key: `grupo-${r.idReservaGrupo}`,
+          idReserva: r.idReservaGrupo,
+          Monto: monto,
+          recurso_nombre: sorted.map((x) => x.recurso_nombre).filter(Boolean).join(", "),
+        });
+        continue;
+      }
+      out.push({ ...r, key: r.idReserva });
+    }
+    return out;
+  }, [reservas]);
+
   useEffect(() => {
     if (user) {
       form.setFieldsValue({
@@ -115,13 +171,19 @@ export default function Perfil() {
     }
   };
 
-  const handlePagarMP = async (idReserva) => {
-    setMpLoadingId(idReserva);
+  const handlePagarMP = async (r) => {
+    const loadingKey = r.idSerie ? `serie-${r.idSerie}` : r.idReservaGrupo ? `grupo-${r.idReservaGrupo}` : r.idReserva;
+    setMpLoadingId(loadingKey);
     try {
+      const body = r.idSerie
+        ? { idSerie: r.idSerie }
+        : r.idReservaGrupo
+          ? { idReservaGrupo: r.idReservaGrupo }
+          : { idReserva: r.idReserva };
       const res = await authFetch(`${API_URL}/api/pagos/crear-preferencia`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ idReserva }),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -166,7 +228,9 @@ export default function Perfil() {
       width: 120,
       render: (_, r) => {
         if (r.TipoReserva === "semanal") return <Tag color="blue">Semanal</Tag>;
-        if (r.TipoReserva === "mensual") return <Tag color="purple">Mensual</Tag>;
+        if (r.TipoReserva === "mensual") return <Tag color="purple">Mensual pack</Tag>;
+        if (r.idSerie) return <Tag color="cyan">Fijo 4 sem.</Tag>;
+        if (r.idReservaGrupo) return <Tag color="geekblue">Varios lugares</Tag>;
         return r.HorarioReserva ? `${r.HorarioReserva} - ${r.HorarioFin || ""}` : "-";
       },
     },
@@ -207,13 +271,14 @@ export default function Perfil() {
         const puedePagar =
           r.EstadoPago !== "Pagado" && r.Estado !== "cancelada" && (parseFloat(r.Monto) || 0) > 0;
         if (!puedePagar) return <span className={styles.cellMuted}>—</span>;
+        const loadKey = r.idSerie ? `serie-${r.idSerie}` : r.idReservaGrupo ? `grupo-${r.idReservaGrupo}` : r.idReserva;
         return (
           <Button
             size="small"
             type="primary"
             icon={<CreditCardOutlined />}
-            loading={mpLoadingId === r.idReserva}
-            onClick={() => handlePagarMP(r.idReserva)}
+            loading={mpLoadingId === loadKey}
+            onClick={() => handlePagarMP(r)}
             style={{ background: "#009ee3", borderColor: "#009ee3" }}
           >
             Pagar
@@ -373,7 +438,7 @@ export default function Perfil() {
                 <Table
                   className={styles.reservasTable}
                   columns={reservaCols}
-                  dataSource={reservas.map((r) => ({ ...r, key: r.idReserva }))}
+                  dataSource={reservasVista}
                   pagination={{ pageSize: 5, size: "small", responsive: true }}
                   size="small"
                   scroll={{ x: "max-content" }}

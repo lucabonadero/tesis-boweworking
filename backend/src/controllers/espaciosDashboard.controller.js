@@ -1,6 +1,7 @@
 import pool from "../config/db.js";
 import PDFDocument from "pdfkit";
 import { normalizarHorariosEnDisponibilidadRango } from "../services/horarioReserva.service.js";
+import { lateralUltimaTransaccion } from "../services/transaccionUltimaJoin.service.js";
 
 const DATE_OVERLAP_CONDITION = `
   (
@@ -91,9 +92,7 @@ export const obtenerMetricas = async (req, res) => {
        JOIN "Espacios" e ON rec."idEspacio" = e."Espacio"
        LEFT JOIN "Reservas" r ON rec."idRecurso" = r."idRecurso"
          AND ${DATE_OVERLAP_CONDITION}
-       LEFT JOIN LATERAL (
-         SELECT "EstadoPago" FROM "Transaccion" WHERE "idReserva" = r."idReserva" LIMIT 1
-       ) t ON true
+       ${lateralUltimaTransaccion("r", "t")}
        GROUP BY rec."idRecurso", rec."Nombre", rec."esCompleto",
                 rec."idRecursoPadre", e."Nombre", e."Espacio"
        ORDER BY total_reservas DESC`,
@@ -271,9 +270,7 @@ export const generarReportePDF = async (req, res) => {
        JOIN "Espacios" e ON rec."idEspacio" = e."Espacio"
        LEFT JOIN "Reservas" r ON rec."idRecurso" = r."idRecurso"
          AND ${DATE_OVERLAP_CONDITION}
-       LEFT JOIN LATERAL (
-         SELECT "EstadoPago" FROM "Transaccion" WHERE "idReserva" = r."idReserva" LIMIT 1
-       ) t ON true
+       ${lateralUltimaTransaccion("r", "t")}
        GROUP BY rec."idRecurso", rec."Nombre", rec."esCompleto",
                 rec."idRecursoPadre", e."Nombre", e."Espacio"
        ORDER BY e."Espacio", rec."idRecursoPadre" NULLS FIRST, rec."idRecurso"`,

@@ -14,6 +14,16 @@ const columns = [
     ),
   },
   {
+    title: <div style={{ textAlign: 'center' }}>Concepto</div>,
+    dataIndex: 'ClasificacionPago',
+    key: 'ClasificacionPago',
+    render: (c) => (
+      <div style={{ textAlign: 'center' }}>
+        {c === 'reserva_fija' ? <Tag color="cyan">Fija 4 sem.</Tag> : c === 'multirecurso' ? <Tag color="blue">Varios</Tag> : '—'}
+      </div>
+    ),
+  },
+  {
     title: <div style={{ textAlign: 'center' }}>Monto</div>,
     dataIndex: 'Monto',
     key: 'Monto',

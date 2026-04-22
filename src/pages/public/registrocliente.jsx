@@ -50,6 +50,16 @@ import {
 const { Step } = Steps;
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 
+const DIAS_SEMANA_ISO = [
+  { v: 1, label: "Lunes" },
+  { v: 2, label: "Martes" },
+  { v: 3, label: "Miércoles" },
+  { v: 4, label: "Jueves" },
+  { v: 5, label: "Viernes" },
+  { v: 6, label: "Sábado" },
+  { v: 7, label: "Domingo" },
+];
+
 import img1 from "../../assets/espacios_sillas.png";
 import img2 from "../../assets/espacios_sillones.png";
 import img3 from "../../assets/oficina_individual.png";
@@ -111,7 +121,7 @@ function formatPrecio(n) {
 
 function getPrecioUnitario(recurso, tab, packTipo) {
   if (!recurso) return { valor: 0, etiqueta: "" };
-  if (tab === "turno") {
+  if (tab === "turno" || tab === "fijo") {
     const v = parseFloat(recurso.PrecioHora) || 0;
     return { valor: v, etiqueta: v > 0 ? `${formatPrecio(v)}/h` : "" };
   }
@@ -141,6 +151,9 @@ export default function RegistroCliente() {
   const [loadingDispo, setLoadingDispo] = useState(false);
   const [selectedRecursosTurno, setSelectedRecursosTurno] = useState([]);
   const [selectedRecursoPack, setSelectedRecursoPack] = useState(null);
+  const [fijoFechaInicio, setFijoFechaInicio] = useState(null);
+  const [selectedRecursoFijo, setSelectedRecursoFijo] = useState(null);
+  const [fijoCotizacion, setFijoCotizacion] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [reservaCreada, setReservaCreada] = useState(null);
   const [dispoLoaded, setDispoLoaded] = useState(false);
@@ -153,6 +166,13 @@ export default function RegistroCliente() {
   const [packFechaInicio, setPackFechaInicio] = useState(null);
 
   const debounceRef = useRef(null);
+
+  const fijoDiaSemanaIso = useMemo(() => {
+    if (!fijoFechaInicio) return null;
+    const d = fijoFechaInicio.startOf("day");
+    const dow = d.day();
+    return dow === 0 ? 7 : dow;
+  }, [fijoFechaInicio]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -198,6 +218,9 @@ export default function RegistroCliente() {
     setTurnoDuracion(null);
     setPackTipo(null);
     setPackFechaInicio(null);
+    setFijoFechaInicio(null);
+    setSelectedRecursoFijo(null);
+    setFijoCotizacion(null);
     setDispoLoaded(false);
   }, []);
 
@@ -236,15 +259,62 @@ export default function RegistroCliente() {
     return () => clearTimeout(debounceRef.current);
   }, [packTipo, packFechaInicio, activeTab]);
 
+  const slotAnchorFijo = useMemo(() => {
+    if (activeTab !== "fijo" || !fijoFechaInicio) return null;
+    return fijoFechaInicio.startOf("day");
+  }, [activeTab, fijoFechaInicio]);
+
   useEffect(() => {
-    if (activeTab !== "turno" || !turnoFecha || !turnoDuracion) return;
-    const slots = iniciosDisponiblesParaDuracion(turnoFecha, turnoDuracion);
+    if (activeTab !== "fijo" || !fijoFechaInicio || !fijoDiaSemanaIso || !turnoHora || !turnoDuracion) {
+      if (activeTab === "fijo") {
+        setDisponibilidad([]);
+        setDispoLoaded(false);
+        setSelectedRecursoFijo(null);
+      }
+      return;
+    }
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => fetchDispoFijo(), 400);
+    return () => clearTimeout(debounceRef.current);
+  }, [fijoFechaInicio, fijoDiaSemanaIso, turnoHora, turnoDuracion, activeTab]);
+
+  useEffect(() => {
+    if (activeTab !== "fijo" || !fijoFechaInicio || !fijoDiaSemanaIso || !selectedRecursoFijo || !turnoHora || !turnoDuracion) {
+      if (activeTab === "fijo") setFijoCotizacion(null);
+      return;
+    }
+    const t = setTimeout(async () => {
+      try {
+        const horaIni = turnoHora.format("HH:mm");
+        const horaFin = turnoHora.clone().add(turnoDuracion, "minute").format("HH:mm");
+        const params = new URLSearchParams({
+          fechaInicio: fijoFechaInicio.format("YYYY-MM-DD"),
+          diaSemana: String(fijoDiaSemanaIso),
+          idRecurso: String(selectedRecursoFijo.idRecurso),
+          HorarioReserva: horaIni,
+          HorarioFin: horaFin,
+        });
+        const res = await fetch(`${API_URL}/api/reservas/serie-mensual/cotizar?${params}`);
+        const data = await res.json().catch(() => ({}));
+        if (res.ok) setFijoCotizacion(data);
+        else setFijoCotizacion(null);
+      } catch {
+        setFijoCotizacion(null);
+      }
+    }, 450);
+    return () => clearTimeout(t);
+  }, [activeTab, fijoFechaInicio, fijoDiaSemanaIso, selectedRecursoFijo, turnoHora, turnoDuracion]);
+
+  useEffect(() => {
+    const dateForSlots = activeTab === "fijo" ? slotAnchorFijo : turnoFecha;
+    if ((activeTab !== "turno" && activeTab !== "fijo") || !dateForSlots || !turnoDuracion) return;
+    const slots = iniciosDisponiblesParaDuracion(dateForSlots, turnoDuracion);
     setTurnoHora((prev) => {
       if (!prev) return prev;
       if (slots.some((s) => s.isSame(prev, "minute"))) return prev;
       return null;
     });
-  }, [turnoFecha, turnoDuracion, activeTab]);
+  }, [turnoFecha, turnoDuracion, activeTab, slotAnchorFijo]);
 
   const fetchDispoTurno = async () => {
     if (!turnoFecha || !turnoHora || !turnoDuracion) return;
@@ -288,6 +358,37 @@ export default function RegistroCliente() {
       const data = await res.json();
       setDisponibilidad(data);
       setDispoLoaded(true);
+    } catch {
+      message.error("Error al consultar disponibilidad.");
+    } finally {
+      setLoadingDispo(false);
+    }
+  };
+
+  const fetchDispoFijo = async () => {
+    if (!fijoFechaInicio || !fijoDiaSemanaIso || !turnoHora || !turnoDuracion) return;
+    const sample = fijoFechaInicio.startOf("day");
+    setLoadingDispo(true);
+    setSelectedRecursoFijo(null);
+    try {
+      const horaIni = turnoHora.format("HH:mm");
+      const horaFin = turnoHora.clone().add(turnoDuracion, "minute").format("HH:mm");
+      const fecha = sample.format("YYYY-MM-DD");
+      const url = `${API_URL}/api/recursos/disponibilidad?fecha=${fecha}&horaInicio=${horaIni}&horaFin=${horaFin}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      setDisponibilidad(data);
+      setDispoLoaded(true);
+      if (espacios.length === 0) {
+        const espRes = await fetch(`${API_URL}/api/espacios`);
+        const espData = await espRes.json();
+        setEspacios(
+          espData.map((e, i) => ({
+            ...e,
+            imagen: espacioImageMap[e.Nombre] || fallbackImages[i % fallbackImages.length],
+          }))
+        );
+      }
     } catch {
       message.error("Error al consultar disponibilidad.");
     } finally {
@@ -355,20 +456,25 @@ export default function RegistroCliente() {
         return acc + ph * (turnoDuracion / 60);
       }, 0);
     }
+    if (activeTab === "fijo") {
+      return fijoCotizacion?.precioFinalTotal != null ? parseFloat(fijoCotizacion.precioFinalTotal) || 0 : 0;
+    }
     if (!selectedRecursoPack) return 0;
     if (packTipo === "semanal") return parseFloat(selectedRecursoPack.PrecioSemanal) || 0;
     if (packTipo === "mensual") return parseFloat(selectedRecursoPack.PrecioMensual) || 0;
     return 0;
-  }, [selectedRecursosTurno, selectedRecursoPack, activeTab, turnoDuracion, packTipo]);
+  }, [selectedRecursosTurno, selectedRecursoPack, activeTab, turnoDuracion, packTipo, fijoCotizacion]);
 
-  const handlePagarMP = async (idReserva) => {
-    if (!idReserva) return;
+  const handlePagarMP = async ({ idReserva, idSerie, idReservaGrupo }) => {
+    if (!idReserva && !idSerie && idReservaGrupo == null) return;
     setMpLoading(true);
     try {
+      const body =
+        idSerie != null ? { idSerie } : idReservaGrupo != null ? { idReservaGrupo } : { idReserva };
       const res = await authFetch(`${API_URL}/api/pagos/crear-preferencia`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ idReserva }),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -385,12 +491,69 @@ export default function RegistroCliente() {
 
   const submitReserva = async () => {
     if (!user || !perfilCompleto) return false;
+    if (activeTab === "turno" && selectedRecursosTurno.length === 0) return false;
+    if (activeTab === "pack" && !selectedRecursoPack) return false;
+    if (activeTab === "fijo" && !selectedRecursoFijo) return false;
+
     const isTurno = activeTab === "turno";
-    if (isTurno && selectedRecursosTurno.length === 0) return false;
-    if (!isTurno && !selectedRecursoPack) return false;
 
     setSubmitting(true);
     try {
+      if (activeTab === "fijo") {
+        const horaIni = turnoHora.format("HH:mm");
+        const horaFin = turnoHora.clone().add(turnoDuracion, "minute").format("HH:mm");
+        const ventanaErr = validarVentanaOperativaTurno(horaIni, horaFin);
+        if (ventanaErr) {
+          message.error(ventanaErr);
+          return false;
+        }
+        if (!slotAnchorFijo || !fijoFechaInicio || fijoDiaSemanaIso == null) {
+          message.error("Elegí la fecha (día hábil) y el horario para los 4 turnos semanales.");
+          return false;
+        }
+
+        const reservaRes = await authFetch(`${API_URL}/api/reservas/serie-mensual`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            fechaInicio: fijoFechaInicio.format("YYYY-MM-DD"),
+            diaSemana: fijoDiaSemanaIso,
+            idRecurso: selectedRecursoFijo.idRecurso,
+            HorarioReserva: horaIni,
+            HorarioFin: horaFin,
+          }),
+        });
+        const data = await reservaRes.json().catch(() => ({}));
+        if (!reservaRes.ok) {
+          message.error(data.fechaConflictiva ? `${data.message} (${data.fechaConflictiva})` : data.message || "Error al crear la reserva fija");
+          return false;
+        }
+        const espNombre =
+          espacios.find((e) => e.Espacio === selectedRecursoFijo.idEspacio)?.Nombre ||
+          selectedRecursoFijo.espacio_nombre ||
+          "";
+        const diaLabel = DIAS_SEMANA_ISO.find((d) => d.v === fijoDiaSemanaIso)?.label || "";
+        setReservaCreada({
+          serie: true,
+          idSerie: data.idSerie,
+          id: data.idReservaPago,
+          monto: parseFloat(data.precioFinalTotal) || 0,
+          nOcurrencias: data.nOcurrencias,
+          tipo: "fijo_mensual",
+          espacio: espNombre,
+          recurso: selectedRecursoFijo.Nombre,
+          cliente: `${user.nombre} ${user.apellido}`,
+          email: user.email,
+          periodoLabel: `${data.fechaInicio || fijoFechaInicio.format("YYYY-MM-DD")} → ${data.periodoHasta || ""}`,
+          diaLabel,
+          horaInicio: horaIni,
+          horaFin: horaFin,
+        });
+        setStep(2);
+        notifyReservasChanged();
+        return true;
+      }
+
       if (isTurno) {
         const horaIni = turnoHora.format("HH:mm");
         const horaFin = turnoHora.clone().add(turnoDuracion, "minute").format("HH:mm");
@@ -409,7 +572,7 @@ export default function RegistroCliente() {
           message.error(errPasado);
           return false;
         }
-      } else {
+      } else if (activeTab === "pack") {
         const errPack = validarDiaReservaNoEnElPasadoLocal(packFechaInicio);
         if (errPack) {
           message.error(errPack);
@@ -443,9 +606,11 @@ export default function RegistroCliente() {
           espacios.find((e) => e.Espacio === selectedRecursosTurno[0].idEspacio)?.Nombre ||
           selectedRecursosTurno[0].espacio_nombre ||
           "";
+        const idReservaGrupo = Math.min(...rows.map((r) => Number(r.idReserva)));
         setReservaCreada({
           multiple: true,
           ids: rows.map((r) => r.idReserva),
+          idReservaGrupo,
           monto: montoSum,
           tipo: "turno",
           espacio: espNombre,
@@ -564,7 +729,9 @@ export default function RegistroCliente() {
     const selected =
       activeTab === "turno"
         ? selectedRecursosTurno.some((x) => x.idRecurso === r.idRecurso)
-        : selectedRecursoPack?.idRecurso === r.idRecurso;
+        : activeTab === "fijo"
+          ? selectedRecursoFijo?.idRecurso === r.idRecurso
+          : selectedRecursoPack?.idRecurso === r.idRecurso;
 
     const precio = getPrecioUnitario(r, activeTab, packTipo);
 
@@ -576,6 +743,8 @@ export default function RegistroCliente() {
           if (has) return prev.filter((x) => x.idRecurso !== r.idRecurso);
           return [...prev, r];
         });
+      } else if (activeTab === "fijo") {
+        setSelectedRecursoFijo(r);
       } else {
         setSelectedRecursoPack(r);
       }
@@ -731,12 +900,14 @@ export default function RegistroCliente() {
 
   const renderStep0 = () => {
     const isTurno = activeTab === "turno";
+    const isFijo = activeTab === "fijo";
     const duracionesUi = duracionesValidasParaCalendario();
+    const dateForSlots = isFijo ? slotAnchorFijo : turnoFecha;
     const slotsInicio =
-      turnoFecha && turnoDuracion ? iniciosDisponiblesParaDuracion(turnoFecha, turnoDuracion) : [];
+      dateForSlots && turnoDuracion ? iniciosDisponiblesParaDuracion(dateForSlots, turnoDuracion) : [];
     const slotsManana = slotsInicio.filter((s) => s.hour() < 14);
     const slotsTarde = slotsInicio.filter((s) => s.hour() >= 14);
-    const stepFechaOk = !!turnoFecha;
+    const stepFechaOk = isTurno ? !!turnoFecha : isFijo ? !!fijoFechaInicio : true;
     const stepDuracionOk = !!turnoDuracion;
     const stepHoraOk = !!turnoHora;
 
@@ -886,6 +1057,114 @@ export default function RegistroCliente() {
               </div>
             </div>
           </>
+        ) : isFijo ? (
+          <>
+            <div className={styles.bookingHero}>
+              <h2 className={styles.dateStepTitle}>Tu horario fijo: 4 semanas</h2>
+              <p className={styles.dateStepSub}>
+                Elegí en el calendario el día del primer turno: ese mismo día de la semana se repite en las 4 semanas
+                seguidas (solo días hábiles). Un solo pago con descuento vía Mercado Pago.
+              </p>
+              <span className={styles.hoursBadge} title="Horario operativo del coworking">
+                <ClockCircleOutlined aria-hidden /> 09:00 – 21:00 hs
+              </span>
+            </div>
+            <div className={styles.bookingFormCard}>
+              <div className={styles.bookingSection}>
+                <div className={styles.fieldLabelRow}>
+                  <span className={styles.fieldLabelIcon}><CalendarOutlined /></span>
+                  <label className={styles.fieldLabel} htmlFor="fijo-inicio">Fecha del primer turno</label>
+                </div>
+                <div className={styles.dateInputShell}>
+                  <DatePicker
+                    id="fijo-inicio"
+                    format="DD/MM/YYYY"
+                    className={styles.datePickerFull}
+                    placeholder="Desde qué día"
+                    value={fijoFechaInicio}
+                    onChange={setFijoFechaInicio}
+                    disabledDate={(d) => {
+                      if (!d) return false;
+                      if (d.isBefore(dayjs().startOf("day"))) return true;
+                      const dow = d.day();
+                      return dow === 0 || dow === 6;
+                    }}
+                    getPopupContainer={(n) => n.parentElement || document.body}
+                  />
+                </div>
+              </div>
+              <div className={styles.bookingSection}>
+                <div className={styles.fieldLabelRow}>
+                  <span className={styles.fieldLabelIcon}><FieldTimeOutlined /></span>
+                  <span className={styles.fieldLabel}>Duración</span>
+                </div>
+                <div className={styles.durationChips}>
+                  {duracionesUi.map((d) => (
+                    <button
+                      key={d}
+                      type="button"
+                      className={[
+                        styles.durationChip,
+                        turnoDuracion === d ? styles.durationChipActive : "",
+                      ].join(" ")}
+                      onClick={() => setTurnoDuracion(d)}
+                    >
+                      {etiquetaDuracion(d)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className={`${styles.bookingSection} ${styles.bookingSectionLast}`}>
+                <div className={styles.fieldLabelRow}>
+                  <span className={styles.fieldLabelIcon}><ScheduleOutlined /></span>
+                  <span className={styles.fieldLabel}>Hora de inicio</span>
+                </div>
+                {!fijoFechaInicio && (
+                  <div className={styles.fieldHintBox}>
+                    <p className={styles.fieldHint}>Elegí la fecha del primer turno (lun–vie); ese día se repetirá cada semana.</p>
+                  </div>
+                )}
+                {slotAnchorFijo && !turnoDuracion && (
+                  <div className={styles.fieldHintBox}>
+                    <p className={styles.fieldHint}>Elegí la duración de cada turno.</p>
+                  </div>
+                )}
+                {slotAnchorFijo && turnoDuracion && slotsInicio.length === 0 && (
+                  <div className={styles.fieldHintBox}>
+                    <p className={styles.fieldHintWarn}>
+                      No hay inicio posible para esta duración sin pasar las 21:00. Probá otra duración.
+                    </p>
+                  </div>
+                )}
+                {slotsManana.length > 0 && (
+                  <div className={styles.timeSlotBlock}>
+                    <span className={styles.timeSlotBlockTitle}>Mañana y mediodía</span>
+                    <div className={styles.timeSlotGrid}>{slotsManana.map(renderTimeSlotBtn)}</div>
+                  </div>
+                )}
+                {slotsTarde.length > 0 && (
+                  <div className={styles.timeSlotBlock}>
+                    <span className={styles.timeSlotBlockTitle}>Tarde</span>
+                    <div className={styles.timeSlotGrid}>{slotsTarde.map(renderTimeSlotBtn)}</div>
+                  </div>
+                )}
+              </div>
+              {fijoCotizacion && fijoCotizacion.nOcurrencias > 0 && (
+                <div className={styles.fieldHintBox} style={{ marginTop: 8 }}>
+                  <p className={styles.fieldHint}>
+                    {fijoCotizacion.nOcurrencias} turno{fijoCotizacion.nOcurrencias !== 1 ? "s" : ""} (4 semanas)
+                    {fijoCotizacion.precioListaTotal != null && fijoCotizacion.precioFinalTotal != null ? (
+                      <>
+                        {" "}
+                        · Lista {formatPrecio(fijoCotizacion.precioListaTotal)} → con descuento{" "}
+                        <strong>{formatPrecio(fijoCotizacion.precioFinalTotal)}</strong>
+                      </>
+                    ) : null}
+                  </p>
+                </div>
+              )}
+            </div>
+          </>
         ) : (
           <>
             <div className={styles.bookingHero}>
@@ -960,7 +1239,7 @@ export default function RegistroCliente() {
                 </span>
               </div>
 
-              {isTurno ? (
+              {(isTurno || isFijo) ? (
                 recursoGroupsByEspacio.map(({ espId, espData, sections }) => (
                   <div key={espId} className={styles.espacioSection}>
                     <div className={styles.espacioSectionHeader}>
@@ -989,7 +1268,7 @@ export default function RegistroCliente() {
           )}
         </div>
 
-        {((isTurno && selectedRecursosTurno.length > 0) || (!isTurno && selectedRecursoPack)) && (
+        {((isTurno && selectedRecursosTurno.length > 0) || (isFijo && selectedRecursoFijo) || (activeTab === "pack" && selectedRecursoPack)) && (
           <div className={styles.selectedBar}>
             <span>
               {isTurno ? (
@@ -1005,6 +1284,10 @@ export default function RegistroCliente() {
                       {selectedRecursosTurno.map((r) => r.Nombre).join(" · ")}
                     </span>
                   )}
+                </>
+              ) : isFijo ? (
+                <>
+                  Horario fijo (4 sem.): <strong>{selectedRecursoFijo.Nombre}</strong>
                 </>
               ) : (
                 <>
@@ -1037,7 +1320,12 @@ export default function RegistroCliente() {
   // ════════════════════════════════════════════════════
 
   const renderStep1 = () => {
-    const sel = activeTab === "turno" ? selectedRecursosTurno[0] : selectedRecursoPack;
+    const sel =
+      activeTab === "turno"
+        ? selectedRecursosTurno[0]
+        : activeTab === "fijo"
+          ? selectedRecursoFijo
+          : selectedRecursoPack;
     const espNombre =
       espacios.find((e) => e.Espacio === sel?.idEspacio)?.Nombre ||
       sel?.espacio_nombre ||
@@ -1059,6 +1347,16 @@ export default function RegistroCliente() {
               <span className={styles.resumenTag}>
                 {turnoFecha?.format("DD/MM")} {turnoHora?.format("HH:mm")}-
                 {turnoHora?.clone().add(turnoDuracion, "minute").format("HH:mm")}
+              </span>
+            </>
+          )}
+          {activeTab === "fijo" && fijoFechaInicio && (
+            <>
+              <span className={styles.resumenSep}>&#183;</span>
+              <span className={styles.resumenTag}>
+                Desde {fijoFechaInicio.format("DD/MM/YYYY")} (4 semanas) ·{" "}
+                {DIAS_SEMANA_ISO.find((d) => d.v === fijoDiaSemanaIso)?.label} ·{" "}
+                {turnoHora?.format("HH:mm")}-{turnoHora?.clone().add(turnoDuracion, "minute").format("HH:mm")}
               </span>
             </>
           )}
@@ -1139,7 +1437,9 @@ export default function RegistroCliente() {
         subTitle={
           reservaCreada?.multiple
             ? "Tus lugares quedaron reservados."
-            : "Tu lugar esta reservado."
+            : reservaCreada?.serie
+              ? "Tus turnos del mes quedaron reservados. Un solo pago cubre todos."
+              : "Tu lugar esta reservado."
         }
       />
 
@@ -1164,6 +1464,24 @@ export default function RegistroCliente() {
                 <div className={styles.resumenItem}>
                   <span className={styles.resumenLabel}>Fecha</span>
                   <span className={styles.resumenValue}>{reservaCreada.fecha}</span>
+                </div>
+                <div className={styles.resumenItem}>
+                  <span className={styles.resumenLabel}>Horario</span>
+                  <span className={styles.resumenValue}>{reservaCreada.horaInicio} - {reservaCreada.horaFin}</span>
+                </div>
+              </>
+            ) : reservaCreada.tipo === "fijo_mensual" ? (
+              <>
+                <div className={styles.resumenItem}>
+                  <span className={styles.resumenLabel}>Período (4 semanas)</span>
+                  <span className={styles.resumenValue}>{reservaCreada.periodoLabel}</span>
+                </div>
+                <div className={styles.resumenItem}>
+                  <span className={styles.resumenLabel}>Recurrencia</span>
+                  <span className={styles.resumenValue}>
+                    Todos los {reservaCreada.diaLabel} · {reservaCreada.nOcurrencias} turno
+                    {reservaCreada.nOcurrencias !== 1 ? "s" : ""}
+                  </span>
                 </div>
                 <div className={styles.resumenItem}>
                   <span className={styles.resumenLabel}>Horario</span>
@@ -1206,7 +1524,12 @@ export default function RegistroCliente() {
             <div className={styles.pagoOptions}>
               {reservaCreada.multiple && reservaCreada.ids?.length > 1 ? (
                 <p className={styles.fieldHint} style={{ marginBottom: 12 }}>
-                  Tenés una reserva por cada lugar. Podés pagar cada una con Mercado Pago desde tu perfil o al llegar.
+                  Un solo pago con Mercado Pago cubre los {reservaCreada.ids.length} lugares de esta reserva.
+                </p>
+              ) : null}
+              {reservaCreada.serie ? (
+                <p className={styles.fieldHint} style={{ marginBottom: 12 }}>
+                  Un solo pago con Mercado Pago cubre los {reservaCreada.nOcurrencias} turnos de la serie (descuento incluido).
                 </p>
               ) : null}
               <Button
@@ -1215,12 +1538,18 @@ export default function RegistroCliente() {
                 icon={<CreditCardOutlined />}
                 loading={mpLoading}
                 onClick={() =>
-                  handlePagarMP(reservaCreada.multiple ? reservaCreada.ids?.[0] : reservaCreada.id)
+                  reservaCreada.serie
+                    ? handlePagarMP({ idSerie: reservaCreada.idSerie })
+                    : reservaCreada.multiple && reservaCreada.idReservaGrupo != null
+                      ? handlePagarMP({ idReservaGrupo: reservaCreada.idReservaGrupo })
+                      : handlePagarMP({ idReserva: reservaCreada.id })
                 }
               >
-                {reservaCreada.multiple && reservaCreada.ids?.length > 1
-                  ? "Pagar primera reserva (MP)"
-                  : "Pagar con MercadoPago"}
+                {reservaCreada.serie
+                  ? "Pagar serie (4 semanas) con Mercado Pago"
+                  : reservaCreada.multiple && reservaCreada.ids?.length > 1
+                    ? "Pagar reserva con Mercado Pago"
+                    : "Pagar con MercadoPago"}
               </Button>
               <div className={styles.pagoPresencial}>
                 <ShopOutlined style={{ fontSize: 20, color: "#34c08f" }} />
@@ -1261,7 +1590,7 @@ export default function RegistroCliente() {
 
         {step === 0 && <ReservaModificacionAviso className={styles.reservaAvisoTop} />}
 
-        {activeTab === "turno" && (
+        {(activeTab === "turno" || activeTab === "fijo") && (
           <div className={styles.packBanner} onClick={() => switchTab("pack")}>
             <div className={styles.packBannerIcon}><CalendarOutlined /></div>
             <div className={styles.packBannerText}>
@@ -1279,6 +1608,13 @@ export default function RegistroCliente() {
             onClick={() => switchTab("turno")}
           >
             <ClockCircleOutlined /> Reserva por turno
+          </button>
+          <button
+            type="button"
+            className={[styles.tab, activeTab === "fijo" ? styles.tabActive : ""].join(" ")}
+            onClick={() => switchTab("fijo")}
+          >
+            <FieldTimeOutlined /> Horario fijo (4 sem.)
           </button>
           <button
             type="button"

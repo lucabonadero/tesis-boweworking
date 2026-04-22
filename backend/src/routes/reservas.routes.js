@@ -9,13 +9,21 @@ import {
   eliminarReserva,
   cambiarEstadoReserva,
   obtenerMisReservas,
+  cotizarSerieMensual,
+  crearSerieMensual,
 } from "../controllers/reservas.controller.js";
 import { verificarToken, verificarStaff } from "../middleware/auth.middleware.js";
-import { validateBody, validateCrearReservaBody } from "../middleware/validate.middleware.js";
-import { crearReservasMultiplesSchema } from "../schemas/validation.schemas.js";
+import { validateBody, validateCrearReservaBody, validateQuery } from "../middleware/validate.middleware.js";
+import {
+  crearReservasMultiplesSchema,
+  serieMensualCotizarQuerySchema,
+  serieMensualCrearBodySchema,
+} from "../schemas/validation.schemas.js";
 
 const router = Router();
 
+router.get("/serie-mensual/cotizar", validateQuery(serieMensualCotizarQuerySchema), cotizarSerieMensual);
+router.post("/serie-mensual", verificarToken, validateBody(serieMensualCrearBodySchema), crearSerieMensual);
 router.get("/mis-reservas", verificarToken, obtenerMisReservas);
 router.get("/ocupacion-dia", verificarToken, verificarStaff, obtenerReservasOcupacionDia);
 router.get("/", verificarToken, verificarStaff, obtenerReservas);
