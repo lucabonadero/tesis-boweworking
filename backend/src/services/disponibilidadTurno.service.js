@@ -17,7 +17,8 @@ export async function getDisponibilidadTurno(fecha, horaInicio, horaFin) {
     FROM "Recursos" r
     LEFT JOIN "Espacios" e ON r."idEspacio" = e."Espacio"
     LEFT JOIN "Recursos" p ON r."idRecursoPadre" = p."idRecurso"
-    ORDER BY r."idEspacio", r."idRecursoPadre" NULLS FIRST, r."idRecurso"
+    WHERE r."Activo" = true
+    ORDER BY r."idEspacio", r."idRecursoPadre" NULLS FIRST, r."Orden", r."idRecurso"
   `);
 
   const results = [];
@@ -82,10 +83,9 @@ export async function getDisponibilidadTurno(fecha, horaInicio, horaFin) {
 
   return results.filter((r) => {
     if (r.esGrupo) {
-      const n = String(r.Nombre || "").toLowerCase();
-      return !n.includes("oficina");
+      return r.EsReservablePorTurno !== false;
     }
-    return mensajeTurnoNoDisponibleParaFila(r) == null;
+    return r.EsReservablePorTurno !== false && mensajeTurnoNoDisponibleParaFila(r) == null;
   });
 }
 

@@ -12,15 +12,17 @@ import imgPlantaMitad from "../assets/plantabajamitad.png";
 import imgPasilloPiso from "../assets/pasillosegundopiso.png";
 import imgTerrazaPersona from "../assets/personaenterraza.png";
 
-const slug = (titulo) => `espacio-${titulo.toLowerCase().replace(/\s+/g, "-")}`;
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 
-const pisos = [
+const slug = (titulo) => `espacio-${String(titulo).toLowerCase().replace(/\s+/g, "-")}`;
+
+// ----------------------------------------------------------------------------
+// Fallbacks: imágenes locales por nombre de piso (matching difuso por ILIKE).
+// Si el admin no carga "Imagenes" en el panel, mostramos estas como respaldo.
+// ----------------------------------------------------------------------------
+const GALERIAS_FALLBACK = [
   {
-    titulo: "Planta Baja",
-    descripcion:
-      "Zona social y de trabajo abierto: ideal para concentrarte, cruzarte con otros miembros o una reunión rápida sin reservar sala.",
-    idealPara: "Jornadas largas, llamadas con auriculares y encuentros informales entre equipos.",
-    amenities: ["Wi‑Fi de alta velocidad", "Cocina y espacio para almorzar", "Impresora compartida", "Iluminación natural"],
+    coincidencia: /planta\s*baja/i,
     imagenes: [
       { src: img6, caption: "Ingreso y circulación principal", alt: "Planta baja — hall y coworking" },
       { src: imgPlantaMitad, caption: "Vista amplia del espacio común", alt: "Planta baja — espacio de coworking" },
@@ -29,11 +31,7 @@ const pisos = [
     ],
   },
   {
-    titulo: "Primer Piso",
-    descripcion:
-      "Privacidad cuando la necesitás: oficinas y salas cerradas con buena acústica para reuniones formales o trabajo enfocado.",
-    idealPara: "Reuniones con cliente, entrevistas, sesiones en equipo y trabajo sin interrupciones.",
-    amenities: ["Salas equipadas para videollamada", "Pizarras / soporte para presentar", "Climatización", "Enchufes en cada puesto"],
+    coincidencia: /primer\s*piso|segundo\s*piso/i,
     imagenes: [
       { src: img3, caption: "Oficina individual", alt: "Primer piso — oficina cerrada" },
       { src: imgPasilloPiso, caption: "Pasillo y acceso a espacios", alt: "Primer piso — pasillo" },
@@ -42,11 +40,7 @@ const pisos = [
     ],
   },
   {
-    titulo: "Terraza",
-    descripcion:
-      "Aire libre para desconectar cinco minutos o charlar con calma; complementa perfecto una jornada en planta baja o primer piso.",
-    idealPara: "Breaks, llamadas breves al aire libre y momentos informales entre colegas.",
-    amenities: ["Mobiliario de exterior", "Vistas despejadas", "Uso según clima", "Conexión Wi‑Fi desde interior cercano"],
+    coincidencia: /terraza|patio|exterior/i,
     imagenes: [
       { src: img2, caption: "Sillones bajo techo o sombra", alt: "Terraza — sillones" },
       { src: imgTerrazaPersona, caption: "Trabajo y pausa al aire libre", alt: "Terraza — persona en espacio exterior" },
@@ -56,10 +50,41 @@ const pisos = [
   },
 ];
 
-const ESPACIOS_NAV = pisos.map((p) => ({
-  id: slug(p.titulo),
-  label: p.titulo,
-}));
+const GALERIA_GENERICA = [
+  { src: img6, caption: "Vista del espacio", alt: "Espacio del coworking" },
+  { src: img1, caption: "Zona de trabajo", alt: "Zona de trabajo" },
+  { src: img2, caption: "Sillones y descanso", alt: "Sillones y descanso" },
+];
+
+const AMENITIES_FALLBACK = [
+  "Wi-Fi de alta velocidad",
+  "Iluminación natural",
+  "Climatización",
+];
+
+function resolverGaleriaFallback(nombre) {
+  const match = GALERIAS_FALLBACK.find((g) => g.coincidencia.test(nombre || ""));
+  return match ? match.imagenes : GALERIA_GENERICA;
+}
+
+function normalizarImagenesPiso(piso) {
+  // 1. Si el admin cargó imágenes via panel, usar esas
+  if (Array.isArray(piso.Imagenes) && piso.Imagenes.length > 0) {
+    return piso.Imagenes
+      .filter((img) => img && img.url)
+      .map((img) => ({
+        src: img.url,
+        alt: img.alt || piso.Nombre,
+        caption: img.caption || "",
+      }));
+  }
+  // 2. Si tiene ImagenUrl, usar esa como hero único
+  if (piso.ImagenUrl) {
+    return [{ src: piso.ImagenUrl, alt: piso.Nombre, caption: piso.Nombre }];
+  }
+  // 3. Fallback por matching de nombre
+  return resolverGaleriaFallback(piso.Nombre);
+}
 
 function SliderArrow({ className, style, onClick, direction }) {
   return (
@@ -132,22 +157,26 @@ function FloorSection({ piso }) {
         <h2 className={styles.titulo} id={`heading-${sectionId}`}>
           {piso.titulo}
         </h2>
-        <p className={styles.descripcion}>{piso.descripcion}</p>
-        <p className={styles.idealMuted}>{piso.idealPara}</p>
+        {piso.descripcion && (
+          <p className={styles.descripcion}>{piso.descripcion}</p>
+        )}
+        {piso.idealPara && (
+          <p className={styles.idealMuted}>{piso.idealPara}</p>
+        )}
 
-        <ul className={styles.amenityListInline} aria-label="Incluye">
-          {piso.amenities.map((a) => (
-            <li key={a}>{a}</li>
-          ))}
-        </ul>
+        {Array.isArray(piso.amenities) && piso.amenities.length > 0 && (
+          <ul className={styles.amenityListInline} aria-label="Incluye">
+            {piso.amenities.map((a) => (
+              <li key={a}>{a}</li>
+            ))}
+          </ul>
+        )}
 
         <p className={styles.floorActions}>
           <Link to="/registro" className={styles.floorLink}>
             Reservar turno
           </Link>
-          <span className={styles.floorActionsSep} aria-hidden>
-            ·
-          </span>
+          <span className={styles.floorActionsSep} aria-hidden>·</span>
           <Link to="/asistente" className={styles.floorLink}>
             Asistente de reservas
           </Link>
@@ -160,7 +189,9 @@ function FloorSection({ piso }) {
             <div key={i} className={styles.slide}>
               <figure className={styles.slideFigure}>
                 <img src={slide.src} alt={slide.alt} loading={i === 0 ? "eager" : "lazy"} />
-                <figcaption className={styles.slideCaption}>{slide.caption}</figcaption>
+                {slide.caption && (
+                  <figcaption className={styles.slideCaption}>{slide.caption}</figcaption>
+                )}
               </figure>
             </div>
           ))}
@@ -171,17 +202,63 @@ function FloorSection({ piso }) {
 }
 
 export default function CarruselEdificio() {
-  const [activeSection, setActiveSection] = useState(ESPACIOS_NAV[0]?.id ?? "");
+  const [pisos, setPisos] = useState([]);
+  const [loaded, setLoaded] = useState(false);
+  const [activeSection, setActiveSection] = useState("");
   const observerRef = useRef(null);
+
+  useEffect(() => {
+    let cancel = false;
+    fetch(`${API_URL}/api/pisos/publicos`)
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((rows) => {
+        if (cancel) return;
+        const mapped = rows.map((p) => ({
+          titulo: p.Nombre,
+          descripcion: p.Descripcion || "",
+          idealPara: p.IdealPara || "",
+          amenities: Array.isArray(p.Amenities) && p.Amenities.length > 0
+            ? p.Amenities
+            : AMENITIES_FALLBACK,
+          imagenes: normalizarImagenesPiso(p),
+        }));
+        setPisos(mapped);
+        setActiveSection(mapped[0] ? slug(mapped[0].titulo) : "");
+        setLoaded(true);
+      })
+      .catch(() => {
+        if (cancel) return;
+        // Fallback total: sin red, mostrar 3 pisos hardcodeados antiguos
+        const fallback = [
+          { Nombre: "Planta Baja", Descripcion: "", IdealPara: "" },
+          { Nombre: "Primer Piso", Descripcion: "", IdealPara: "" },
+          { Nombre: "Terraza",     Descripcion: "", IdealPara: "" },
+        ].map((p) => ({
+          titulo: p.Nombre,
+          descripcion: p.Descripcion,
+          idealPara: p.IdealPara,
+          amenities: AMENITIES_FALLBACK,
+          imagenes: resolverGaleriaFallback(p.Nombre),
+        }));
+        setPisos(fallback);
+        setActiveSection(slug(fallback[0].titulo));
+        setLoaded(true);
+      });
+    return () => { cancel = true; };
+  }, []);
+
+  const navItems = useMemo(
+    () => pisos.map((p) => ({ id: slug(p.titulo), label: p.titulo })),
+    [pisos]
+  );
 
   const scrollToId = useCallback((id) => {
     const el = document.getElementById(id);
-    if (el) {
-      el.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
   }, []);
 
   useEffect(() => {
+    if (pisos.length === 0) return undefined;
     const nodes = document.querySelectorAll("[data-espacio-section]");
     if (!nodes.length) return undefined;
 
@@ -200,13 +277,33 @@ export default function CarruselEdificio() {
 
     nodes.forEach((n) => observerRef.current?.observe(n));
     return () => observerRef.current?.disconnect();
-  }, []);
+  }, [pisos]);
+
+  if (!loaded) {
+    return (
+      <div className={styles.container}>
+        <p style={{ textAlign: "center", padding: 40, color: "#888" }}>
+          Cargando espacios...
+        </p>
+      </div>
+    );
+  }
+
+  if (pisos.length === 0) {
+    return (
+      <div className={styles.container}>
+        <p style={{ textAlign: "center", padding: 40, color: "#888" }}>
+          No hay espacios publicados por el momento.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.container}>
       <nav className={styles.sectionNav} aria-label="Ir a una zona del edificio">
         <div className={styles.sectionNavInner}>
-          {ESPACIOS_NAV.map((item) => (
+          {navItems.map((item) => (
             <button
               key={item.id}
               type="button"

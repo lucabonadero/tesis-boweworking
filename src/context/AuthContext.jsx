@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from "react";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 const TOKEN_KEY = "clienteToken";
@@ -126,7 +126,17 @@ export function AuthProvider({ children }) {
   };
 
   const isAdmin = user?.rol === "admin";
-  const isStaff = user?.rol === "admin" || user?.rol === "empleado";
+  const isStaff = user?.rol === "admin" || user?.rol === "empleado" || user?.rol === "staff";
+  const permissions = useMemo(() => user?.permisos || [], [user]);
+
+  const hasPermission = useCallback(
+    (perm) => {
+      if (!user) return false;
+      if (user.rol === "admin") return true;
+      return permissions.includes(perm);
+    },
+    [user, permissions]
+  );
 
   const value = {
     user,
@@ -135,6 +145,8 @@ export function AuthProvider({ children }) {
     isAuthenticated: !!user,
     isAdmin,
     isStaff,
+    permissions,
+    hasPermission,
     perfilCompleto: !!user?.perfil_completo,
     authModalOpen,
     authModalView,

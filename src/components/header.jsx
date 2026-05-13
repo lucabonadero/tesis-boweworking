@@ -12,6 +12,8 @@ import {
   InfoCircleOutlined,
   SettingOutlined,
   RobotOutlined,
+  TeamOutlined,
+  DollarOutlined,
 } from "@ant-design/icons";
 
 export default function Header() {
@@ -22,10 +24,9 @@ export default function Header() {
 
   const isAdmin = auth.isAdmin;
   const isStaff = auth.isStaff;
+  const hp = auth.hasPermission;
 
-  const getLinkClass = (path) => {
-    return location.pathname === path ? "active" : "";
-  };
+  const getLinkClass = (path) => (location.pathname === path ? "active" : "");
 
   const handleLogout = () => {
     auth.logout();
@@ -72,12 +73,18 @@ export default function Header() {
     { path: "/espacios", label: "Espacios", icon: <AppstoreOutlined /> },
   ];
 
+  // Links de panel staff: cada uno se muestra según el permiso correspondiente
   const staffPanelLinks = [
-    { path: "/control", label: "Consultar Reservas", icon: <CalendarOutlined /> },
-    { path: "/altas", label: "Altas", icon: <AppstoreOutlined /> },
-    { path: "/admin-espacios", label: "Panel de Espacios", icon: <AppstoreOutlined /> },
+    hp("ver_reservas") && { path: "/control", label: "Consultar Reservas", icon: <CalendarOutlined /> },
+    hp("altas_clientes") && { path: "/altas", label: "Altas", icon: <AppstoreOutlined /> },
+    hp("ver_espacios") && { path: "/admin-espacios", label: "Panel de Espacios", icon: <AppstoreOutlined /> },
+    hp("gestionar_estructura") && { path: "/admin-estructura", label: "Estructura", icon: <AppstoreOutlined /> },
+  ].filter(Boolean);
+
+  const adminOnlyLinks = [
+    { path: "/gestion", label: "Gestión Financiera", icon: <DollarOutlined /> },
+    { path: "/admin-usuarios", label: "Gestión de Usuarios", icon: <TeamOutlined /> },
   ];
-  const adminOnlyLinks = [{ path: "/gestion", label: "Gestión Financiera", icon: <SettingOutlined /> }];
 
   const navLinks = isStaff
     ? [...publicLinks, ...staffPanelLinks, ...(isAdmin ? adminOnlyLinks : [])]
@@ -123,7 +130,9 @@ export default function Header() {
             <Dropdown menu={adminMenu} placement="bottomRight" trigger={["click"]}>
               <button type="button" className="header__user-btn">
                 <SettingOutlined />
-                <span className="header__user-name">{isAdmin ? "Admin" : "Personal"}</span>
+                <span className="header__user-name">
+                  {isAdmin ? "Admin" : auth.user?.rol === "staff" ? "Staff" : "Personal"}
+                </span>
               </button>
             </Dropdown>
           ) : auth.isAuthenticated ? (

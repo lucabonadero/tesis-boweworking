@@ -1,8 +1,12 @@
 import pool from "../config/db.js";
 
-export const obtenerEspacios = async (_req, res) => {
+export const obtenerEspacios = async (req, res) => {
+  const incluirInactivos = req.query.incluirInactivos === "true";
+  const filtro = incluirInactivos ? "" : 'WHERE "Activo" = true';
   try {
-    const { rows } = await pool.query('SELECT * FROM "Espacios" ORDER BY "Espacio" ASC');
+    const { rows } = await pool.query(
+      `SELECT * FROM "Espacios" ${filtro} ORDER BY "Orden", "Espacio" ASC`
+    );
     res.json(rows);
   } catch (error) {
     console.error("Error al obtener espacios:", error);
@@ -30,11 +34,27 @@ export const obtenerEspacioPorId = async (req, res) => {
 
 export const crearEspacio = async (req, res) => {
   try {
-    const { Nombre, Capacidad, Disponible } = req.body;
+    const {
+      Nombre, Capacidad, Disponible,
+      idPiso, idEspacioPadre, Tipo, Orden, Descripcion,
+    } = req.body;
+
+    if (!Nombre) {
+      return res.status(400).json({ message: "Nombre es requerido" });
+    }
+    const tipoFinal = Tipo || "espacio";
+    if (!["sector", "area", "espacio"].includes(tipoFinal)) {
+      return res.status(400).json({ message: "Tipo inválido (valores: sector, area, espacio)" });
+    }
 
     const { rows } = await pool.query(
-      'INSERT INTO "Espacios" ("Nombre", "Capacidad", "Disponible") VALUES ($1, $2, $3) RETURNING *',
-      [Nombre, Capacidad, Disponible !== undefined ? Disponible : true]
+      `INSERT INTO "Espacios"
+       ("Nombre","Capacidad","Disponible","idPiso","idEspacioPadre","Tipo","Orden","Descripcion","Activo")
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,true) RETURNING *`,
+      [
+        Nombre, Capacidad ?? null, Disponible !== undefined ? Disponible : true,
+        idPiso ?? null, idEspacioPadre ?? null, tipoFinal, Orden ?? 0, Descripcion ?? null,
+      ]
     );
 
     res.status(201).json(rows[0]);
@@ -46,11 +66,33 @@ export const crearEspacio = async (req, res) => {
 
 export const actualizarEspacio = async (req, res) => {
   try {
-    const { Nombre, Capacidad, Disponible } = req.body;
+    const {
+      Nombre, Capacidad, Disponible,
+      idPiso, idEspacioPadre, Tipo, Orden, Descripcion, Activo,
+    } = req.body;
+
+    if (Tipo && !["sector", "area", "espacio"].includes(Tipo)) {
+      return res.status(400).json({ message: "Tipo inválido" });
+    }
 
     const result = await pool.query(
-      'UPDATE "Espacios" SET "Nombre" = $1, "Capacidad" = $2, "Disponible" = $3 WHERE "Espacio" = $4',
-      [Nombre, Capacidad, Disponible, req.params.id]
+      `UPDATE "Espacios"
+       SET "Nombre"=COALESCE($1,"Nombre"),
+           "Capacidad"=COALESCE($2,"Capacidad"),
+           "Disponible"=COALESCE($3,"Disponible"),
+           "idPiso"=COALESCE($4,"idPiso"),
+           "idEspacioPadre"=COALESCE($5,"idEspacioPadre"),
+           "Tipo"=COALESCE($6,"Tipo"),
+           "Orden"=COALESCE($7,"Orden"),
+           "Descripcion"=COALESCE($8,"Descripcion"),
+           "Activo"=COALESCE($9,"Activo")
+       WHERE "Espacio"=$10`,
+      [
+        Nombre ?? null, Capacidad ?? null, Disponible ?? null,
+        idPiso ?? null, idEspacioPadre ?? null, Tipo ?? null,
+        Orden ?? null, Descripcion ?? null, Activo ?? null,
+        req.params.id,
+      ]
     );
 
     if (result.rowCount === 0) {
@@ -64,11 +106,37 @@ export const actualizarEspacio = async (req, res) => {
   }
 };
 
+/**
+ * Soft delete: marca Activo=false en vez de borrar.
+ * Bloquea si tiene sub-espacios o recursos activos.
+ * Preserva integridad de reservas históricas.
+ */
 export const eliminarEspacio = async (req, res) => {
+  const idEspacio = req.params.id;
   try {
+    const { rows: subEspacios } = await pool.query(
+      `SELECT COUNT(*) AS n FROM "Espacios" WHERE "idEspacioPadre"=$1 AND "Activo"=true`,
+      [idEspacio]
+    );
+    if (Number(subEspacios[0].n) > 0) {
+      return res.status(409).json({
+        message: `El espacio tiene ${subEspacios[0].n} sub-espacio(s) activo(s). Movelos o desactivalos primero.`,
+      });
+    }
+
+    const { rows: recursos } = await pool.query(
+      `SELECT COUNT(*) AS n FROM "Recursos" WHERE "idEspacio"=$1 AND "Activo"=true`,
+      [idEspacio]
+    );
+    if (Number(recursos[0].n) > 0) {
+      return res.status(409).json({
+        message: `El espacio tiene ${recursos[0].n} recurso(s) activo(s). Movelos o desactivalos primero.`,
+      });
+    }
+
     const result = await pool.query(
-      'DELETE FROM "Espacios" WHERE "Espacio" = $1',
-      [req.params.id]
+      `UPDATE "Espacios" SET "Activo"=false WHERE "Espacio"=$1`,
+      [idEspacio]
     );
 
     if (result.rowCount === 0) {

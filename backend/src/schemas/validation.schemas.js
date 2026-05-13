@@ -8,7 +8,7 @@ export const staffLoginSchema = z.object({
 export const staffRegistrarAdminSchema = z.object({
   email: z.string().email().max(255),
   password: z.string().min(8).max(128),
-  rol: z.enum(["admin", "empleado"]).optional(),
+  rol: z.enum(["admin", "empleado", "staff"]).optional(),
 });
 
 export const clienteRegistroSchema = z.object({

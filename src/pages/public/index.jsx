@@ -84,7 +84,7 @@ export default function Index() {
         </div>
       </section>
 
-      {/* HOW IT WORKS */}
+      {/* COMO FUNCIONA */}
       <section className={`${styles.howItWorks} ${styles.animateOnScroll}`}>
         <h2 className={styles.sectionTitle}>Como funciona?</h2>
         <p className={styles.sectionSub}>Reservar tu espacio es muy simple</p>

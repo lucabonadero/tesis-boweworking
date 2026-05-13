@@ -21,12 +21,30 @@ function signClienteToken(user) {
   );
 }
 
-function signAdminToken(admin) {
+function signAdminToken(admin, permisos = []) {
   return jwt.sign(
-    { id: admin.id, email: admin.email, rol: admin.rol, tipo: admin.rol },
+    { id: admin.id, email: admin.email, rol: admin.rol, tipo: admin.rol, permisos },
     process.env.JWT_SECRET,
     { expiresIn: JWT_EXPIRES_IN }
   );
+}
+
+async function getPermisos(usuarioId, rol) {
+  if (rol === "admin") {
+    const { rows } = await pool.query("SELECT clave FROM permisos ORDER BY clave");
+    return rows.map((r) => r.clave);
+  }
+  const { rows } = await pool.query(
+    "SELECT permiso_clave FROM usuario_permisos WHERE usuario_id = $1",
+    [usuarioId]
+  );
+  return rows.map((r) => r.permiso_clave);
+}
+
+function nombreDeRol(rol) {
+  if (rol === "admin") return "Administrador";
+  if (rol === "staff") return "Staff";
+  return "Empleado";
 }
 
 function safeUser(row) {
@@ -110,15 +128,17 @@ export const login = async (req, res) => {
       const admin = adminRows[0];
       const validAdmin = await bcrypt.compare(password, admin.password);
       if (validAdmin) {
-        const token = signAdminToken(admin);
+        const permisos = await getPermisos(admin.id, admin.rol);
+        const token = signAdminToken(admin, permisos);
         return res.json({
           token,
           usuario: {
             id: admin.id,
             email: admin.email,
             rol: admin.rol,
-            nombre: admin.rol === "admin" ? "Administrador" : "Empleado",
+            nombre: nombreDeRol(admin.rol),
             perfil_completo: true,
+            permisos,
           },
         });
       }
@@ -244,7 +264,7 @@ export const googleAuth = async (req, res) => {
 
 export const me = async (req, res) => {
   try {
-    if (req.usuario.rol === "admin" || req.usuario.rol === "empleado") {
+    if (req.usuario.rol === "admin" || req.usuario.rol === "empleado" || req.usuario.rol === "staff") {
       const { rows } = await pool.query(
         "SELECT id, email, rol FROM usuarios WHERE id = $1",
         [req.usuario.id]
@@ -253,12 +273,14 @@ export const me = async (req, res) => {
         return res.status(404).json({ message: "Usuario no encontrado." });
       }
       const admin = rows[0];
+      const permisos = await getPermisos(admin.id, admin.rol);
       return res.json({
         id: admin.id,
         email: admin.email,
         rol: admin.rol,
-        nombre: admin.rol === "admin" ? "Administrador" : "Empleado",
+        nombre: nombreDeRol(admin.rol),
         perfil_completo: true,
+        permisos,
       });
     }
 

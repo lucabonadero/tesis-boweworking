@@ -18,6 +18,9 @@ import recursosRoutes from "./routes/recursos.routes.js";
 import pagosRoutes from "./routes/pagos.routes.js";
 import espaciosDashboardRoutes from "./routes/espaciosDashboard.routes.js";
 import aiReservaRoutes from "./routes/aiReserva.routes.js";
+import adminUsuariosRoutes from "./routes/adminUsuarios.routes.js";
+import estructuraRoutes from "./routes/estructura.routes.js";
+import pisosPublicoRoutes from "./routes/pisosPublico.routes.js";
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -55,6 +58,9 @@ app.use("/api/reservas", reservasRoutes);
 app.use("/api/pagos", pagosRoutes);
 app.use("/api/dashboard/espacios", espaciosDashboardRoutes);
 app.use("/api/ai", aiReservaRoutes);
+app.use("/api/admin", adminUsuariosRoutes);
+app.use("/api/admin/estructura", estructuraRoutes);
+app.use("/api/pisos/publicos", pisosPublicoRoutes);
 
 // Ruta de prueba
 app.get("/api/health", (_req, res) => {

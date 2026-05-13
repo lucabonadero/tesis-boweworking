@@ -7,13 +7,16 @@ import {
   validarInicioTurnoNoEnElPasado,
 } from "../services/coworkingHours.service.js";
 
-export const obtenerRecursos = async (_req, res) => {
+export const obtenerRecursos = async (req, res) => {
+  const incluirInactivos = req.query.incluirInactivos === "true";
+  const filtro = incluirInactivos ? "" : 'WHERE r."Activo" = true';
   try {
     const { rows } = await pool.query(`
       SELECT r.*, e."Nombre" AS espacio_nombre
       FROM "Recursos" r
       LEFT JOIN "Espacios" e ON r."idEspacio" = e."Espacio"
-      ORDER BY r."idEspacio", r."idRecursoPadre" NULLS FIRST, r."idRecurso"
+      ${filtro}
+      ORDER BY r."idEspacio", r."idRecursoPadre" NULLS FIRST, r."Orden", r."idRecurso"
     `);
     res.json(rows);
   } catch (error) {
@@ -23,11 +26,13 @@ export const obtenerRecursos = async (_req, res) => {
 };
 
 export const obtenerRecursosPorEspacio = async (req, res) => {
+  const incluirInactivos = req.query.incluirInactivos === "true";
+  const filtroActivo = incluirInactivos ? "" : 'AND "Activo" = true';
   try {
     const { rows } = await pool.query(
       `SELECT * FROM "Recursos"
-       WHERE "idEspacio" = $1
-       ORDER BY "idRecursoPadre" NULLS FIRST, "idRecurso"`,
+       WHERE "idEspacio" = $1 ${filtroActivo}
+       ORDER BY "idRecursoPadre" NULLS FIRST, "Orden", "idRecurso"`,
       [req.params.idEspacio]
     );
     res.json(rows);
@@ -56,12 +61,29 @@ export const obtenerRecursoPorId = async (req, res) => {
 
 export const crearRecurso = async (req, res) => {
   try {
-    const { idEspacio, idRecursoPadre, Nombre, Descripcion, esCompleto, PrecioHora, PrecioSemanal, PrecioMensual } = req.body;
+    const {
+      idEspacio, idRecursoPadre, Nombre, Descripcion, esCompleto,
+      PrecioHora, PrecioSemanal, PrecioMensual,
+      Tipo, Orden, AceptaPackSemanal, AceptaPackMensual, EsReservablePorTurno,
+    } = req.body;
+
+    if (!idEspacio || !Nombre) {
+      return res.status(400).json({ message: "idEspacio y Nombre son requeridos" });
+    }
+
     const { rows } = await pool.query(
-      `INSERT INTO "Recursos" ("idEspacio","idRecursoPadre","Nombre","Descripcion","esCompleto","PrecioHora","PrecioSemanal","PrecioMensual")
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
-      [idEspacio, idRecursoPadre || null, Nombre, Descripcion || null, esCompleto || false,
-       PrecioHora || null, PrecioSemanal || null, PrecioMensual || null]
+      `INSERT INTO "Recursos"
+       ("idEspacio","idRecursoPadre","Nombre","Descripcion","esCompleto",
+        "PrecioHora","PrecioSemanal","PrecioMensual",
+        "Tipo","Orden","Activo","AceptaPackSemanal","AceptaPackMensual","EsReservablePorTurno")
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,true,$11,$12,$13) RETURNING *`,
+      [
+        idEspacio, idRecursoPadre || null, Nombre, Descripcion || null, esCompleto || false,
+        PrecioHora || null, PrecioSemanal || null, PrecioMensual || null,
+        Tipo || null, Orden ?? 0,
+        AceptaPackSemanal || false, AceptaPackMensual || false,
+        EsReservablePorTurno !== undefined ? EsReservablePorTurno : true,
+      ]
     );
     res.status(201).json(rows[0]);
   } catch (error) {
@@ -72,14 +94,36 @@ export const crearRecurso = async (req, res) => {
 
 export const actualizarRecurso = async (req, res) => {
   try {
-    const { idEspacio, idRecursoPadre, Nombre, Descripcion, esCompleto, PrecioHora, PrecioSemanal, PrecioMensual } = req.body;
+    const {
+      idEspacio, idRecursoPadre, Nombre, Descripcion, esCompleto,
+      PrecioHora, PrecioSemanal, PrecioMensual,
+      Tipo, Orden, Activo, AceptaPackSemanal, AceptaPackMensual, EsReservablePorTurno,
+    } = req.body;
+
     const result = await pool.query(
       `UPDATE "Recursos"
-       SET "idEspacio"=$1,"idRecursoPadre"=$2,"Nombre"=$3,"Descripcion"=$4,"esCompleto"=$5,
-           "PrecioHora"=$6,"PrecioSemanal"=$7,"PrecioMensual"=$8
-       WHERE "idRecurso"=$9`,
-      [idEspacio, idRecursoPadre || null, Nombre, Descripcion, esCompleto,
-       PrecioHora ?? null, PrecioSemanal ?? null, PrecioMensual ?? null, req.params.id]
+       SET "idEspacio"=COALESCE($1,"idEspacio"),
+           "idRecursoPadre"=$2,
+           "Nombre"=COALESCE($3,"Nombre"),
+           "Descripcion"=COALESCE($4,"Descripcion"),
+           "esCompleto"=COALESCE($5,"esCompleto"),
+           "PrecioHora"=$6,
+           "PrecioSemanal"=$7,
+           "PrecioMensual"=$8,
+           "Tipo"=COALESCE($9,"Tipo"),
+           "Orden"=COALESCE($10,"Orden"),
+           "Activo"=COALESCE($11,"Activo"),
+           "AceptaPackSemanal"=COALESCE($12,"AceptaPackSemanal"),
+           "AceptaPackMensual"=COALESCE($13,"AceptaPackMensual"),
+           "EsReservablePorTurno"=COALESCE($14,"EsReservablePorTurno")
+       WHERE "idRecurso"=$15`,
+      [
+        idEspacio ?? null, idRecursoPadre ?? null, Nombre ?? null, Descripcion ?? null, esCompleto ?? null,
+        PrecioHora ?? null, PrecioSemanal ?? null, PrecioMensual ?? null,
+        Tipo ?? null, Orden ?? null, Activo ?? null,
+        AceptaPackSemanal ?? null, AceptaPackMensual ?? null, EsReservablePorTurno ?? null,
+        req.params.id,
+      ]
     );
     if (result.rowCount === 0) return res.status(404).json({ message: "Recurso no encontrado" });
     res.json({ message: "Recurso actualizado" });
@@ -89,9 +133,37 @@ export const actualizarRecurso = async (req, res) => {
   }
 };
 
+/**
+ * Soft delete: bloquea si hay reservas futuras o sub-recursos activos.
+ */
 export const eliminarRecurso = async (req, res) => {
+  const idRecurso = req.params.id;
   try {
-    const result = await pool.query('DELETE FROM "Recursos" WHERE "idRecurso" = $1', [req.params.id]);
+    const { rows: rsv } = await pool.query(
+      `SELECT COUNT(*) AS n FROM "Reservas"
+       WHERE "idRecurso"=$1 AND "DiaReserva" >= CURRENT_DATE`,
+      [idRecurso]
+    );
+    if (Number(rsv[0].n) > 0) {
+      return res.status(409).json({
+        message: `El recurso tiene ${rsv[0].n} reserva(s) futura(s). Cancelalas antes de eliminar.`,
+      });
+    }
+
+    const { rows: subs } = await pool.query(
+      `SELECT COUNT(*) AS n FROM "Recursos" WHERE "idRecursoPadre"=$1 AND "Activo"=true`,
+      [idRecurso]
+    );
+    if (Number(subs[0].n) > 0) {
+      return res.status(409).json({
+        message: `El recurso tiene ${subs[0].n} sub-recurso(s) activos. Eliminalos primero.`,
+      });
+    }
+
+    const result = await pool.query(
+      `UPDATE "Recursos" SET "Activo"=false WHERE "idRecurso"=$1`,
+      [idRecurso]
+    );
     if (result.rowCount === 0) return res.status(404).json({ message: "Recurso no encontrado" });
     res.json({ message: "Recurso eliminado" });
   } catch (error) {
@@ -108,7 +180,7 @@ export const eliminarRecurso = async (req, res) => {
  *              ?tipo=mensual&fechaInicio=2026-04-15
  *
  * Returns all recursos with `disponible: true/false`.
- * For pack queries, only returns Oficina resources.
+ * For pack queries, only returns recursos marked AceptaPack(Semanal|Mensual).
  */
 export const obtenerDisponibilidad = async (req, res) => {
   try {
@@ -144,15 +216,16 @@ export const obtenerDisponibilidad = async (req, res) => {
     const qHoraFin = "23:59";
     const qTipo = tipo;
 
-    const resourceFilter = `WHERE r."idEspacio" = (SELECT "Espacio" FROM "Espacios" WHERE "Nombre" ILIKE '%Primer Piso%' LIMIT 1)
-         AND (r."Nombre" ILIKE '%Escritorio%' OR r."Nombre" ILIKE '%Oficina%')`;
+    // Filtrar por flag en lugar de nombre. AceptaPackSemanal/Mensual lo configura el admin.
+    const flagCol = tipo === "semanal" ? "AceptaPackSemanal" : "AceptaPackMensual";
 
     const { rows: recursos } = await pool.query(`
       SELECT r.*, e."Nombre" AS espacio_nombre
       FROM "Recursos" r
       LEFT JOIN "Espacios" e ON r."idEspacio" = e."Espacio"
-      ${resourceFilter}
-      ORDER BY r."idEspacio", r."idRecursoPadre" NULLS FIRST, r."idRecurso"
+      WHERE r."Activo" = true
+        AND r."${flagCol}" = true
+      ORDER BY r."idEspacio", r."idRecursoPadre" NULLS FIRST, r."Orden", r."idRecurso"
     `);
 
     const results = [];

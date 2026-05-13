@@ -10,6 +10,8 @@ import ControlReservas from "./pages/admin/consultareservas.jsx";
 import GestionFinanciera from "./pages/admin/Gestionfinanciera.jsx";
 import AltaClientes from "./pages/admin/altas.jsx";
 import EspaciosDashboard from "./pages/admin/espaciosdashboard.jsx";
+import GestionUsuarios from "./pages/admin/GestionUsuarios.jsx";
+import GestionEstructura from "./pages/admin/GestionEstructura.jsx";
 import ProtectedRoute from "./components/rutasprotegidas.jsx";
 import AuthModal from "./components/AuthModal.jsx";
 import AuthRedirectHandler from "./components/AuthRedirectHandler.jsx";
@@ -17,7 +19,6 @@ import AsistenteReservasFab from "./components/AsistenteReservasFab.jsx";
 import { AuthProvider } from "./context/AuthContext.jsx";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import "antd/dist/reset.css";
-import "./App.css";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import "slick-carousel/slick/slick.css";
 import "slick-carousel/slick/slick-theme.css";
@@ -49,6 +50,12 @@ function App() {
             } />
             <Route path="/admin-espacios" element={
               <ProtectedRoute><EspaciosDashboard /></ProtectedRoute>
+            } />
+            <Route path="/admin-usuarios" element={
+              <ProtectedRoute adminOnly><GestionUsuarios /></ProtectedRoute>
+            } />
+            <Route path="/admin-estructura" element={
+              <ProtectedRoute requiredPermission="gestionar_estructura"><GestionEstructura /></ProtectedRoute>
             } />
             <Route path="*" element={<h1>404 - Página no encontrada</h1>} />
           </Routes>
