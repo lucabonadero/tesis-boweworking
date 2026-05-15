@@ -18,6 +18,12 @@ import {
 } from "antd";
 import ReservaModificacionAviso from "../../components/ReservaModificacionAviso.jsx";
 import {
+  RESERVA_ESTADO_LABEL,
+  RESERVA_ESTADO_COLOR,
+  PAGO_ESTADO_LABEL,
+  PAGO_ESTADO_COLOR,
+} from "../../utils/reservaEstados.js";
+import {
   UserOutlined,
   MailOutlined,
   IdcardOutlined,
@@ -240,26 +246,26 @@ export default function Perfil() {
       width: 130,
       responsive: ["md"],
       render: (_, r) => {
-        const estado = r.Estado || "activa";
-        const colors = { activa: "green", completada: "blue", no_asistio: "red", cancelada: "default" };
-        const labels = {
-          activa: "Activa",
-          completada: "Cerrada — asistió",
-          no_asistio: "No asistió",
-          cancelada: "Cancelada",
-        };
-        return <Tag color={colors[estado] || "default"}>{labels[estado] || estado}</Tag>;
+        const estado = (r.Estado || "activa").toLowerCase();
+        return (
+          <Tag color={RESERVA_ESTADO_COLOR[estado] || "default"}>
+            {RESERVA_ESTADO_LABEL[estado] || estado}
+          </Tag>
+        );
       },
     },
     {
-      title: "Estado del cobro",
+      title: "Estado del pago",
       key: "pago",
-      width: 120,
+      width: 130,
       render: (_, r) => {
         if (!r.EstadoPago) return <Tag>Sin pago</Tag>;
-        if (r.EstadoPago === "Pagado") return <Tag icon={<CheckCircleOutlined />} color="success">Pagado</Tag>;
-        if (r.EstadoPago === "Rechazado") return <Tag color="error">Rechazado</Tag>;
-        return <Tag icon={<ClockCircleOutlined />} color="warning">Pendiente</Tag>;
+        const e = String(r.EstadoPago).trim();
+        const color = PAGO_ESTADO_COLOR[e] || "default";
+        const icon =
+          e === "Pagado" ? <CheckCircleOutlined /> :
+          e === "Pendiente" ? <ClockCircleOutlined /> : null;
+        return <Tag icon={icon} color={color}>{PAGO_ESTADO_LABEL[e] || e}</Tag>;
       },
     },
     {

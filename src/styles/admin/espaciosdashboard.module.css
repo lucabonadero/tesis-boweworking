@@ -1,6 +1,6 @@
 /* Panel Espacios — layout analítico */
 .layout {
-  background: linear-gradient(165deg, #f0f2f8 0%, #e8ecf4 45%, #f5f6fa 100%);
+  background: var(--color-bg);
   min-height: 100vh;
 }
 
@@ -21,8 +21,7 @@
   padding: 28px 32px;
   margin-bottom: 28px;
   border-radius: 20px;
-  background: linear-gradient(135deg, #1a1a2e 0%, #2d2d4e 48%, #252542 100%);
-  color: #fff;
+background: linear-gradient(135deg, #e27757 0%, #f3967a 48%, #487c4b 100%);  color: #fff;
   box-shadow: 0 18px 48px rgba(26, 26, 46, 0.35);
   position: relative;
   overflow: hidden;
@@ -36,7 +35,7 @@
   width: 280px;
   height: 280px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(91, 106, 191, 0.45) 0%, transparent 70%);
+  background: radial-gradient(circle, var(--color-brand-primary-glow) 0%, transparent 70%);
   pointer-events: none;
 }
 
@@ -197,7 +196,7 @@
 }
 
 .nativeDateInput:focus {
-  outline: 2px solid #8b9ae8;
+  outline: 2px solid var(--color-brand-primary);
   outline-offset: 2px;
   border-color: rgba(255, 255, 255, 0.45);
 }
@@ -207,12 +206,12 @@
   height: 40px !important;
   padding: 0 22px !important;
   font-weight: 600 !important;
-  background: #5b6abf !important;
+  background: var(--color-brand-primary) !important;
   border: none !important;
 }
 
 .btnPrimary:hover {
-  background: #4a5aa8 !important;
+  background: var(--color-brand-primary-dark) !important;
 }
 
 .btnSecondary {
@@ -267,7 +266,7 @@
 
 .emptyIcon {
   font-size: 52px;
-  color: #5b6abf;
+  color: var(--color-brand-primary);
   opacity: 0.35;
   margin-bottom: 12px;
 }
@@ -369,13 +368,13 @@
   padding: 14px 18px;
   background: #fff;
   border-radius: 12px;
-  border: 1px solid rgba(91, 106, 191, 0.12);
+  border: 1px solid var(--color-brand-primary-soft);
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
 }
 
 .insightIcon {
   font-size: 16px;
-  color: #5b6abf;
+  color: var(--color-brand-primary);
   margin-bottom: 4px;
 }
 
@@ -556,7 +555,7 @@
   margin-bottom: 6px;
   border: 1px solid transparent;
   border-radius: 10px;
-  background: #f8f9fc;
+  background: var(--color-neutral-100);
   cursor: pointer;
   text-align: left;
   font: inherit;
@@ -564,13 +563,13 @@
 }
 
 .legendBtn:hover {
-  background: #eef0f7;
+  background: var(--color-brand-primary-soft);
   transform: translateX(2px);
 }
 
 .legendBtnActive {
-  background: #e8ebf8;
-  border-color: rgba(91, 106, 191, 0.35);
+  background: var(--color-brand-primary-soft);
+  border-color: var(--color-brand-primary-glow);
 }
 
 .legendBtnSelected {
@@ -597,7 +596,7 @@
 .legendPct {
   font-size: 12px;
   font-weight: 700;
-  color: #5b6abf;
+  color: var(--color-brand-primary);
 }
 
 .legendMoney {
@@ -622,7 +621,7 @@
   padding: 10px 12px;
   border-radius: 12px;
   border: 1px solid transparent;
-  background: #f8f9fc;
+  background: var(--color-neutral-100);
   cursor: pointer;
   font: inherit;
   text-align: left;
@@ -630,13 +629,13 @@
 }
 
 .spaceBarRow:hover {
-  background: #eef0f7;
+  background: var(--color-brand-primary-soft);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
 .spaceBarRowSelected {
-  border-color: #1a1a2e;
-  background: #eaeaef;
+  border-color: var(--color-neutral-900);
+  background: var(--color-neutral-200);
 }
 
 .spaceBarName {
@@ -650,7 +649,7 @@
 
 .spaceBarTrack {
   height: 12px;
-  background: #e4e6ed;
+  background: var(--color-neutral-300);
   border-radius: 8px;
   overflow: hidden;
 }
@@ -694,7 +693,8 @@
 }
 
 .spaceMiniCard {
-  --accent: #5b6abf;
+  --accent: var(--color-brand-primary);
+  /* tokens aplicados en este scope */
   text-align: left;
   padding: 16px 18px;
   border-radius: 16px;
@@ -722,7 +722,7 @@
 .spaceMiniCard:hover {
   transform: translateY(-4px);
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.1);
-  border-color: rgba(91, 106, 191, 0.25);
+  border-color: var(--color-brand-primary-mid);
 }
 
 .spaceMiniCardSelected {
@@ -758,7 +758,7 @@
 .spaceMiniBar {
   margin-top: 12px;
   height: 6px;
-  background: #eef2f7;
+  background: var(--color-neutral-200);
   border-radius: 4px;
   overflow: hidden;
 }
@@ -888,9 +888,9 @@
 }
 
 .resourceRow:hover {
-  background: linear-gradient(90deg, #f8f9fd 0%, #fff 100%);
+  background: var(--color-brand-primary-soft);
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
-  border-color: rgba(91, 106, 191, 0.12);
+  border-color: var(--color-brand-primary-glow);
 }
 
 .resourceRowChild {
@@ -912,7 +912,7 @@
 .resourceReservas {
   font-size: 12px;
   font-weight: 700;
-  color: #5b6abf;
+  color: var(--color-brand-primary);
   width: 76px;
   text-align: center;
   flex-shrink: 0;
@@ -925,7 +925,7 @@
 
 .ocupBar {
   height: 8px;
-  background: #eef2f7;
+  background: var(--color-neutral-200);
   border-radius: 4px;
   overflow: hidden;
 }
@@ -1033,7 +1033,7 @@
 .barTrack {
   flex: 1;
   height: 11px;
-  background: #eef2f7;
+  background: var(--color-neutral-200);
   border-radius: 6px;
   overflow: hidden;
 }
@@ -1077,7 +1077,7 @@
 }
 
 .espacioOcupRowBtn:hover {
-  background: #f5f6fa;
+  background: var(--color-neutral-100);
 }
 
 .espacioOcupName {
@@ -1096,7 +1096,7 @@
 
 .espacioOcupBar {
   height: 8px;
-  background: #eef2f7;
+  background: var(--color-neutral-200);
   border-radius: 4px;
   overflow: hidden;
   margin-bottom: 14px;

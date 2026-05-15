@@ -1,5 +1,5 @@
 .layout {
-  background: #f5f5f6;
+  background: var(--color-bg);
   min-height: 100vh;
   max-width: 100%;
   overflow-x: hidden;
@@ -22,18 +22,19 @@
 }
 
 .statCard {
-  background: #fff;
-  border-radius: 12px;
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
   padding: 20px 22px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--color-neutral-300);
   display: flex;
   align-items: center;
   gap: 16px;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
 }
 .statCard:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--shadow-md);
 }
 
 .statIcon {
@@ -53,24 +54,24 @@
 }
 
 .statLabel {
-  font-size: 12px;
-  color: #888;
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-  font-weight: 600;
+  letter-spacing: 0.06em;
+  font-weight: var(--weight-bold);
   margin-bottom: 2px;
 }
 
 .statValue {
   font-size: 24px;
-  font-weight: 700;
-  color: #1a1a2e;
+  font-weight: var(--weight-bold);
+  color: var(--color-text-primary);
   line-height: 1.1;
 }
 
 .statSub {
-  font-size: 11px;
-  color: #aaa;
+  font-size: var(--text-xs);
+  color: var(--color-text-tertiary);
   margin-top: 2px;
 }
 
@@ -86,10 +87,11 @@
 
 /* ── Table card ───────────────────────────────── */
 .tableCard {
-  background: #fff;
-  border-radius: 12px;
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
   padding: 22px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--color-neutral-300);
   min-width: 0;
   max-width: 100%;
 }
@@ -105,9 +107,10 @@
 
 .tableTitle {
   font-size: 18px;
-  font-weight: 600;
-  color: #1a1a2e;
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-primary);
   margin: 0;
+  letter-spacing: -0.01em;
 }
 
 .tableControls {
@@ -119,14 +122,14 @@
 
 .searchInput {
   width: 200px;
-  border-radius: 8px;
-  background: #f4f7f9;
+  border-radius: var(--radius-md) !important;
+  background: var(--color-neutral-100) !important;
   height: 36px;
 }
 
 .filterSelect {
   min-width: 130px;
-  border-radius: 8px;
+  border-radius: var(--radius-md) !important;
 }
 
 .tableWrapper {
@@ -255,6 +258,86 @@
   border: 1px solid #fcd34d;
 }
 
+/* ── Pendiente option: detail-rich select item ── */
+.pendienteOption {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 0;
+  width: 100%;
+  min-width: 0;
+}
+
+.pendienteOptionTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.pendienteOptionCliente {
+  font-size: 13px;
+  font-weight: var(--weight-bold);
+  color: var(--color-text-primary);
+  letter-spacing: -0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pendienteOptionMonto {
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: var(--weight-bold);
+  color: var(--color-success-text);
+  background: var(--color-success-soft);
+  padding: 2px 10px;
+  border-radius: var(--radius-sm);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.pendienteOptionMid {
+  font-size: 12px;
+  font-weight: var(--weight-medium);
+  color: var(--color-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pendienteOptionMeta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+}
+
+.pendienteMetaItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+.pendienteMetaId {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 10px;
+  font-weight: var(--weight-bold);
+  color: var(--color-text-tertiary);
+  background: var(--color-neutral-100);
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--color-neutral-300);
+}
+
+/* Que el dropdown del select muestre el ítem multi-línea (Ant Design lo trunca por default) */
+:global(.ant-select-item-option-content) {
+  white-space: normal !important;
+}
+
 .metodoBadge {
   display: inline-flex;
   align-items: center;
@@ -333,10 +416,11 @@
 }
 
 .formCard {
-  background: #fff;
-  border-radius: 12px;
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
   padding: 22px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--color-neutral-300);
 }
 
 .formTitleRow {
@@ -348,9 +432,10 @@
 
 .formTitle {
   font-size: 16px;
-  font-weight: 600;
-  color: #1a1a2e;
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-primary);
   margin: 0;
+  letter-spacing: -0.01em;
 }
 
 .formField {
@@ -359,10 +444,12 @@
 
 .label {
   display: block;
-  font-size: 13px;
+  font-size: var(--text-xs);
   margin-bottom: 5px;
-  color: #555;
-  font-weight: 500;
+  color: var(--color-text-secondary);
+  font-weight: var(--weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .select {
@@ -378,31 +465,35 @@
 .btnRegistrar {
   width: 100%;
   height: 40px;
-  border-radius: 8px;
-  font-weight: 600;
-  background: #1a1a2e;
-  color: #fff;
+  border-radius: var(--radius-md) !important;
+  font-weight: var(--weight-semibold);
+  font-family: var(--font-family);
+  background: var(--color-brand-primary) !important;
+  color: var(--color-text-inverse) !important;
   border: none;
   font-size: 14px;
+  transition: background var(--transition-fast) !important;
 }
 .btnRegistrar:hover {
-  background: #2d2d4e !important;
-  color: #fff !important;
+  background: var(--color-brand-primary-dark) !important;
+  color: var(--color-text-inverse) !important;
 }
 
 /* ── Quick-info panel ─────────────────────────── */
 .quickInfo {
-  background: #fff;
-  border-radius: 12px;
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
   padding: 20px 22px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--color-neutral-300);
 }
 
 .quickInfoTitle {
   font-size: 14px;
-  font-weight: 600;
-  color: #1a1a2e;
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-primary);
   margin-bottom: 14px;
+  letter-spacing: -0.01em;
 }
 
 .quickInfoRow {
@@ -410,20 +501,22 @@
   justify-content: space-between;
   align-items: center;
   padding: 8px 0;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid var(--color-neutral-200);
 }
 .quickInfoRow:last-child {
   border-bottom: none;
 }
 
 .quickInfoLabel {
-  font-size: 13px;
-  color: #666;
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
 }
 
 .quickInfoValue {
   font-size: 14px;
   font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
 }
 
 /* ── Table footer ─────────────────────────────── */

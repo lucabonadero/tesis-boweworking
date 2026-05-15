@@ -15,7 +15,12 @@ import {
   serializarHorariosReservaEnFila,
   serializarHorariosReservaEnFilas,
 } from "../services/horarioReserva.service.js";
-import { enriquecerFilaConMutacion, evaluarMutacionReserva } from "../services/reservaMutability.service.js";
+import {
+  enriquecerFilaConMutacion,
+  evaluarMutacionReserva,
+  ymdEnZona,
+  minutosDiaEnZona,
+} from "../services/reservaMutability.service.js";
 import { lateralUltimaTransaccion } from "../services/transaccionUltimaJoin.service.js";
 import {
   descuentoSerieMensualDefault,
@@ -576,8 +581,31 @@ export const crearSerieMensual = async (req, res) => {
 
 // ── CRUD ────────────────────────────────────────────────────
 
+/**
+ * Cierra reservas que quedaron en "en_curso" pero cuyo HorarioFin original ya pasó.
+ * Idempotente. Se invoca antes de servir listados para mantener el estado al día
+ * sin depender de timers en el servidor.
+ */
+async function sweepEnCursoVencidas(db = pool) {
+  try {
+    await db.query(
+      `UPDATE "Reservas"
+       SET "Estado" = 'completada'
+       WHERE "Estado" = 'en_curso'
+         AND COALESCE("TipoReserva",'turno') = 'turno'
+         AND "HorarioFin" IS NOT NULL
+         AND ("DiaReserva"::timestamp + "HorarioFin"::time) <= now()`
+    );
+  } catch (e) {
+    // No bloquear el listado si la migración aún no fue aplicada.
+    if (e.code === "23514" || e.code === "42703") return;
+    throw e;
+  }
+}
+
 export const obtenerReservas = async (req, res) => {
   try {
+    await sweepEnCursoVencidas();
     const { limit, offset } = parsePagination(req.query, { defaultLimit: 20, maxLimit: 200 });
     const { where, params, nextParamIndex } = buildReservasAdminFilters(req.query);
 
@@ -631,6 +659,7 @@ export const obtenerReservas = async (req, res) => {
 /** Reservas que ocupan el día calendario indicado (turno / pack), para vistas de ocupación. */
 export const obtenerReservasOcupacionDia = async (req, res) => {
   try {
+    await sweepEnCursoVencidas();
     const fecha = req.query.fecha;
     if (!fecha || String(fecha).trim() === "") {
       return res.status(400).json({ message: "Parámetro requerido: fecha (YYYY-MM-DD)." });
@@ -1048,10 +1077,49 @@ export const actualizarReserva = async (req, res) => {
   }
 };
 
+/**
+ * Devuelve "completada" si el turno ya terminó al momento de la recepción,
+ * o "en_curso" si todavía está dentro de su ventana.
+ *
+ * Sólo aplica a tipo "turno" con HorarioFin; el resto va directo a completada.
+ */
+/**
+ * Decide si una recepción debe ir directo a "completada" (turno ya pasó)
+ * o a "en_curso" (todavía está vigente).
+ *
+ * Usa la zona del coworking para comparaciones.
+ */
+function estadoAsistenciaInicialPara(row, now = new Date()) {
+  try {
+    const tipo = row.TipoReserva || "turno";
+    if (tipo !== "turno") return "completada";
+    if (!row.HorarioReserva || !row.HorarioFin) return "completada";
+
+    const ymdRes = row.DiaReserva instanceof Date
+      ? row.DiaReserva.toISOString().slice(0, 10)
+      : String(row.DiaReserva).slice(0, 10);
+    const hfRes = formatearHoraParaApi(row.HorarioFin) || String(row.HorarioFin);
+
+    // Comparar en zona del coworking, no UTC.
+    const hoyEnZona = ymdEnZona(now);
+    const ahoraMinEnZona = minutosDiaEnZona(now);
+
+    if (ymdRes > hoyEnZona) return "en_curso";
+    if (ymdRes < hoyEnZona) return "completada";
+
+    const [hf, mf] = hfRes.split(":").map(Number);
+    const minutosFin = hf * 60 + (mf || 0);
+    return ahoraMinEnZona < minutosFin ? "en_curso" : "completada";
+  } catch (e) {
+    console.error("Error en estadoAsistenciaInicialPara:", e);
+    return "completada";
+  }
+}
+
 export const cambiarEstadoReserva = async (req, res) => {
   try {
-    const { estado } = req.body;
-    const valid = ["activa", "completada", "cancelada", "no_asistio"];
+    const { estado, esFinalizacionManual } = req.body;
+    const valid = ["activa", "en_curso", "completada", "cancelada", "no_asistio"];
     if (!valid.includes(estado)) {
       return res.status(400).json({ message: `Estado inválido. Valores: ${valid.join(", ")}` });
     }
@@ -1062,15 +1130,15 @@ export const cambiarEstadoReserva = async (req, res) => {
     }
 
     const { rows: prevEst } = await pool.query(
-      'SELECT "TipoReserva","DiaReserva","HorarioReserva" FROM "Reservas" WHERE "idReserva" = $1',
+      'SELECT "TipoReserva","DiaReserva","HorarioReserva","HorarioFin" FROM "Reservas" WHERE "idReserva" = $1',
       [idReserva]
     );
     if (prevEst.length === 0) return res.status(404).json({ message: "Reserva no encontrada" });
 
     const idsEstado = await idsReservasMismoGrupo(pool, idReserva);
+    const row0 = prevEst[0];
 
-    if (estado === "completada" || estado === "no_asistio") {
-      const row0 = prevEst[0];
+    if (estado === "completada" || estado === "en_curso" || estado === "no_asistio") {
       const tipo0 = row0.TipoReserva || "turno";
       if (tipo0 === "turno" && row0.HorarioReserva) {
         const hi = formatearHoraParaApi(row0.HorarioReserva) || String(row0.HorarioReserva);
@@ -1100,14 +1168,36 @@ export const cambiarEstadoReserva = async (req, res) => {
       }
     }
 
-    const result = await pool.query('UPDATE "Reservas" SET "Estado" = $1 WHERE "idReserva" = ANY($2::int[])', [
-      estado,
-      idsEstado,
-    ]);
+    // Lógica de estado:
+    // - Si es finalización manual (botón "Finalizar" desde tabla de procesadas): ir directo a completada.
+    // - Si es "Asistió" desde la tabla de pendientes: decidir entre en_curso y completada según HorarioFin.
+    // - Otros estados (no_asistio, cancelada, activa): pasar directo.
+    let estadoFinal = estado;
+    if (esFinalizacionManual && estado === "completada") {
+      // Finalización manual: cierra sin pensar.
+      estadoFinal = "completada";
+    } else if ((estado === "completada" || estado === "en_curso") && !esFinalizacionManual) {
+      // Recepción inicial: decidir según la hora.
+      estadoFinal = estadoAsistenciaInicialPara(row0, new Date());
+    }
+
+    // UPDATE simple: solo Estado.
+    const result = await pool.query(
+      `UPDATE "Reservas" SET "Estado" = $1 WHERE "idReserva" = ANY($2::int[])`,
+      [estadoFinal, idsEstado]
+    );
+
     if (result.rowCount === 0) return res.status(404).json({ message: "Reserva no encontrada" });
-    res.json({ message: "Estado actualizado" });
+
+    res.status(200).json({ message: "Estado actualizado", estado: estadoFinal });
   } catch (error) {
     console.error("Error al cambiar estado de reserva:", error);
+    if (error.code === "23514" || error.code === "42703") {
+      return res.status(503).json({
+        message:
+          "El servidor aún no tiene aplicada la migración backend/database/migration_estado_en_curso.sql. Ejecutala contra Postgres y reinicia el backend.",
+      });
+    }
     res.status(500).json({ message: "Error interno del servidor" });
   }
 };

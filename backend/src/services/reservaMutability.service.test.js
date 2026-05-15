@@ -42,6 +42,21 @@ test("completada: no mutar aunque la fecha sea futura", () => {
   assert.match(ev.mensaje || "", /asistencia/i);
 });
 
+test("en_curso: no mutar (cliente está usando el espacio)", () => {
+  const row = {
+    Estado: "en_curso",
+    TipoReserva: "turno",
+    DiaReserva: "2026-04-13",
+    HorarioReserva: "15:00",
+    HorarioFin: "18:00",
+  };
+  const ev = evaluarMutacionReserva(row, new Date("2026-04-13T16:00:00-03:00"));
+  assert.equal(ev.puedeEditar, false);
+  assert.equal(ev.puedeEliminar, false);
+  assert.equal(ev.codigo, "en_curso");
+  assert.match(ev.mensaje || "", /curso/i);
+});
+
 test("no_asistio: no mutar", () => {
   const row = {
     Estado: "no_asistio",

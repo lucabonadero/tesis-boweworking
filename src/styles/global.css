@@ -1,55 +1,123 @@
-/******************************************** General ********************************************/
+/* ═══════════════════════════════════════════════════════════════
+   BOWE WORKING — Global Styles
+   Header · Footer · @font-face
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── @font-face (Poppins) ─────────────────────────────────────── */
 @font-face {
-    font-family: Inter;
+    font-family: 'Poppins';
     src: url('../assets/fonts/Poppins-Light.ttf') format('truetype');
-    font-weight: normal;
+    font-weight: 300;
     font-style: normal;
+    font-display: swap;
+}
+@font-face {
+    font-family: 'Poppins';
+    src: url('../assets/fonts/Poppins-Regular.ttf') format('truetype');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+@font-face {
+    font-family: 'Poppins';
+    src: url('../assets/fonts/Poppins-Medium.ttf') format('truetype');
+    font-weight: 500;
+    font-style: normal;
+    font-display: swap;
+}
+@font-face {
+    font-family: 'Poppins';
+    src: url('../assets/fonts/Poppins-SemiBold.ttf') format('truetype');
+    font-weight: 600;
+    font-style: normal;
+    font-display: swap;
+}
+@font-face {
+    font-family: 'Poppins';
+    src: url('../assets/fonts/Poppins-Bold.ttf') format('truetype');
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+}
+@font-face {
+    font-family: 'Poppins';
+    src: url('../assets/fonts/Poppins-ExtraBold.ttf') format('truetype');
+    font-weight: 800;
+    font-style: normal;
+    font-display: swap;
+}
+@font-face {
+    font-family: 'Poppins';
+    src: url('../assets/fonts/Poppins-Black.ttf') format('truetype');
+    font-weight: 900;
+    font-style: normal;
+    font-display: swap;
 }
 
+/* ── Base ─────────────────────────────────────────────────────── */
+*, *::before, *::after {
+    box-sizing: border-box;
+}
 
-/****************************************************************************************
-****************************************************************************************
-****************************************************************************************
-******************************************** Header ********************************************/
-/* Header */
+body {
+    font-family: var(--font-family);
+    color: var(--color-text-primary);
+    background: var(--color-bg);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   HEADER
+   ═══════════════════════════════════════════════════════════════ */
+
 .header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 10px 20px;
+    padding: 10px 32px;
+    background: var(--color-surface);
+    border-bottom: 1px solid var(--color-neutral-300);
+    position: sticky;
+    top: 0;
+    z-index: var(--z-sticky);
 }
 
 .logo {
     height: 90px;
-    margin-left: 10px;
+    margin-left: 0;
 }
 
 .header__logo-text {
-    font-size: 24px;
-    font-weight: bold;
-    color: #6d6b6b;
+    font-size: 20px;
+    font-weight: var(--weight-bold);
+    color: var(--color-neutral-900);
     margin-left: 10px;
+    letter-spacing: -0.02em;
 }
 
 .header__logo-text a {
     color: inherit;
     text-decoration: none;
+    transition: color var(--transition-fast);
 }
 
 .header__logo-text a:hover {
-    color: #1a1a1a;
+    color: var(--color-brand-primary);
 }
 
-/* Centramos los enlaces */
+/* Navigation links */
 .header__links {
     display: flex;
-    font-weight: bold;
-    font-size: 15px;
+    font-weight: var(--weight-medium);
+    font-size: var(--text-sm);
     justify-content: center;
     flex-grow: 1;
     margin: 0;
     gap: 24px;
     flex-wrap: wrap;
+    list-style: none;
+    padding: 0;
 }
 
 .header__links li {
@@ -57,43 +125,45 @@
 }
 
 .header__links a {
-    color: #5e5c5c;
+    color: var(--color-text-secondary);
     text-decoration: none;
-    font-size: 15px;
+    font-size: var(--text-sm);
+    font-weight: var(--weight-medium);
     position: relative;
     padding: 10px 0;
     white-space: nowrap;
+    transition: color var(--transition-fast);
 }
 
-/* Enlace activo */
+/* Active state */
 .header__links .active {
-    font-weight: bold;
+    font-weight: var(--weight-semibold);
+    color: var(--color-text-primary);
 }
 
-/* Subrayado */
+/* Underline indicator */
 .header__links a::after {
     content: "";
     position: absolute;
     bottom: 0;
     left: 0;
     width: 0;
-    height: 3px;
-    background-color: black;
-    transition: width 0.3s ease;
+    height: 2px;
+    background-color: var(--color-brand-primary);
+    border-radius: 2px;
+    transition: width var(--transition-normal);
 }
 
-/* Hover o activo: subrayado visible */
 .header__links a:hover::after,
 .header__links .active::after {
     width: 100%;
 }
 
 .header__links a:hover {
-    color: #1a1a1a;
+    color: var(--color-text-primary);
 }
 
-/* ── Auth buttons in header ── */
-
+/* ── Auth area ────────────────────────────────────────────────── */
 .header__auth {
     display: flex;
     align-items: center;
@@ -103,44 +173,56 @@
 
 .header__auth-buttons {
     display: flex;
-    gap: 10px;
+    gap: 8px;
     align-items: center;
 }
 
 .header__login-btn {
     padding: 7px 18px;
-    font-size: 14px;
-    font-weight: 600;
-    color: #34c08f;
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+    font-family: var(--font-family);
+    color: var(--color-brand-primary);
     background: transparent;
-    border: 1.5px solid #34c08f;
-    border-radius: 8px;
+    border: 1.5px solid var(--color-brand-primary);
+    border-radius: var(--radius-md);
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: background var(--transition-fast), color var(--transition-fast);
     white-space: nowrap;
 }
 
 .header__login-btn:hover {
-    background: #34c08f;
-    color: #fff;
+    background: var(--color-brand-primary);
+    color: var(--color-text-inverse);
+}
+
+.header__login-btn:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
 }
 
 .header__register-btn {
     padding: 7px 18px;
-    font-size: 14px;
-    font-weight: 600;
-    color: #fff;
-    background: #34c08f;
-    border: 1.5px solid #34c08f;
-    border-radius: 8px;
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+    font-family: var(--font-family);
+    color: var(--color-text-inverse);
+    background: var(--color-brand-primary);
+    border: 1.5px solid var(--color-brand-primary);
+    border-radius: var(--radius-md);
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: background var(--transition-fast), border-color var(--transition-fast);
     white-space: nowrap;
 }
 
 .header__register-btn:hover {
-    background: #2aad7e;
-    border-color: #2aad7e;
+    background: var(--color-brand-primary-dark);
+    border-color: var(--color-brand-primary-dark);
+}
+
+.header__register-btn:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
 }
 
 .header__user-btn {
@@ -148,20 +230,21 @@
     align-items: center;
     gap: 8px;
     padding: 6px 16px;
-    font-size: 14px;
-    font-weight: 600;
-    color: #444;
-    background: #f0f2f5;
-    border: 1.5px solid #e0e3e7;
-    border-radius: 24px;
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+    font-family: var(--font-family);
+    color: var(--color-text-secondary);
+    background: var(--color-neutral-200);
+    border: 1.5px solid var(--color-neutral-300);
+    border-radius: var(--radius-full);
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: background var(--transition-fast), border-color var(--transition-fast);
     white-space: nowrap;
 }
 
 .header__user-btn:hover {
-    background: #e8eaed;
-    border-color: #cdd1d6;
+    background: var(--color-neutral-300);
+    border-color: var(--color-neutral-400);
 }
 
 .header__user-name {
@@ -177,7 +260,7 @@
     margin-left: 8px;
 }
 
-/* Drawer nav */
+/* ── Drawer nav ───────────────────────────────────────────────── */
 .header__drawer-nav {
     display: flex;
     flex-direction: column;
@@ -189,33 +272,44 @@
     align-items: center;
     gap: 10px;
     padding: 12px 16px;
-    border-radius: 8px;
-    color: #333;
+    border-radius: var(--radius-md);
+    color: var(--color-text-primary);
     text-decoration: none;
-    font-size: 15px;
-    font-weight: 500;
-    transition: background 0.2s;
+    font-size: var(--text-base);
+    font-weight: var(--weight-medium);
+    font-family: var(--font-family);
+    transition: background var(--transition-fast), color var(--transition-fast);
 }
 
 .header__drawer-link:hover,
 .header__drawer-link.active {
-    background: #f0faf5;
-    color: #34c08f;
+    background: var(--color-brand-primary-soft);
+    color: var(--color-brand-primary);
 }
 
 .header__drawer-icon {
     font-size: 18px;
     width: 24px;
     text-align: center;
+    color: var(--color-text-secondary);
+}
+
+.header__drawer-link:hover .header__drawer-icon,
+.header__drawer-link.active .header__drawer-icon {
+    color: var(--color-brand-primary);
 }
 
 .header__drawer-footer {
     margin-top: auto;
     padding-top: 24px;
-    border-top: 1px solid #f0f0f0;
+    border-top: 1px solid var(--color-neutral-300);
 }
 
+/* ── Responsive header ────────────────────────────────────────── */
 @media (max-width: 768px) {
+    .header {
+        padding: 10px 16px;
+    }
     .header__links {
         display: none;
     }
@@ -226,30 +320,17 @@
     .header__hamburger {
         display: inline-flex !important;
     }
-    .header__login-btn,
-    .header__register-btn {
-        font-size: 12px;
-        padding: 5px 12px;
-    }
 }
 
-/****************************************************************************************
-****************************************************************************************
-****************************************************************************************
-******************************************** Main ********************************************/
-
-
-
-/****************************************************************************************
-****************************************************************************************
-****************************************************************************************
-******************************************** Footer ********************************************/
+/* ═══════════════════════════════════════════════════════════════
+   FOOTER
+   ═══════════════════════════════════════════════════════════════ */
 
 .footer {
-    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-    color: #fff;
+    background: linear-gradient(135deg, var(--color-neutral-900) 0%, #16213e 100%);
+    color: var(--color-text-inverse);
     padding: 60px 40px 32px;
-    font-family: inherit;
+    font-family: var(--font-family);
 }
 
 .footer__top {
@@ -272,15 +353,15 @@
 
 .footer__bo h3 {
     font-size: 22px;
-    font-weight: 700;
+    font-weight: var(--weight-bold);
     margin-bottom: 12px;
-    color: #34c08f;
+    color: var(--color-brand-primary);
 }
 
 .footer__bo p {
     font-size: 14px;
     color: rgba(255, 255, 255, 0.7);
-    line-height: 1.6;
+    line-height: var(--leading-normal);
     margin-bottom: 4px;
 }
 
@@ -294,15 +375,15 @@
 .footer__social a {
     margin-right: 10px;
     font-size: 1.1rem;
-    color: #fff;
-    background: rgba(52, 192, 143, 0.2);
+    color: var(--color-text-inverse);
+    background: var(--color-brand-primary-mid);
     border-radius: 50%;
     padding: 10px;
-    transition: all 0.3s;
+    transition: background var(--transition-normal), transform var(--transition-normal);
 }
 
 .footer__social a:hover {
-    background: #34c08f;
+    background: var(--color-brand-primary);
     transform: translateY(-2px);
 }
 
@@ -315,12 +396,12 @@
     color: rgba(255, 255, 255, 0.7);
     text-decoration: none;
     font-size: 14px;
-    font-weight: 500;
-    transition: color 0.3s;
+    font-weight: var(--weight-medium);
+    transition: color var(--transition-normal);
 }
 
 .footer__links a:hover {
-    color: #34c08f;
+    color: var(--color-brand-primary);
 }
 
 .footer__cards {
@@ -331,36 +412,36 @@
 .footer__card {
     background: rgba(255, 255, 255, 0.08);
     backdrop-filter: blur(8px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.10);
     padding: 20px;
-    border-radius: 12px;
+    border-radius: var(--radius-lg);
     flex: 1;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    transition: all 0.3s;
+    transition: background var(--transition-normal), border-color var(--transition-normal), transform var(--transition-normal);
 }
 
 .footer__card:hover {
     background: rgba(255, 255, 255, 0.12);
-    border-color: rgba(52, 192, 143, 0.3);
+    border-color: rgba(52, 192, 143, 0.30);
     transform: translateY(-2px);
 }
 
 .footer__card h4 {
     margin-bottom: 8px;
-    color: #34c08f;
+    color: var(--color-brand-primary);
     font-size: 16px;
-    font-weight: 700;
+    font-weight: var(--weight-bold);
 }
 
 .footer__card a {
     margin-top: auto;
     text-decoration: none;
-    font-weight: 600;
-    color: #34c08f;
+    font-weight: var(--weight-semibold);
+    color: var(--color-brand-primary);
     font-size: 14px;
-    transition: opacity 0.2s;
+    transition: opacity var(--transition-fast);
 }
 
 .footer__card a:hover {
@@ -369,15 +450,15 @@
 
 .footer__card p {
     margin-top: 6px;
-    color: rgba(255, 255, 255, 0.6);
+    color: rgba(255, 255, 255, 0.60);
     font-size: 13px;
-    line-height: 1.5;
+    line-height: var(--leading-normal);
 }
 
 .footer__map {
     width: 100%;
     height: 150px;
-    border-radius: 8px;
+    border-radius: var(--radius-sm);
     overflow: hidden;
     margin-top: 8px;
 }
@@ -386,10 +467,10 @@
     max-width: 1200px;
     margin: 32px auto 0;
     padding-top: 24px;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    border-top: 1px solid rgba(255, 255, 255, 0.10);
     text-align: center;
     font-size: 13px;
-    color: rgba(255, 255, 255, 0.4);
+    color: rgba(255, 255, 255, 0.40);
 }
 
 @media (max-width: 768px) {

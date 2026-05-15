@@ -1,0 +1,120 @@
+/* ═══════════════════════════════════════════════════════════════════
+   BOWE WORKING — DESIGN TOKENS
+   Fuente única de verdad para colores, tipografía, espaciado y más.
+   Importar en main.jsx antes de cualquier otro estilo.
+   ═══════════════════════════════════════════════════════════════════ */
+
+:root {
+
+  /* ── Brand Colors ─────────────────────────────── */
+  --color-brand-primary:      #34c08f;
+  --color-brand-primary-dark: #2aad7e;
+  --color-brand-primary-soft: rgba(52, 192, 143, 0.10);
+  --color-brand-primary-mid:  rgba(52, 192, 143, 0.20);
+  --color-brand-primary-glow: rgba(52, 192, 143, 0.32);
+
+  /* ── Dark scale (brand navy) ──────────────────── */
+  --color-neutral-900: #1a1a2e;
+  --color-neutral-800: #2d2d4e;
+  --color-neutral-700: #3d3d5c;
+
+  /* ── Light scale (backgrounds / borders) ─────── */
+  --color-neutral-100: #f8fafb;
+  --color-neutral-200: #f0f2f5;
+  --color-neutral-300: #e8ecf0;
+  --color-neutral-400: #d1d9e0;
+  --color-neutral-500: #a8b2bc;
+
+  /* ── Page backgrounds ─────────────────────────── */
+  --color-bg:         #f5f7fa;
+  --color-bg-alt:     #f0f2f5;
+  --color-surface:    #ffffff;
+
+  /* ── Text ─────────────────────────────────────── */
+  --color-text-primary:   #1a1a2e;
+  --color-text-secondary: #5c6570;
+  --color-text-tertiary:  #9ba3ac;
+  --color-text-inverse:   #ffffff;
+
+  /* ── Semantic ─────────────────────────────────── */
+  --color-success:       #27ae60;
+  --color-success-soft:  rgba(39, 174, 96, 0.12);
+  --color-success-text:  #1a7a40;
+  --color-warning:       #e8a830;
+  --color-warning-soft:  rgba(232, 168, 48, 0.12);
+  --color-warning-text:  #7a5a10;
+  --color-danger:        #e05252;
+  --color-danger-soft:   rgba(224, 82, 82, 0.10);
+  --color-danger-text:   #8b2020;
+  --color-info:          #4a90d9;
+  --color-info-soft:     rgba(74, 144, 217, 0.12);
+
+  /* ── Typography ───────────────────────────────── */
+  --font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+
+  --text-xs:   11px;
+  --text-sm:   13px;
+  --text-base: 15px;
+  --text-md:   17px;
+  --text-lg:   20px;
+  --text-xl:   24px;
+  --text-2xl:  30px;
+  --text-3xl:  38px;
+
+  --weight-regular:  400;
+  --weight-medium:   500;
+  --weight-semibold: 600;
+  --weight-bold:     700;
+  --weight-black:    800;
+
+  --leading-tight:   1.15;
+  --leading-normal:  1.5;
+  --leading-relaxed: 1.65;
+
+  /* ── Spacing (base 8px) ───────────────────────── */
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-5:  20px;
+  --space-6:  24px;
+  --space-8:  32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-20: 80px;
+
+  /* ── Border radius ────────────────────────────── */
+  --radius-xs:   4px;    /* micro: indicadores, puntos */
+  --radius-sm:   6px;    /* chips pequeños, badges */
+  --radius-md:   10px;   /* inputs, botones */
+  --radius-lg:   14px;   /* cards pequeñas, form cards */
+  --radius-xl:   20px;   /* cards principales */
+  --radius-2xl:  28px;   /* modales, paneles grandes */
+  --radius-full: 9999px; /* pills, avatares */
+
+  /* ── Shadows ──────────────────────────────────── */
+  --shadow-xs:    0 1px 3px rgba(0, 0, 0, 0.06);
+  --shadow-sm:    0 2px 8px rgba(0, 0, 0, 0.07);
+  --shadow-md:    0 4px 16px rgba(0, 0, 0, 0.08);
+  --shadow-lg:    0 8px 32px rgba(0, 0, 0, 0.10);
+  --shadow-xl:    0 16px 48px rgba(0, 0, 0, 0.13);
+  --shadow-brand: 0 4px 20px rgba(52, 192, 143, 0.30);
+  --shadow-brand-lg: 0 8px 32px rgba(52, 192, 143, 0.38);
+  --shadow-dark:  0 18px 48px rgba(26, 26, 46, 0.35);
+
+  /* ── Transitions ──────────────────────────────── */
+  --transition-fast:   0.15s ease;
+  --transition-normal: 0.22s ease;
+  --transition-slow:   0.35s ease;
+
+  /* ── Z-index ──────────────────────────────────── */
+  --z-base:    1;
+  --z-dropdown: 100;
+  --z-sticky:   200;
+  --z-modal:    300;
+  --z-toast:    400;
+
+  /* ── Focus ring ───────────────────────────────── */
+  --focus-ring: 0 0 0 3px var(--color-brand-primary-soft);
+}

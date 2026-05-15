@@ -35,6 +35,7 @@ import {
   CloseCircleOutlined,
   WarningOutlined,
 } from "@ant-design/icons";
+import { PAGO_ESTADO_LABEL } from "../../utils/reservaEstados.js";
 
 const { Content } = Layout;
 const { Option } = Select;
@@ -54,11 +55,12 @@ const METODOS_FILTRO = ["Efectivo", "Transferencia", "Mercado Pago", "QR", "Tarj
 function estadoPagoCell(stylesCss, estadoRaw) {
   const estado = (estadoRaw || "").trim();
   const lower = estado.toLowerCase();
+  const label = PAGO_ESTADO_LABEL[estado] || estado || "Pendiente de pago";
   if (lower === "pagado") {
     return (
       <span className={`${stylesCss.estadoBadge} ${stylesCss.estadoPagado}`} title="Cobro confirmado">
         <CheckCircleOutlined aria-hidden />
-        Pagado
+        {PAGO_ESTADO_LABEL.Pagado}
       </span>
     );
   }
@@ -66,14 +68,14 @@ function estadoPagoCell(stylesCss, estadoRaw) {
     return (
       <span className={`${stylesCss.estadoBadge} ${stylesCss.estadoRechazado}`} title="Pago no acreditado">
         <CloseCircleOutlined aria-hidden />
-        {estado || "Rechazado"}
+        {label}
       </span>
     );
   }
   return (
     <span className={`${stylesCss.estadoBadge} ${stylesCss.estadoPendiente}`} title="Pendiente de cobro o confirmación">
       <ClockCircleOutlined aria-hidden />
-      {estado || "Pendiente"}
+      {PAGO_ESTADO_LABEL.Pendiente}
     </span>
   );
 }
@@ -358,9 +360,11 @@ export default function GestionFinanciera() {
       title: "Monto",
       dataIndex: "Monto",
       key: "monto",
+      align: "right",
+      className: "col-money",
       sorter: (a, b) => (parseFloat(a.Monto) || 0) - (parseFloat(b.Monto) || 0),
       render: (v) => (
-        <span style={{ fontWeight: 600, color: "#1a1a2e" }}>
+        <span style={{ fontWeight: 600, color: "#1a1a2e", fontVariantNumeric: "tabular-nums" }}>
           ${parseFloat(v || 0).toLocaleString("es-AR", { minimumFractionDigits: 2 })}
         </span>
       ),
@@ -541,26 +545,75 @@ export default function GestionFinanciera() {
                     <label className={styles.label}>Reserva pendiente</label>
                     <Select
                       className={styles.select}
-                      placeholder="Seleccionar reserva"
+                      placeholder="Buscar por cliente, DNI, espacio o ID..."
                       value={formReserva}
                       onChange={setFormReserva}
                       showSearch
-                      optionFilterProp="label"
+                      optionFilterProp="searchValue"
+                      optionLabelProp="selectedLabel"
                       filterOption={(input, option) =>
-                        String(option?.label ?? "")
+                        String(option?.searchValue ?? "")
                           .toLowerCase()
                           .includes(input.toLowerCase())
                       }
+                      dropdownStyle={{ maxWidth: 480 }}
+                      listHeight={320}
                     >
                       {reservasPendientesVista.map((r) => {
-                        const label = `${r.Nombre} — ${r.espacio_nombre || "?"} (${r.DiaReserva ? dayjs(r.DiaReserva).format("DD/MM") : "?"})`;
+                        const fecha = r.DiaReserva ? dayjs(r.DiaReserva).format("DD/MM/YYYY") : "—";
+                        const horario = r.HorarioReserva
+                          ? `${r.HorarioReserva}${r.HorarioFin ? `–${r.HorarioFin}` : ""}`
+                          : "Todo el día";
+                        const monto = parseFloat(r.Monto || 0);
+                        const tipoBadge =
+                          r.ClasificacionPago === "reserva_fija" ? "Fijo 4 sem." :
+                          r.ClasificacionPago === "multirecurso" ? "Varios lugares" : "Turno";
+                        const idTxt = r.idSerie
+                          ? `Serie #${r.idSerie}`
+                          : r.idReservaGrupo
+                            ? `Grupo #${r.idReservaGrupo}`
+                            : `#${r.idReserva}`;
+                        const searchValue = [
+                          r.Nombre,
+                          r.cliente_dni,
+                          r.espacio_nombre,
+                          r.recurso_nombre,
+                          fecha,
+                          horario,
+                          idTxt,
+                        ].filter(Boolean).join(" ");
+                        const selectedLabel = `${r.Nombre} · ${r.espacio_nombre || "—"} · ${fecha} ${horario}`;
                         return (
-                          <Option key={r.key || r.idReserva} value={r.idReserva} label={label}>
-                            <div className={styles.pendienteOptionRow}>
-                              <span className={styles.pendienteOptionText}>{label}</span>
-                              <span className={styles.estadoMiniPendiente}>
-                                <WarningOutlined aria-hidden /> Pendiente
-                              </span>
+                          <Option
+                            key={r.key || r.idReserva}
+                            value={r.idReserva}
+                            searchValue={searchValue}
+                            selectedLabel={selectedLabel}
+                          >
+                            <div className={styles.pendienteOption}>
+                              <div className={styles.pendienteOptionTop}>
+                                <span className={styles.pendienteOptionCliente}>{r.Nombre || "—"}</span>
+                                <span className={styles.pendienteOptionMonto}>
+                                  ${monto.toLocaleString("es-AR", { minimumFractionDigits: 2 })}
+                                </span>
+                              </div>
+                              <div className={styles.pendienteOptionMid}>
+                                <ShopOutlined aria-hidden style={{ marginRight: 4 }} />
+                                {r.espacio_nombre || "—"}
+                                {r.recurso_nombre ? ` · ${r.recurso_nombre}` : ""}
+                              </div>
+                              <div className={styles.pendienteOptionMeta}>
+                                <span className={styles.pendienteMetaItem}>
+                                  <ClockCircleOutlined aria-hidden /> {fecha} · {horario}
+                                </span>
+                                {r.cliente_dni && (
+                                  <span className={styles.pendienteMetaItem}>DNI {r.cliente_dni}</span>
+                                )}
+                                <Tag color={r.ClasificacionPago === "reserva_fija" ? "cyan" : r.ClasificacionPago === "multirecurso" ? "geekblue" : "default"} style={{ margin: 0, fontSize: 10 }}>
+                                  {tipoBadge}
+                                </Tag>
+                                <span className={styles.pendienteMetaId}>{idTxt}</span>
+                              </div>
                             </div>
                           </Option>
                         );

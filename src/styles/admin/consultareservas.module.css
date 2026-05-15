@@ -1,6 +1,6 @@
 .layout {
   min-height: 100vh;
-  background: #f5f6fa;
+  background: var(--color-bg);
 }
 
 .content {
@@ -24,9 +24,10 @@
 
 .pageTitle {
   font-size: 24px;
-  font-weight: 700;
-  color: #222;
+  font-weight: var(--weight-bold);
+  color: var(--color-text-primary);
   margin: 0;
+  letter-spacing: -0.02em;
 }
 
 .filtersRow {
@@ -37,8 +38,9 @@
 }
 
 .tableCard {
-  border-radius: 12px;
-  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--color-neutral-300) !important;
   max-width: 100%;
   min-width: 0;
 }
@@ -70,14 +72,34 @@
 }
 
 .label {
-  font-size: 12px;
-  font-weight: 600;
-  color: #666;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  color: var(--color-text-secondary);
   text-transform: uppercase;
-  letter-spacing: 0.3px;
+  letter-spacing: 0.06em;
 }
 
 /* Resource chips */
+.chipGroups {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.chipGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.chipGroupLabel {
+  font-size: 10px;
+  font-weight: var(--weight-bold);
+  color: var(--color-text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
 .chipGrid {
   display: flex;
   flex-wrap: wrap;
@@ -89,19 +111,20 @@
   align-items: center;
   gap: 5px;
   padding: 6px 14px;
-  font-size: 13px;
-  font-weight: 500;
-  color: #444;
-  background: #f5f7f9;
-  border: 1.5px solid #e2e6ea;
-  border-radius: 20px;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  font-family: var(--font-family);
+  color: var(--color-text-secondary);
+  background: var(--color-neutral-100);
+  border: 1.5px solid var(--color-neutral-300);
+  border-radius: var(--radius-full);
   cursor: pointer;
-  transition: all 0.15s;
+  transition: background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
 }
 
 .chip:hover {
-  background: #eaf0f5;
-  border-color: #c0cad4;
+  background: var(--color-neutral-200);
+  border-color: var(--color-neutral-400);
 }
 
 .chipActive {
@@ -121,14 +144,50 @@
 .occupancyHeader {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
+  align-items: flex-end;
+  margin-bottom: 16px;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .occupancyHeader h3 {
   font-size: 17px;
-  font-weight: 600;
+  font-weight: var(--weight-bold);
   margin: 0;
+  color: var(--color-text-primary);
+  letter-spacing: -0.01em;
+}
+
+.occupancyHeaderSub {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+  font-weight: var(--weight-medium);
+  text-transform: capitalize;
+}
+
+.occupancyLegend {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  background: var(--color-neutral-100);
+  border-radius: var(--radius-md);
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.occupancyLegendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: var(--weight-medium);
+}
+
+.occupancyLegendDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex-shrink: 0;
 }
 
 .occupancyGrid {
@@ -138,65 +197,154 @@
 .occupancyTimeHeader {
   display: flex;
   align-items: center;
-  border-bottom: 1px solid #eee;
-  padding-bottom: 8px;
-  margin-bottom: 4px;
+  border-bottom: 2px solid var(--color-neutral-300);
+  padding: 8px 0;
+  margin-bottom: 8px;
   min-width: 800px;
+  position: sticky;
+  top: 0;
+  background: var(--color-surface);
+  z-index: 1;
 }
 
 .occupancyLabel {
-  width: 140px;
-  min-width: 140px;
-  padding-right: 8px;
+  width: 160px;
+  min-width: 160px;
+  padding-right: 12px;
   font-size: 12px;
-  color: #555;
+  color: var(--color-text-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-weight: var(--weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .occupancyHour {
   flex: 1;
   text-align: center;
   font-size: 11px;
-  color: #aaa;
-  font-weight: 600;
+  color: var(--color-text-tertiary);
+  font-weight: var(--weight-bold);
+  font-variant-numeric: tabular-nums;
+}
+
+.occupancyGroup {
+  margin-bottom: 18px;
+  min-width: 800px;
+}
+
+.occupancyGroupHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  margin-bottom: 4px;
+  background: linear-gradient(90deg, var(--color-brand-primary-soft), transparent 80%);
+  border-left: 4px solid var(--color-brand-primary);
+  border-radius: var(--radius-sm);
+}
+
+.occupancyGroupIcon {
+  color: var(--color-brand-primary);
+  font-size: 14px;
+}
+
+.occupancyGroupName {
+  font-size: 14px;
+  font-weight: var(--weight-bold);
+  color: var(--color-text-primary);
+  letter-spacing: -0.01em;
+  flex: 1;
+}
+
+.occupancyGroupCount {
+  font-size: 11px;
+  font-weight: var(--weight-bold);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  padding: 2px 10px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-neutral-300);
 }
 
 .occupancyRow {
   display: flex;
   align-items: center;
-  padding: 6px 0;
-  border-bottom: 1px solid #f5f5f5;
+  padding: 8px 6px;
+  border-bottom: 1px solid var(--color-neutral-200);
   min-width: 800px;
+  transition: background var(--transition-fast);
+}
+
+.occupancyRow:hover {
+  background: var(--color-neutral-100);
+}
+
+.occupancyResName {
+  font-weight: var(--weight-semibold);
+  font-size: 13px;
+  color: var(--color-text-primary);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.occupancyResMeta {
+  font-size: 10px;
+  font-weight: var(--weight-medium);
+  color: var(--color-brand-primary);
+  text-transform: none;
+  letter-spacing: 0;
+  margin-top: 2px;
 }
 
 .occupancyTimeline {
   flex: 1;
   position: relative;
-  height: 28px;
-  background: #f8f9fb;
-  border-radius: 6px;
+  height: 32px;
+  background: var(--color-neutral-100);
+  border-radius: var(--radius-sm);
   overflow: hidden;
+  border: 1px solid var(--color-neutral-200);
 }
 
 .occupancyBlock {
   position: absolute;
-  top: 2px;
-  bottom: 2px;
-  background: #34c08f;
-  border-radius: 4px;
+  top: 3px;
+  bottom: 3px;
+  background: linear-gradient(135deg, var(--color-brand-primary), var(--color-brand-primary-dark));
+  border-radius: var(--radius-xs);
   display: flex;
   align-items: center;
-  padding: 0 6px;
+  padding: 0 8px;
   overflow: hidden;
+  box-shadow: 0 1px 4px rgba(52, 192, 143, 0.3);
+  cursor: pointer;
+  transition: box-shadow var(--transition-fast);
+}
+
+.occupancyBlock:hover {
+  box-shadow: 0 2px 8px rgba(52, 192, 143, 0.5);
 }
 
 .occupancyBlock span {
   font-size: 10px;
-  font-weight: 600;
+  font-weight: var(--weight-bold);
   color: #fff;
   white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.occupancyEmpty {
+  text-align: center;
+  padding: 48px 16px;
+  color: var(--color-text-tertiary);
+}
+
+.occupancyEmpty p {
+  margin: 12px 0 0;
+  font-size: 14px;
 }
 
 /* Responsive */

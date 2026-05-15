@@ -1,0 +1,666 @@
+/* ═══════════════════════════════════════════════════════════════
+   BOWE WORKING — Shared Component Styles
+   Importar individualmente donde se necesite cada clase.
+   Los overrides de Ant Design usan :global() para saltar el scope.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ══════════════════════════════════
+   BOTONES
+   ══════════════════════════════════ */
+
+/* Primario — CTA principal */
+.btnPrimary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 22px;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  font-family: var(--font-family);
+  color: var(--color-text-inverse);
+  background: var(--color-brand-primary);
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background var(--transition-fast), transform var(--transition-fast), box-shadow var(--transition-fast);
+  white-space: nowrap;
+}
+
+.btnPrimary:hover {
+  background: var(--color-brand-primary-dark);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-brand);
+}
+
+.btnPrimary:active { transform: translateY(0); box-shadow: none; }
+
+.btnPrimary:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.btnPrimary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Large */
+.btnPrimaryLg {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 13px 28px;
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
+  font-family: var(--font-family);
+  color: var(--color-text-inverse);
+  background: var(--color-brand-primary);
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background var(--transition-fast), transform var(--transition-fast), box-shadow var(--transition-fast);
+  white-space: nowrap;
+}
+
+.btnPrimaryLg:hover {
+  background: var(--color-brand-primary-dark);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-brand);
+}
+
+/* Ghost / Secondary */
+.btnGhost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 9px 21px;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  font-family: var(--font-family);
+  color: var(--color-brand-primary);
+  background: transparent;
+  border: 1.5px solid var(--color-brand-primary);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
+  white-space: nowrap;
+}
+
+.btnGhost:hover {
+  background: var(--color-brand-primary-soft);
+}
+
+.btnGhost:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.btnGhost:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Danger */
+.btnDanger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 22px;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  font-family: var(--font-family);
+  color: var(--color-text-inverse);
+  background: var(--color-danger);
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background var(--transition-fast), transform var(--transition-fast);
+  white-space: nowrap;
+}
+
+.btnDanger:hover {
+  background: #c43d3d;
+  transform: translateY(-1px);
+}
+
+/* Dark */
+.btnDark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 22px;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  font-family: var(--font-family);
+  color: var(--color-text-inverse);
+  background: var(--color-neutral-900);
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background var(--transition-fast), transform var(--transition-fast), box-shadow var(--transition-fast);
+  white-space: nowrap;
+}
+
+.btnDark:hover {
+  background: var(--color-neutral-800);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+/* ══════════════════════════════════
+   CARDS
+   ══════════════════════════════════ */
+
+/* Card nivel 1 — panel principal */
+.card {
+  background: var(--color-surface);
+  border-radius: var(--radius-xl);
+  padding: var(--space-6);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--color-neutral-300);
+  transition: box-shadow var(--transition-normal), transform var(--transition-normal);
+}
+
+.card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+/* Card nivel 2 — item en grilla */
+.cardItem {
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  box-shadow: var(--shadow-xs);
+  border: 1px solid var(--color-neutral-300);
+  transition: box-shadow var(--transition-fast), transform var(--transition-fast);
+}
+
+.cardItem:hover {
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
+}
+
+/* Card de stats / KPI */
+.cardStat {
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  padding: 20px 22px;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--color-neutral-300);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.cardStat:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+/* ══════════════════════════════════
+   FORMULARIOS
+   ══════════════════════════════════ */
+
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.formLabel {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.formInput {
+  background: var(--color-neutral-100);
+  border: 1.5px solid var(--color-neutral-300);
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  font-size: var(--text-base);
+  font-family: var(--font-family);
+  color: var(--color-text-primary);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
+  outline: none;
+  width: 100%;
+}
+
+.formInput:focus {
+  border-color: var(--color-brand-primary);
+  box-shadow: var(--focus-ring);
+  background: var(--color-surface);
+}
+
+.formInput::placeholder {
+  color: var(--color-text-tertiary);
+  font-weight: var(--weight-regular);
+}
+
+.formInputError {
+  border-color: var(--color-danger) !important;
+  box-shadow: 0 0 0 3px var(--color-danger-soft) !important;
+}
+
+.formHelperText {
+  font-size: var(--text-xs);
+  color: var(--color-text-tertiary);
+}
+
+.formErrorText {
+  font-size: var(--text-xs);
+  color: var(--color-danger);
+  font-weight: var(--weight-medium);
+}
+
+/* ══════════════════════════════════
+   MONEY / NUMERIC
+   ══════════════════════════════════ */
+
+/* Aplicar a celdas <td>/<th> y spans donde se muestran montos en pesos.
+   Usa tabular-nums para que los dígitos queden alineados en columna. */
+.money,
+.moneyCell {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Override global: cualquier columna de Ant Design que tenga la clase
+   .col-money quedará alineada a la derecha tanto en thead como en tbody. */
+:global(.ant-table-cell.col-money),
+:global(th.col-money),
+:global(td.col-money) {
+  text-align: right !important;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* ══════════════════════════════════
+   BADGES / STATUS
+   ══════════════════════════════════ */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+
+.badgeSuccess {
+  background: var(--color-success-soft);
+  color: var(--color-success-text);
+  border-color: rgba(39, 174, 96, 0.25);
+}
+
+.badgeWarning {
+  background: var(--color-warning-soft);
+  color: var(--color-warning-text);
+  border-color: rgba(232, 168, 48, 0.25);
+}
+
+.badgeDanger {
+  background: var(--color-danger-soft);
+  color: var(--color-danger-text);
+  border-color: rgba(224, 82, 82, 0.20);
+}
+
+.badgeNeutral {
+  background: var(--color-neutral-200);
+  color: var(--color-text-secondary);
+  border-color: var(--color-neutral-300);
+}
+
+.badgeBrand {
+  background: var(--color-brand-primary-soft);
+  color: #1a7a55;
+  border-color: var(--color-brand-primary-glow);
+}
+
+/* Dot indicator antes del texto */
+.badge::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.7;
+  flex-shrink: 0;
+}
+
+/* ══════════════════════════════════
+   PAGE HEADERS (Admin)
+   ══════════════════════════════════ */
+
+.pageHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-5);
+}
+
+.pageTitle {
+  font-size: 24px;
+  font-weight: var(--weight-bold);
+  color: var(--color-text-primary);
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+
+/* ══════════════════════════════════
+   ANT DESIGN — TABLE OVERRIDES
+   (aplicables desde cualquier CSS module con :global)
+   ══════════════════════════════════ */
+
+/* Reemplazar las clases globales de Ant Design con variables del token system */
+
+:global(.ant-table) {
+  font-family: var(--font-family) !important;
+  font-size: var(--text-sm) !important;
+  color: var(--color-text-primary) !important;
+}
+
+:global(.ant-table-container) {
+  border-radius: var(--radius-lg) !important;
+  overflow: hidden;
+}
+
+:global(.ant-table-thead > tr > th) {
+  background: var(--color-neutral-100) !important;
+  color: var(--color-text-secondary) !important;
+  font-size: var(--text-xs) !important;
+  font-weight: var(--weight-bold) !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+  padding: 10px 16px !important;
+  border-bottom: 2px solid var(--color-neutral-300) !important;
+  white-space: nowrap;
+}
+
+:global(.ant-table-tbody > tr > td) {
+  padding: 12px 16px !important;
+  color: var(--color-text-primary) !important;
+  border-bottom: 1px solid var(--color-neutral-200) !important;
+  transition: background var(--transition-fast) !important;
+}
+
+:global(.ant-table-tbody > tr:last-child > td) {
+  border-bottom: none !important;
+}
+
+:global(.ant-table-tbody > tr:hover > td) {
+  background: var(--color-brand-primary-soft) !important;
+}
+
+:global(.ant-table-row-selected > td) {
+  background: var(--color-brand-primary-soft) !important;
+}
+
+/* Pagination */
+:global(.ant-pagination-item-active a) {
+  color: var(--color-brand-primary) !important;
+}
+
+:global(.ant-pagination-item-active) {
+  border-color: var(--color-brand-primary) !important;
+}
+
+/* Ant Design form inputs */
+:global(.ant-input),
+:global(.ant-input-affix-wrapper),
+:global(.ant-select-selector),
+:global(.ant-picker) {
+  border-radius: var(--radius-md) !important;
+  font-family: var(--font-family) !important;
+  font-size: var(--text-sm) !important;
+  border-color: var(--color-neutral-300) !important;
+  transition: border-color var(--transition-fast) !important, box-shadow var(--transition-fast) !important;
+}
+
+:global(.ant-input:focus),
+:global(.ant-input-affix-wrapper:focus),
+:global(.ant-input-affix-wrapper-focused),
+:global(.ant-select-focused .ant-select-selector),
+:global(.ant-picker-focused) {
+  border-color: var(--color-brand-primary) !important;
+  box-shadow: var(--focus-ring) !important;
+}
+
+/* Ant Design buttons */
+:global(.ant-btn-primary) {
+  background: var(--color-brand-primary) !important;
+  border-color: var(--color-brand-primary) !important;
+  border-radius: var(--radius-md) !important;
+  font-family: var(--font-family) !important;
+  font-weight: var(--weight-semibold) !important;
+  box-shadow: none !important;
+  transition: background var(--transition-fast) !important, border-color var(--transition-fast) !important;
+}
+
+:global(.ant-btn-primary:hover) {
+  background: var(--color-brand-primary-dark) !important;
+  border-color: var(--color-brand-primary-dark) !important;
+}
+
+:global(.ant-btn:not(.ant-btn-primary):not(.ant-btn-dangerous)) {
+  border-radius: var(--radius-md) !important;
+  font-family: var(--font-family) !important;
+}
+
+/* Ant Design Card */
+:global(.ant-card) {
+  border-radius: var(--radius-lg) !important;
+  border-color: var(--color-neutral-300) !important;
+  box-shadow: var(--shadow-sm) !important;
+  font-family: var(--font-family) !important;
+}
+
+:global(.ant-card-head) {
+  border-bottom-color: var(--color-neutral-300) !important;
+  font-family: var(--font-family) !important;
+}
+
+:global(.ant-card-head-title) {
+  font-weight: var(--weight-semibold) !important;
+  color: var(--color-text-primary) !important;
+  letter-spacing: -0.01em;
+}
+
+/* Ant Design Tag / Badge */
+:global(.ant-tag) {
+  border-radius: var(--radius-full) !important;
+  font-family: var(--font-family) !important;
+  font-weight: var(--weight-semibold) !important;
+  font-size: var(--text-xs) !important;
+}
+
+/* Ant Design Drawer */
+:global(.ant-drawer-header) {
+  border-bottom-color: var(--color-neutral-300) !important;
+  font-family: var(--font-family) !important;
+}
+
+:global(.ant-drawer-title) {
+  font-weight: var(--weight-bold) !important;
+  color: var(--color-text-primary) !important;
+  letter-spacing: -0.01em;
+}
+
+/* Ant Design Modal */
+:global(.ant-modal-content) {
+  border-radius: var(--radius-2xl) !important;
+  font-family: var(--font-family) !important;
+  box-shadow: var(--shadow-xl) !important;
+}
+
+:global(.ant-modal-header) {
+  border-bottom-color: var(--color-neutral-300) !important;
+  border-radius: var(--radius-2xl) var(--radius-2xl) 0 0 !important;
+}
+
+:global(.ant-modal-title) {
+  font-weight: var(--weight-bold) !important;
+  color: var(--color-text-primary) !important;
+  letter-spacing: -0.01em;
+}
+
+:global(.ant-modal-footer) {
+  border-top-color: var(--color-neutral-300) !important;
+}
+
+/* Steps — solo outline verde, sin relleno (icono y número en verde) */
+:global(.ant-steps-item-process .ant-steps-item-icon) {
+  background: transparent !important;
+  border-color: var(--color-brand-primary) !important;
+  border-width: 2px !important;
+}
+
+:global(.ant-steps-item-process .ant-steps-item-icon .ant-steps-icon),
+:global(.ant-steps-item-process .ant-steps-item-icon .anticon) {
+  color: var(--color-brand-primary) !important;
+}
+
+:global(.ant-steps-item-finish .ant-steps-item-icon) {
+  background: transparent !important;
+  border-color: var(--color-brand-primary) !important;
+  border-width: 2px !important;
+}
+
+:global(.ant-steps-item-finish .ant-steps-item-icon .anticon) {
+  color: var(--color-brand-primary) !important;
+}
+
+:global(.ant-steps-item-finish > .ant-steps-item-container > .ant-steps-item-tail::after) {
+  background: var(--color-brand-primary) !important;
+  height: 2px !important;
+}
+
+:global(.ant-steps-item-wait .ant-steps-item-icon) {
+  background: transparent !important;
+  border-color: var(--color-neutral-400) !important;
+}
+
+:global(.ant-steps-item-wait .ant-steps-item-icon .anticon) {
+  color: var(--color-text-tertiary) !important;
+}
+
+/* Titulo activo: usa verde brand en vez de azul antd */
+:global(.ant-steps-item-process .ant-steps-item-title),
+:global(.ant-steps-item-finish .ant-steps-item-title) {
+  color: var(--color-text-primary) !important;
+  font-weight: var(--weight-semibold);
+}
+
+/* Select dropdown */
+:global(.ant-select-item-option-selected:not(.ant-select-item-option-disabled)) {
+  background: var(--color-brand-primary-soft) !important;
+  color: var(--color-brand-primary) !important;
+  font-weight: var(--weight-semibold) !important;
+}
+
+/* Checkbox */
+:global(.ant-checkbox-checked .ant-checkbox-inner) {
+  background: var(--color-brand-primary) !important;
+  border-color: var(--color-brand-primary) !important;
+}
+
+:global(.ant-radio-inner::after) {
+  background-color: var(--color-brand-primary) !important;
+}
+
+:global(.ant-radio-checked .ant-radio-inner) {
+  border-color: var(--color-brand-primary) !important;
+}
+
+/* Switch */
+:global(.ant-switch-checked) {
+  background: var(--color-brand-primary) !important;
+}
+
+/* Spin / Loading */
+:global(.ant-spin-dot-item) {
+  background: var(--color-brand-primary) !important;
+}
+
+/* ══════════════════════════════════
+   ANT DESIGN — DATEPICKER CALENDAR OVERRIDES
+   ══════════════════════════════════ */
+
+/* Selected date cell */
+:global(.ant-picker-cell-in-view.ant-picker-cell-selected .ant-picker-cell-inner) {
+  background: var(--color-brand-primary) !important;
+  border-radius: var(--radius-sm) !important;
+}
+
+/* Today ring indicator */
+:global(.ant-picker-cell-in-view.ant-picker-cell-today .ant-picker-cell-inner::before) {
+  border-color: var(--color-brand-primary) !important;
+  border-radius: var(--radius-sm) !important;
+}
+
+/* "Hoy" / "Today" link */
+:global(.ant-picker-today-btn) {
+  color: var(--color-brand-primary) !important;
+}
+
+:global(.ant-picker-today-btn:hover) {
+  color: var(--color-brand-primary-dark) !important;
+}
+
+/* Header navigation buttons hover (mes, año) */
+:global(.ant-picker-header-view button:hover),
+:global(.ant-picker-header button:hover) {
+  color: var(--color-brand-primary) !important;
+}
+
+/* Hover sobre celdas de día */
+:global(.ant-picker-cell-in-view:hover .ant-picker-cell-inner) {
+  background: var(--color-brand-primary-soft) !important;
+}
+
+/* Range picker: celdas inicio/fin seleccionadas */
+:global(.ant-picker-cell-in-view.ant-picker-cell-range-start .ant-picker-cell-inner),
+:global(.ant-picker-cell-in-view.ant-picker-cell-range-end .ant-picker-cell-inner) {
+  background: var(--color-brand-primary) !important;
+  border-radius: var(--radius-sm) !important;
+}
+
+/* Range picker: fondo del rango entre inicio y fin */
+:global(.ant-picker-cell-in-view.ant-picker-cell-in-range::before) {
+  background: var(--color-brand-primary-soft) !important;
+}
+
+/* Range picker: hover range preview */
+:global(.ant-picker-cell-in-view.ant-picker-cell-range-hover-start::after),
+:global(.ant-picker-cell-in-view.ant-picker-cell-range-hover-end::after),
+:global(.ant-picker-cell-in-view.ant-picker-cell-range-hover::after) {
+  border-color: var(--color-brand-primary) !important;
+}
+
+/* Range start/end hover background extensions */
+:global(.ant-picker-cell-in-view.ant-picker-cell-range-start:not(.ant-picker-cell-range-start-single)::before),
+:global(.ant-picker-cell-in-view.ant-picker-cell-range-end:not(.ant-picker-cell-range-end-single)::before) {
+  background: var(--color-brand-primary-soft) !important;
+}
+
+/* Active bar below picker input */
+:global(.ant-picker-active-bar) {
+  background: var(--color-brand-primary) !important;
+}

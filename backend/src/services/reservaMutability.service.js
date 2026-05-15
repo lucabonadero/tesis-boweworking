@@ -116,6 +116,14 @@ export function evaluarMutacionReserva(row, now = new Date()) {
       mensaje: "El turno ya se cerró con asistencia; no se puede modificar ni eliminar desde acá.",
     };
   }
+  if (estado === "en_curso") {
+    return {
+      puedeEditar: false,
+      puedeEliminar: false,
+      codigo: "en_curso",
+      mensaje: "El turno está en curso; no se puede modificar ni eliminar mientras el cliente lo está usando.",
+    };
+  }
   if (estado === "no_asistio") {
     return {
       puedeEditar: false,

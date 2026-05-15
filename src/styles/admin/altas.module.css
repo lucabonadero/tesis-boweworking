@@ -1,6 +1,6 @@
 .layout {
   min-height: 100vh;
-  background: #f5f6fa;
+  background: var(--color-bg);
 }
 
 .contentWrap {
@@ -18,18 +18,19 @@
 
 .pageTitle {
   font-size: 24px;
-  font-weight: 700;
-  color: #222;
+  font-weight: var(--weight-bold);
+  color: var(--color-text-primary);
   margin: 0;
   display: flex;
   align-items: center;
   gap: 10px;
+  letter-spacing: -0.02em;
 }
 
 .pageDate {
   font-size: 14px;
-  color: #888;
-  font-weight: 500;
+  color: var(--color-text-secondary);
+  font-weight: var(--weight-medium);
   text-transform: capitalize;
 }
 
@@ -50,8 +51,9 @@
 }
 
 .mainCard {
-  border-radius: 12px;
-  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--color-neutral-300) !important;
 }
 
 .sectionHeader {
@@ -65,9 +67,10 @@
 
 .sectionTitle {
   font-size: 17px;
-  font-weight: 600;
-  color: #333;
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-primary);
   margin: 0;
+  letter-spacing: -0.01em;
 }
 
 @media (max-width: 768px) {

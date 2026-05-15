@@ -13,6 +13,11 @@ import {
 } from "../../utils/coworkingHours.js";
 import { recursoExcluidoFlujoTurnoHora } from "../../utils/reservaRecursoRules.js";
 import { notifyReservasChanged } from "../../utils/boweSync.js";
+import {
+  RESERVA_ESTADO_LABEL,
+  RESERVA_ESTADO_COLOR,
+  RESERVA_ESTADO_DESCRIPCION,
+} from "../../utils/reservaEstados.js";
 
 dayjs.extend(isBetween);
 
@@ -274,19 +279,32 @@ export default function ControlReservas() {
     })();
   }, [showOccupancy, occupancyDate, loading, occupancyRefresh]);
 
-  const occupancyData = useMemo(() => {
+  /** Recursos hoja (sin hijos) con sus bookings, agrupados por espacio. */
+  const occupancyGroups = useMemo(() => {
     const dayReservas = occupancyReservas;
 
     const leafRecursos = recursos.filter((r) => {
       return !recursos.some((child) => child.idRecursoPadre === r.idRecurso);
     });
 
-    return leafRecursos.map((rec) => {
+    const enriched = leafRecursos.map((rec) => {
       const bookings = dayReservas.filter((rv) => rv.idRecurso === rec.idRecurso);
-      const espName = espacios.find((e) => e.Espacio === rec.idEspacio)?.Nombre || "";
+      const espName = espacios.find((e) => e.Espacio === rec.idEspacio)?.Nombre || "—";
       return { ...rec, espacio_nombre: espName, bookings };
     }).filter((r) => r.bookings.length > 0 || !r.esCompleto);
+
+    const byEspacio = new Map();
+    for (const r of enriched) {
+      const key = r.idEspacio ?? "sin-espacio";
+      if (!byEspacio.has(key)) {
+        byEspacio.set(key, { idEspacio: r.idEspacio, nombre: r.espacio_nombre, recursos: [] });
+      }
+      byEspacio.get(key).recursos.push(r);
+    }
+    return Array.from(byEspacio.values());
   }, [occupancyReservas, recursos, espacios]);
+
+  const occupancyTotalRecursos = occupancyGroups.reduce((s, g) => s + g.recursos.length, 0);
 
   // Handlers
   const handleGuardar = async () => {
@@ -488,20 +506,26 @@ export default function ControlReservas() {
       title: "Estado del turno",
       key: "estado",
       render: (_, r) => {
-        const estado = r.Estado || "activa";
-        const colors = { activa: "green", completada: "blue", no_asistio: "red", cancelada: "default" };
-        const labels = {
-          activa: "Activa",
-          completada: "Cerrada — asistió",
-          no_asistio: "No asistió",
-          cancelada: "Cancelada",
-        };
-        return <Tag color={colors[estado] || "default"}>{labels[estado] || estado}</Tag>;
+        const estado = (r.Estado || "activa").toLowerCase();
+        return (
+          <Tooltip title={RESERVA_ESTADO_DESCRIPCION[estado] || ""}>
+            <Tag color={RESERVA_ESTADO_COLOR[estado] || "default"}>
+              {RESERVA_ESTADO_LABEL[estado] || estado}
+            </Tag>
+          </Tooltip>
+        );
       },
     },
     {
       title: "Monto", dataIndex: "Monto", key: "monto",
-      render: (v) => `$${parseFloat(v || 0).toLocaleString("es-AR")}`,
+      align: "right",
+      className: "col-money",
+      sorter: (a, b) => (parseFloat(a.Monto) || 0) - (parseFloat(b.Monto) || 0),
+      render: (v) => (
+        <span style={{ fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
+          ${parseFloat(v || 0).toLocaleString("es-AR", { minimumFractionDigits: 2 })}
+        </span>
+      ),
     },
     {
       title: "Acciones", key: "acciones", width: 160,
@@ -605,8 +629,9 @@ export default function ControlReservas() {
               placeholder="Estado del turno"
             >
               <Option value="Todos">Turno: todos</Option>
-              <Option value="activa">Activa</Option>
-              <Option value="completada">Cerrada — asistió</Option>
+              <Option value="activa">Confirmada</Option>
+              <Option value="en_curso">En curso</Option>
+              <Option value="completada">Asistió / Finalizada</Option>
               <Option value="no_asistio">No asistió</Option>
               <Option value="cancelada">Cancelada</Option>
             </Select>
@@ -638,9 +663,24 @@ export default function ControlReservas() {
           ) : (
             <Card bordered={false} className={styles.tableCard}>
               <div className={styles.occupancyHeader}>
-                <h3>Ocupacion del dia</h3>
+                <div>
+                  <h3>Ocupación del día</h3>
+                  <span className={styles.occupancyHeaderSub}>
+                    {dayjs(occupancyDate).format("dddd DD/MM/YYYY")} · {occupancyTotalRecursos} recursos
+                  </span>
+                </div>
                 <DatePicker value={occupancyDate} onChange={(v) => v && setOccupancyDate(v)} format="DD/MM/YYYY" />
               </div>
+
+              <div className={styles.occupancyLegend}>
+                <span className={styles.occupancyLegendItem}>
+                  <span className={styles.occupancyLegendDot} style={{ background: "#34c08f" }} /> Reservado
+                </span>
+                <span className={styles.occupancyLegendItem}>
+                  <span className={styles.occupancyLegendDot} style={{ background: "#e8a830" }} /> Todo el día
+                </span>
+              </div>
+
               <div className={styles.occupancyGrid}>
                 <div className={styles.occupancyTimeHeader}>
                   <div className={styles.occupancyLabel}>Recurso</div>
@@ -648,44 +688,58 @@ export default function ControlReservas() {
                     <div key={i} className={styles.occupancyHour}>{COWORKING_OPEN + i}:00</div>
                   ))}
                 </div>
-                {occupancyData.slice(0, 20).map((rec) => (
-                  <div key={rec.idRecurso} className={styles.occupancyRow}>
-                    <div className={styles.occupancyLabel} title={`${rec.espacio_nombre} / ${rec.Nombre}`}>
-                      <div style={{ fontWeight: 600, fontSize: 12 }}>{rec.Nombre}</div>
-                      <div style={{ fontSize: 10, color: "#999" }}>{rec.espacio_nombre}</div>
+
+                {occupancyGroups.map((grp) => (
+                  <div key={grp.idEspacio || "sin-espacio"} className={styles.occupancyGroup}>
+                    <div className={styles.occupancyGroupHeader}>
+                      <AppstoreOutlined className={styles.occupancyGroupIcon} />
+                      <span className={styles.occupancyGroupName}>{grp.nombre}</span>
+                      <span className={styles.occupancyGroupCount}>{grp.recursos.length}</span>
                     </div>
-                    <div className={styles.occupancyTimeline}>
-                      {rec.bookings.map((bk) => {
-                        if (!bk.HorarioReserva) {
-                          return (
-                            <div key={bk.idReserva} className={styles.occupancyBlock}
-                              style={{ left: "0%", width: "100%", background: "#e8a830" }}
-                              title={`${bk.Nombre} (todo el dia)`}>
-                              <span>{bk.Nombre}</span>
-                            </div>
-                          );
-                        }
-                        const [h1, m1] = bk.HorarioReserva.split(":").map(Number);
-                        const [h2, m2] = (bk.HorarioFin || bk.HorarioReserva).split(":").map(Number);
-                        const totalMins = (COWORKING_CLOSE - COWORKING_OPEN) * 60;
-                        const startMin = (h1 - COWORKING_OPEN) * 60 + m1;
-                        const endMin = (h2 - COWORKING_OPEN) * 60 + m2;
-                        const left = Math.max(0, (startMin / totalMins) * 100);
-                        const width = Math.max(2, ((endMin - startMin) / totalMins) * 100);
-                        return (
-                          <div key={bk.idReserva} className={styles.occupancyBlock}
-                            style={{ left: `${left}%`, width: `${width}%` }}
-                            title={`${bk.Nombre} ${bk.HorarioReserva}-${bk.HorarioFin}`}>
-                            <span>{bk.HorarioReserva}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
+                    {grp.recursos.map((rec) => (
+                      <div key={rec.idRecurso} className={styles.occupancyRow}>
+                        <div className={styles.occupancyLabel} title={`${rec.espacio_nombre} / ${rec.Nombre}`}>
+                          <div className={styles.occupancyResName}>{rec.Nombre}</div>
+                          {rec.bookings.length > 0 && (
+                            <div className={styles.occupancyResMeta}>{rec.bookings.length} reserva{rec.bookings.length !== 1 ? "s" : ""}</div>
+                          )}
+                        </div>
+                        <div className={styles.occupancyTimeline}>
+                          {rec.bookings.map((bk) => {
+                            if (!bk.HorarioReserva) {
+                              return (
+                                <div key={bk.idReserva} className={styles.occupancyBlock}
+                                  style={{ left: "0%", width: "100%", background: "#e8a830" }}
+                                  title={`${bk.Nombre} (todo el día)`}>
+                                  <span>{bk.Nombre}</span>
+                                </div>
+                              );
+                            }
+                            const [h1, m1] = bk.HorarioReserva.split(":").map(Number);
+                            const [h2, m2] = (bk.HorarioFin || bk.HorarioReserva).split(":").map(Number);
+                            const totalMins = (COWORKING_CLOSE - COWORKING_OPEN) * 60;
+                            const startMin = (h1 - COWORKING_OPEN) * 60 + m1;
+                            const endMin = (h2 - COWORKING_OPEN) * 60 + m2;
+                            const left = Math.max(0, (startMin / totalMins) * 100);
+                            const width = Math.max(2, ((endMin - startMin) / totalMins) * 100);
+                            return (
+                              <div key={bk.idReserva} className={styles.occupancyBlock}
+                                style={{ left: `${left}%`, width: `${width}%` }}
+                                title={`${bk.Nombre} ${bk.HorarioReserva}-${bk.HorarioFin}`}>
+                                <span>{bk.HorarioReserva}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 ))}
-                {occupancyData.length === 0 && (
-                  <div style={{ textAlign: "center", padding: 32, color: "#999" }}>
-                    No hay reservas para este dia
+
+                {occupancyGroups.length === 0 && (
+                  <div className={styles.occupancyEmpty}>
+                    <CalendarOutlined style={{ fontSize: 32 }} />
+                    <p>No hay recursos para mostrar en este día</p>
                   </div>
                 )}
               </div>
@@ -737,11 +791,29 @@ export default function ControlReservas() {
             {formData.idEspacio && (
               <div className={styles.formField}>
                 <label className={styles.label}>Recurso</label>
-                <div className={styles.chipGrid}>
-                  {recursoGroups.flatMap((s) =>
-                    s.items ? s.items.map(renderChip) : s.item ? [renderChip(s.item)] : []
-                  )}
-                </div>
+                {recursoGroups.length === 0 ? (
+                  <span style={{ fontSize: 12, color: "var(--color-text-tertiary)" }}>
+                    No hay recursos reservables en este espacio.
+                  </span>
+                ) : (
+                  <div className={styles.chipGroups}>
+                    {recursoGroups.map((s, idx) => {
+                      const items = s.items || (s.item ? [s.item] : []);
+                      if (items.length === 0) return null;
+                      const sectionLabel =
+                        s.type === "visual-group" || s.type === "db-group" ? s.label :
+                        s.type === "completo" ? "Espacio completo" : null;
+                      return (
+                        <div key={`${s.type}-${idx}`} className={styles.chipGroup}>
+                          {sectionLabel && (
+                            <span className={styles.chipGroupLabel}>{sectionLabel}</span>
+                          )}
+                          <div className={styles.chipGrid}>{items.map(renderChip)}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
             <div className={styles.formField}>

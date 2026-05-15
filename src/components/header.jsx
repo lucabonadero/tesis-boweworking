@@ -76,7 +76,7 @@ export default function Header() {
   // Links de panel staff: cada uno se muestra según el permiso correspondiente
   const staffPanelLinks = [
     hp("ver_reservas") && { path: "/control", label: "Consultar Reservas", icon: <CalendarOutlined /> },
-    hp("altas_clientes") && { path: "/altas", label: "Altas", icon: <AppstoreOutlined /> },
+    hp("altas_clientes") && { path: "/altas", label: "Control de Asistencia", icon: <AppstoreOutlined /> },
     hp("ver_espacios") && { path: "/admin-espacios", label: "Panel de Espacios", icon: <AppstoreOutlined /> },
     hp("gestionar_estructura") && { path: "/admin-estructura", label: "Estructura", icon: <AppstoreOutlined /> },
   ].filter(Boolean);

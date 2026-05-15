@@ -4,7 +4,7 @@ import Header from "../../components/header";
 import React, { useState, useEffect, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
-import { Layout, Card, Button, Input, Table, Tag, message, Spin, Empty, Badge, Tooltip } from "antd";
+import { Layout, Card, Button, Input, Table, Tag, message, Spin, Empty, Badge, Tooltip, Popconfirm } from "antd";
 import {
   SearchOutlined,
   CheckCircleOutlined,
@@ -12,10 +12,17 @@ import {
   CalendarOutlined,
   ClockCircleOutlined,
   UserOutlined,
+  PlayCircleOutlined,
+  StopOutlined,
 } from "@ant-design/icons";
 import { adminFetch } from "../../utils/adminApi";
 import { validarRecepcionNoAnticipadaLocal } from "../../utils/coworkingHours.js";
 import { notifyReservasChanged } from "../../utils/boweSync.js";
+import {
+  RESERVA_ESTADO_LABEL,
+  RESERVA_ESTADO_COLOR,
+  estadoReservaEfectivo,
+} from "../../utils/reservaEstados.js";
 
 const { Content } = Layout;
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
@@ -33,8 +40,17 @@ export default function AltaClientes() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [procesando, setProcesando] = useState(null);
+  const [, setTick] = useState(0);
 
   const hoy = dayjs().format("YYYY-MM-DD");
+
+  // Tick local cada 30s para que las reservas en_curso pasen visualmente a
+  // "Asistió / Finalizada" cuando cruzan HorarioFin, aún antes de que el sweep
+  // del backend persista el cambio.
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 30000);
+    return () => clearInterval(id);
+  }, []);
 
   const fetchReservas = async () => {
     try {
@@ -80,30 +96,42 @@ export default function AltaClientes() {
     return reservas.filter((r) => {
       const dia = r.DiaReserva ? dayjs(r.DiaReserva).format("YYYY-MM-DD") : null;
       const estado = r.Estado || "activa";
-      return dia === hoy && (estado === "completada" || estado === "no_asistio");
+      return dia === hoy && (estado === "en_curso" || estado === "completada" || estado === "no_asistio");
     });
   }, [reservas, hoy]);
 
-  const marcarEstado = async (idReserva, estado) => {
+  const marcarEstado = async (idReserva, estado, esFinalizacionManual = false) => {
     setProcesando(idReserva);
     try {
       const res = await adminFetch(`${API_URL}/api/reservas/${idReserva}/estado`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ estado }),
+        body: JSON.stringify({ estado, esFinalizacionManual }),
       });
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
         throw new Error(data.message || "Error al actualizar estado");
       }
 
+      // El backend devuelve el estado que realmente guardó.
+      const estadoPersistido = data.estado || estado;
+
       setReservas((prev) =>
-        prev.map((r) => r.idReserva === idReserva ? { ...r, Estado: estado } : r)
+        prev.map((r) => r.idReserva === idReserva ? { ...r, Estado: estadoPersistido } : r)
       );
       void fetchReservas();
       queryClient.invalidateQueries({ queryKey: ["staff-reservas"] });
       notifyReservasChanged();
-      message.success(estado === "completada" ? "Asistencia registrada" : "No asistencia registrada");
+
+      if (estado === "no_asistio") {
+        message.success("No asistencia registrada");
+      } else if (esFinalizacionManual || estadoPersistido === "completada") {
+        message.success("Turno finalizado");
+      } else if (estadoPersistido === "en_curso") {
+        message.success("Cliente recepcionado — turno en curso");
+      } else {
+        message.success("Asistencia registrada");
+      }
     } catch (e) {
       message.error(e.message || "Error al actualizar estado");
     } finally {
@@ -208,16 +236,48 @@ export default function AltaClientes() {
           : "Todo el dia",
     },
     {
-      title: "Recepción (turno)",
+      title: "Estado del turno",
       key: "estado",
-      render: (_, r) => (
-        <Tag
-          color={r.Estado === "completada" ? "success" : "error"}
-          icon={r.Estado === "completada" ? <CheckCircleOutlined /> : <CloseCircleOutlined />}
-        >
-          {r.Estado === "completada" ? "Asistió" : "No asistió"}
-        </Tag>
-      ),
+      render: (_, r) => {
+        const ef = estadoReservaEfectivo(r);
+        const icon =
+          ef === "en_curso" ? <PlayCircleOutlined />
+          : ef === "completada" ? <CheckCircleOutlined />
+          : <CloseCircleOutlined />;
+        return (
+          <Tag color={RESERVA_ESTADO_COLOR[ef] || "default"} icon={icon}>
+            {RESERVA_ESTADO_LABEL[ef] || r.Estado}
+          </Tag>
+        );
+      },
+    },
+    {
+      title: "Acciones",
+      key: "acciones",
+      width: 120,
+      render: (_, r) => {
+        const ef = estadoReservaEfectivo(r);
+        if (ef !== "en_curso") return null;
+        return (
+          <Popconfirm
+            title="¿Finalizar este turno?"
+            description="La reserva pasará a 'Asistió' ahora mismo."
+            onConfirm={() => marcarEstado(r.idReserva, "completada", true)}
+            okText="Finalizar"
+            cancelText="Cancelar"
+            okButtonProps={{ danger: false }}
+          >
+            <Button
+              danger
+              size="small"
+              icon={<StopOutlined />}
+              loading={procesando === r.idReserva}
+            >
+              Finalizar
+            </Button>
+          </Popconfirm>
+        );
+      },
     },
   ];
 
@@ -247,20 +307,20 @@ export default function AltaClientes() {
           <Badge count={pendientes.length} showZero overflowCount={99}>
             <Card size="small" className={styles.counterCard}>
               <ClockCircleOutlined style={{ color: "#e67e22", fontSize: 20 }} />
-              <span>Pendientes</span>
+              <span>Por recepcionar</span>
             </Card>
           </Badge>
           <Badge count={procesadas.length} showZero overflowCount={99} color="#34c08f">
             <Card size="small" className={styles.counterCard}>
               <CheckCircleOutlined style={{ color: "#34c08f", fontSize: 20 }} />
-              <span>Procesadas</span>
+              <span>Recepcionadas</span>
             </Card>
           </Badge>
         </div>
 
         <Card bordered={false} className={styles.mainCard}>
           <div className={styles.sectionHeader}>
-            <h2 className={styles.sectionTitle}>Reservas pendientes de hoy</h2>
+            <h2 className={styles.sectionTitle}>Reservas confirmadas de hoy</h2>
             <Input
               prefix={<SearchOutlined />}
               placeholder="Buscar por nombre, DNI..."
@@ -272,7 +332,7 @@ export default function AltaClientes() {
           </div>
 
           {pendientes.length === 0 ? (
-            <Empty description="No hay reservas pendientes para hoy" />
+            <Empty description="No hay reservas por recepcionar hoy" />
           ) : (
             <Table
               columns={pendienteCols}
@@ -285,7 +345,7 @@ export default function AltaClientes() {
 
         {procesadas.length > 0 && (
           <Card bordered={false} className={styles.mainCard} style={{ marginTop: 24 }}>
-            <h2 className={styles.sectionTitle}>Procesadas hoy</h2>
+            <h2 className={styles.sectionTitle}>Recepcionadas hoy</h2>
             <Table
               columns={procesadaCols}
               dataSource={procesadas.map((r) => ({ ...r, key: r.idReserva }))}

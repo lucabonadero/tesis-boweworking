@@ -7,7 +7,7 @@ import {
 import {
   PlusOutlined, EditOutlined, DeleteOutlined, SaveOutlined, UndoOutlined,
   AppstoreOutlined, HomeOutlined, GroupOutlined, BlockOutlined,
-  WarningOutlined, ReloadOutlined, DragOutlined, CloseOutlined, PictureOutlined,
+  WarningOutlined, ReloadOutlined, DragOutlined,
 } from "@ant-design/icons";
 import { useAuth } from "../../context/AuthContext.jsx";
 import Header from "../../components/header.jsx";
@@ -859,32 +859,38 @@ export default function GestionEstructura() {
   return (
     <>
       <Header />
-      <div style={{ maxWidth: 1400, margin: "24px auto", padding: "0 16px" }}>
+      <div style={{ maxWidth: 1400, margin: "24px auto", padding: "0 24px" }}>
         {/* Toolbar */}
         <div
           style={{
             position: "sticky",
             top: 0,
             zIndex: 5,
-            background: "#fff",
-            padding: "12px 0",
+            background: "var(--color-surface)",
+            padding: "18px 22px",
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
-            borderBottom: "1px solid #eee",
-            marginBottom: 16,
+            gap: 20,
+            flexWrap: "wrap",
+            border: "1px solid var(--color-neutral-300)",
+            borderRadius: 14,
+            boxShadow: "var(--shadow-sm)",
+            marginBottom: 18,
+            minHeight: 80,
           }}
         >
-          <div>
-            <Title level={3} style={{ margin: 0 }}>
-              <AppstoreOutlined style={{ marginRight: 8 }} />
+          <div style={{ minWidth: 0, flex: "1 1 320px" }}>
+            <Title level={3} style={{ margin: 0, lineHeight: 1.2, fontWeight: 700 }}>
+              <AppstoreOutlined style={{ marginRight: 10, color: "var(--color-brand-primary)" }} />
               Gestión de Estructura
             </Title>
-            <Text type="secondary">
-              Creá pisos, espacios y recursos. Los cambios se aplican al guardar.
+            <Text type="secondary" style={{ display: "block", marginTop: 6, fontSize: 13, lineHeight: 1.5 }}>
+              Estructura interna usada por el motor de reservas. Creá y reordená pisos, espacios y recursos.
+              Los cambios se aplican al guardar.
             </Text>
           </div>
-          <Space>
+          <Space wrap style={{ flexShrink: 0 }}>
             <Button
               icon={<ReloadOutlined />}
               onClick={cargarArbol}
@@ -923,7 +929,13 @@ export default function GestionEstructura() {
           />
         )}
 
-        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 16 }}>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))",
+            gap: 16,
+          }}
+        >
           {/* ARBOL */}
           <Card
             bordered={false}
@@ -1033,63 +1045,24 @@ function FormularioEdicion({
   if (tipo === NODO_PISO) {
     return (
       <div>
+        <Alert
+          type="info"
+          showIcon
+          style={{ marginBottom: 16 }}
+          message="Estructura interna"
+          description="Los campos de este panel afectan únicamente la lógica de reservas (espacios y recursos reservables). La página informativa 'Espacios' tiene su propio contenido y no se modifica desde acá."
+        />
         <Form layout="vertical" initialValues={nodo}>
           <Form.Item label="Nombre" required>
             <Input value={nodo.Nombre} onChange={(e) => onChange({ Nombre: e.target.value })} />
           </Form.Item>
-          <Form.Item label="Descripción">
+          <Form.Item label="Descripción interna" tooltip="Solo visible para el staff; no aparece en la web pública.">
             <Input.TextArea
               value={nodo.Descripcion || ""}
               onChange={(e) => onChange({ Descripcion: e.target.value })}
               rows={2}
-              placeholder="Texto principal que aparece en la home pública"
+              placeholder="Notas internas sobre el piso"
             />
-          </Form.Item>
-          <Form.Item label="Ideal para">
-            <Input.TextArea
-              value={nodo.IdealPara || ""}
-              onChange={(e) => onChange({ IdealPara: e.target.value })}
-              rows={2}
-              placeholder="Casos de uso del piso (ej. reuniones, llamadas, jornadas largas)"
-            />
-          </Form.Item>
-          <Form.Item label="Amenities">
-            <Select
-              mode="tags"
-              value={nodo.Amenities || []}
-              onChange={(v) => onChange({ Amenities: v })}
-              placeholder="Wi-Fi, Cocina, Impresora..."
-              style={{ width: "100%" }}
-              tokenSeparators={[","]}
-            />
-          </Form.Item>
-          <Form.Item label="Imagen principal (URL)">
-            <Input
-              value={nodo.ImagenUrl || ""}
-              onChange={(e) => onChange({ ImagenUrl: e.target.value })}
-              placeholder="https://... o /assets/foto.jpg"
-              prefix={<PictureOutlined />}
-            />
-          </Form.Item>
-          <ImagenesEditor
-            imagenes={nodo.Imagenes || []}
-            onChange={(v) => onChange({ Imagenes: v })}
-          />
-          <Form.Item label="Color (acento)">
-            <Input
-              value={nodo.Color || ""}
-              onChange={(e) => onChange({ Color: e.target.value })}
-              placeholder="#5b6abf"
-            />
-          </Form.Item>
-          <Form.Item label="Publicado en la home">
-            <Switch
-              checked={nodo.Publicado !== false}
-              onChange={(v) => onChange({ Publicado: v })}
-            />
-            <Text type="secondary" style={{ marginLeft: 12 }}>
-              Si está apagado, el piso no aparece en el Carrusel público.
-            </Text>
           </Form.Item>
         </Form>
         <Divider />
@@ -1334,85 +1307,6 @@ function ModalCrear({ modal, form, tiposRecurso, onCancel, onSubmit }) {
         </Form.Item>
       </Form>
     </Modal>
-  );
-}
-
-// ============================================================
-// Editor de imágenes del Piso (lista dinámica)
-// ============================================================
-function ImagenesEditor({ imagenes, onChange }) {
-  const lista = Array.isArray(imagenes) ? imagenes : [];
-
-  const actualizar = (i, key, value) => {
-    const nueva = lista.map((img, idx) => (idx === i ? { ...img, [key]: value } : img));
-    onChange(nueva);
-  };
-
-  const agregar = () => {
-    onChange([...lista, { url: "", alt: "", caption: "" }]);
-  };
-
-  const quitar = (i) => {
-    onChange(lista.filter((_, idx) => idx !== i));
-  };
-
-  return (
-    <Form.Item label="Galería de imágenes (para el Carrusel)">
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        {lista.length === 0 && (
-          <Text type="secondary">Sin imágenes — se mostrarán las predeterminadas en la home.</Text>
-        )}
-        {lista.map((img, i) => (
-          <div
-            key={i}
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr 1fr auto",
-              gap: 8,
-              alignItems: "center",
-              padding: 8,
-              border: "1px solid #f0f0f0",
-              borderRadius: 6,
-            }}
-          >
-            <Input
-              size="small"
-              value={img.url || ""}
-              onChange={(e) => actualizar(i, "url", e.target.value)}
-              placeholder="URL"
-              prefix={<PictureOutlined />}
-            />
-            <Input
-              size="small"
-              value={img.alt || ""}
-              onChange={(e) => actualizar(i, "alt", e.target.value)}
-              placeholder="Texto alternativo"
-            />
-            <Input
-              size="small"
-              value={img.caption || ""}
-              onChange={(e) => actualizar(i, "caption", e.target.value)}
-              placeholder="Caption"
-            />
-            <Button
-              size="small"
-              danger
-              icon={<CloseOutlined />}
-              onClick={() => quitar(i)}
-            />
-          </div>
-        ))}
-        <Button
-          size="small"
-          type="dashed"
-          icon={<PlusOutlined />}
-          onClick={agregar}
-          style={{ alignSelf: "flex-start" }}
-        >
-          Agregar imagen
-        </Button>
-      </div>
-    </Form.Item>
   );
 }
 
