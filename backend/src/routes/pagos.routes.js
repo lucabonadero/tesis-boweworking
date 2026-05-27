@@ -15,7 +15,11 @@ import {
   verificarPago,
   obtenerEstadoPago,
 } from "../controllers/mercadopago.controller.js";
-import { verificarToken, verificarAdmin } from "../middleware/auth.middleware.js";
+import {
+  verificarToken,
+  verificarPermiso,
+  verificarPermisoAlguno,
+} from "../middleware/auth.middleware.js";
 import { validateBody } from "../middleware/validate.middleware.js";
 import { mercadoPagoWebhookLimiter } from "../middleware/rateLimit.middleware.js";
 import { crearPreferenciaSchema } from "../schemas/validation.schemas.js";
@@ -32,13 +36,18 @@ router.post("/webhook", mercadoPagoWebhookLimiter, webhook);
 router.get("/verificar/:paymentId", verificarToken, verificarPago);
 router.get("/estado/:idReserva", verificarToken, obtenerEstadoPago);
 
-router.get("/reservas-sin-pago", verificarToken, verificarAdmin, obtenerReservasSinPago);
-router.get("/resumen", verificarToken, verificarAdmin, obtenerResumenPagos);
-router.get("/", verificarToken, verificarAdmin, obtenerPagos);
-router.get("/:id", verificarToken, verificarAdmin, obtenerPagoPorId);
-router.post("/", verificarToken, verificarAdmin, registrarPago);
-router.put("/:id", verificarToken, verificarAdmin, actualizarPago);
-router.patch("/:id/estado", verificarToken, verificarAdmin, cambiarEstadoPago);
-router.delete("/:id", verificarToken, verificarAdmin, eliminarPago);
+// Lectura del módulo financiero: ver_financiero
+const puedeVerFinanciero = verificarPermiso("ver_financiero");
+// Escritura: gestionar_pagos OR registrar_pagos
+const puedeGestionarPagos = verificarPermisoAlguno("gestionar_pagos", "registrar_pagos");
+
+router.get("/reservas-sin-pago", verificarToken, puedeVerFinanciero, obtenerReservasSinPago);
+router.get("/resumen", verificarToken, puedeVerFinanciero, obtenerResumenPagos);
+router.get("/", verificarToken, puedeVerFinanciero, obtenerPagos);
+router.get("/:id", verificarToken, puedeVerFinanciero, obtenerPagoPorId);
+router.post("/", verificarToken, puedeGestionarPagos, registrarPago);
+router.put("/:id", verificarToken, puedeGestionarPagos, actualizarPago);
+router.patch("/:id/estado", verificarToken, puedeGestionarPagos, cambiarEstadoPago);
+router.delete("/:id", verificarToken, puedeGestionarPagos, eliminarPago);
 
 export default router;

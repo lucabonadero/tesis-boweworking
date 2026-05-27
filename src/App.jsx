@@ -12,6 +12,7 @@ import AltaClientes from "./pages/admin/altas.jsx";
 import EspaciosDashboard from "./pages/admin/espaciosdashboard.jsx";
 import GestionUsuarios from "./pages/admin/GestionUsuarios.jsx";
 import GestionEstructura from "./pages/admin/GestionEstructura.jsx";
+import PanelAdmin from "./pages/admin/PanelAdmin.jsx";
 import ProtectedRoute from "./components/rutasprotegidas.jsx";
 import AuthModal from "./components/AuthModal.jsx";
 import AuthRedirectHandler from "./components/AuthRedirectHandler.jsx";
@@ -39,11 +40,14 @@ function App() {
             <Route path="/perfil" element={<Perfil />} />
             <Route path="/pago/confirmacion" element={<PagoConfirmacion />} />
             <Route path="/asistente" element={<AsistenteReservas />} />
+            <Route path="/panel" element={
+              <ProtectedRoute><PanelAdmin /></ProtectedRoute>
+            } />
             <Route path="/control" element={
               <ProtectedRoute><ControlReservas /></ProtectedRoute>
             } />
             <Route path="/gestion" element={
-              <ProtectedRoute adminOnly><GestionFinanciera /></ProtectedRoute>
+              <ProtectedRoute requiredPermission="ver_financiero"><GestionFinanciera /></ProtectedRoute>
             } />
             <Route path="/altas" element={
               <ProtectedRoute><AltaClientes /></ProtectedRoute>
@@ -52,7 +56,7 @@ function App() {
               <ProtectedRoute><EspaciosDashboard /></ProtectedRoute>
             } />
             <Route path="/admin-usuarios" element={
-              <ProtectedRoute adminOnly><GestionUsuarios /></ProtectedRoute>
+              <ProtectedRoute requiredPermission="gestionar_usuarios"><GestionUsuarios /></ProtectedRoute>
             } />
             <Route path="/admin-estructura" element={
               <ProtectedRoute requiredPermission="gestionar_estructura"><GestionEstructura /></ProtectedRoute>

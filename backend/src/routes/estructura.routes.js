@@ -2,6 +2,7 @@ import { Router } from "express";
 import {
   verificarToken,
   verificarPermiso,
+  verificarPermisoAlguno,
 } from "../middleware/auth.middleware.js";
 import {
   obtenerEstructura,
@@ -15,10 +16,11 @@ const router = Router();
 // Todas las rutas requieren token válido
 router.use(verificarToken);
 
-// Lectura: requiere ver_espacios (cualquier staff puede ver el árbol)
-router.get("/", verificarPermiso("ver_espacios"), obtenerEstructura);
-router.get("/tipos-recurso", verificarPermiso("ver_espacios"), obtenerTiposRecurso);
-router.get("/recurso/:id/impacto", verificarPermiso("ver_espacios"), obtenerImpactoRecurso);
+// Lectura: ver_espacios OR gestionar_estructura — quien puede modificar también puede ver.
+const puedeVerEstructura = verificarPermisoAlguno("ver_espacios", "gestionar_estructura");
+router.get("/", puedeVerEstructura, obtenerEstructura);
+router.get("/tipos-recurso", puedeVerEstructura, obtenerTiposRecurso);
+router.get("/recurso/:id/impacto", puedeVerEstructura, obtenerImpactoRecurso);
 
 // Escritura: requiere gestionar_estructura
 router.post("/commit", verificarPermiso("gestionar_estructura"), commitEstructura);

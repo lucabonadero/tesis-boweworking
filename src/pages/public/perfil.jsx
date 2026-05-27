@@ -15,6 +15,7 @@ import {
   message,
   Spin,
   Empty,
+  Tooltip,
 } from "antd";
 import ReservaModificacionAviso from "../../components/ReservaModificacionAviso.jsx";
 import {
@@ -99,12 +100,19 @@ export default function Perfil() {
         const first = sorted[0];
         const monto = sorted.reduce((s, x) => s + (parseFloat(x.Monto) || 0), 0);
         const recs = [...new Set(sorted.map((x) => x.recurso_nombre).filter(Boolean))];
+        const pairsMap = new Map();
+        for (const x of sorted) {
+          if (!x.recurso_nombre) continue;
+          if (!pairsMap.has(x.recurso_nombre)) pairsMap.set(x.recurso_nombre, x.espacio_nombre || null);
+        }
+        const recursos_detalle = Array.from(pairsMap, ([recurso, espacio]) => ({ recurso, espacio }));
         out.push({
           ...first,
           key: `serie-${r.idSerie}`,
           idReserva: Math.min(...sorted.map((x) => x.idReserva)),
           Monto: monto,
           recurso_nombre: recs.join(", "),
+          recursos_detalle,
         });
         continue;
       }
@@ -115,16 +123,26 @@ export default function Perfil() {
         const sorted = [...grp].sort((a, b) => (a.idReserva || 0) - (b.idReserva || 0));
         const first = sorted[0];
         const monto = sorted.reduce((s, x) => s + (parseFloat(x.Monto) || 0), 0);
+        const recursos_detalle = sorted
+          .filter((x) => x.recurso_nombre)
+          .map((x) => ({ recurso: x.recurso_nombre, espacio: x.espacio_nombre || null }));
         out.push({
           ...first,
           key: `grupo-${r.idReservaGrupo}`,
           idReserva: r.idReservaGrupo,
           Monto: monto,
           recurso_nombre: sorted.map((x) => x.recurso_nombre).filter(Boolean).join(", "),
+          recursos_detalle,
         });
         continue;
       }
-      out.push({ ...r, key: r.idReserva });
+      out.push({
+        ...r,
+        key: r.idReserva,
+        recursos_detalle: r.recurso_nombre
+          ? [{ recurso: r.recurso_nombre, espacio: r.espacio_nombre || null }]
+          : [],
+      });
     }
     return out;
   }, [reservas]);
@@ -209,6 +227,7 @@ export default function Perfil() {
       title: "Fecha",
       key: "fecha",
       width: 108,
+      fixed: "left",
       render: (_, r) => (
         <span>
           <CalendarOutlined style={{ marginRight: 4 }} />
@@ -218,15 +237,58 @@ export default function Perfil() {
       sorter: (a, b) => new Date(a.DiaReserva || 0) - new Date(b.DiaReserva || 0),
     },
     {
-      title: "Espacio",
+      title: "Pago",
+      key: "pagoAccion",
+      width: 118,
+      fixed: "left",
+      render: (_, r) => {
+        const puedePagar =
+          r.EstadoPago !== "Pagado" && r.Estado !== "cancelada" && (parseFloat(r.Monto) || 0) > 0;
+        if (!puedePagar) return <span className={styles.cellMuted}>—</span>;
+        const loadKey = r.idSerie ? `serie-${r.idSerie}` : r.idReservaGrupo ? `grupo-${r.idReservaGrupo}` : r.idReserva;
+        return (
+          <Button
+            size="small"
+            type="primary"
+            icon={<CreditCardOutlined />}
+            loading={mpLoadingId === loadKey}
+            onClick={() => handlePagarMP(r)}
+            style={{ background: "#009ee3", borderColor: "#009ee3" }}
+          >
+            Pagar
+          </Button>
+        );
+      },
+    },
+    {
+      title: "Recurso",
       key: "espacio",
       ellipsis: true,
-      render: (_, r) => (
-        <div>
-          <div style={{ fontWeight: 500 }}>{r.espacio_nombre || "-"}</div>
-          <div className={styles.recursoSub}>{r.recurso_nombre || "-"}</div>
-        </div>
-      ),
+      render: (_, r) => {
+        const detalle = Array.isArray(r.recursos_detalle) && r.recursos_detalle.length
+          ? r.recursos_detalle
+          : r.recurso_nombre
+            ? [{ recurso: r.recurso_nombre, espacio: r.espacio_nombre || null }]
+            : [];
+        const tooltipContent = detalle.length ? (
+          <div className={styles.recursoTooltip}>
+            {detalle.map((d, i) => (
+              <div key={`${d.recurso}-${i}`} className={styles.recursoTooltipRow}>
+                <strong>{d.recurso}</strong>
+                <span>{d.espacio || "Sin espacio"}</span>
+              </div>
+            ))}
+          </div>
+        ) : null;
+        const label = detalle.length
+          ? detalle.map((d) => d.recurso).join(", ")
+          : r.recurso_nombre || "-";
+        return (
+          <Tooltip title={tooltipContent} placement="top">
+            <span className={styles.recursoCell}>{label}</span>
+          </Tooltip>
+        );
+      },
     },
     {
       title: "Horario",
@@ -266,30 +328,6 @@ export default function Perfil() {
           e === "Pagado" ? <CheckCircleOutlined /> :
           e === "Pendiente" ? <ClockCircleOutlined /> : null;
         return <Tag icon={icon} color={color}>{PAGO_ESTADO_LABEL[e] || e}</Tag>;
-      },
-    },
-    {
-      title: "Pago",
-      key: "pagoAccion",
-      width: 118,
-      fixed: "right",
-      render: (_, r) => {
-        const puedePagar =
-          r.EstadoPago !== "Pagado" && r.Estado !== "cancelada" && (parseFloat(r.Monto) || 0) > 0;
-        if (!puedePagar) return <span className={styles.cellMuted}>—</span>;
-        const loadKey = r.idSerie ? `serie-${r.idSerie}` : r.idReservaGrupo ? `grupo-${r.idReservaGrupo}` : r.idReserva;
-        return (
-          <Button
-            size="small"
-            type="primary"
-            icon={<CreditCardOutlined />}
-            loading={mpLoadingId === loadKey}
-            onClick={() => handlePagarMP(r)}
-            style={{ background: "#009ee3", borderColor: "#009ee3" }}
-          >
-            Pagar
-          </Button>
-        );
       },
     },
   ];

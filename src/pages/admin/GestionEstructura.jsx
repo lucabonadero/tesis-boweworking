@@ -11,8 +11,10 @@ import {
 } from "@ant-design/icons";
 import { useAuth } from "../../context/AuthContext.jsx";
 import Header from "../../components/header.jsx";
+import AdminPageHeader from "../../components/AdminPageHeader.jsx";
+import adminLayout from "../../styles/admin/adminLayout.module.css";
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 
 const TIPO_ESPACIO_OPCIONES = [
@@ -792,7 +794,7 @@ export default function GestionEstructura() {
       key: keyOf(NODO_RECURSO, r.idRecurso),
       title: (
         <Space size={6}>
-          <BlockOutlined style={{ color: "#9b59b6" }} />
+          <BlockOutlined style={{ color: "var(--color-info)" }} />
           <span>{r.Nombre}</span>
           {r.Tipo && <Tag style={{ margin: 0 }}>{r.Tipo}</Tag>}
           {r.__nuevo && <Tag color="green" style={{ margin: 0 }}>Nuevo</Tag>}
@@ -812,7 +814,7 @@ export default function GestionEstructura() {
       key: keyOf(NODO_ESPACIO, e.Espacio),
       title: (
         <Space size={6}>
-          <GroupOutlined style={{ color: "#16a085" }} />
+          <GroupOutlined style={{ color: "var(--color-brand-primary-dark)" }} />
           <span>{e.Nombre}</span>
           <Tag style={{ margin: 0 }}>{rotuloTipo(e.Tipo)}</Tag>
           {e.__nuevo && <Tag color="green" style={{ margin: 0 }}>Nuevo</Tag>}
@@ -830,7 +832,7 @@ export default function GestionEstructura() {
       key: keyOf(NODO_PISO, p.idPiso),
       title: (
         <Space size={6}>
-          <HomeOutlined style={{ color: "#5b6abf" }} />
+          <HomeOutlined style={{ color: "var(--color-brand-primary)" }} />
           <strong>{p.Nombre}</strong>
           {p.__nuevo && <Tag color="green" style={{ margin: 0 }}>Nuevo</Tag>}
         </Space>
@@ -857,67 +859,47 @@ export default function GestionEstructura() {
   // Render
   // ----------------------------------------------------------
   return (
-    <>
+    <div className={adminLayout.layout}>
       <Header />
-      <div style={{ maxWidth: 1400, margin: "24px auto", padding: "0 24px" }}>
-        {/* Toolbar */}
-        <div
-          style={{
-            position: "sticky",
-            top: 0,
-            zIndex: 5,
-            background: "var(--color-surface)",
-            padding: "18px 22px",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            gap: 20,
-            flexWrap: "wrap",
-            border: "1px solid var(--color-neutral-300)",
-            borderRadius: 14,
-            boxShadow: "var(--shadow-sm)",
-            marginBottom: 18,
-            minHeight: 80,
-          }}
-        >
-          <div style={{ minWidth: 0, flex: "1 1 320px" }}>
-            <Title level={3} style={{ margin: 0, lineHeight: 1.2, fontWeight: 700 }}>
-              <AppstoreOutlined style={{ marginRight: 10, color: "var(--color-brand-primary)" }} />
-              Gestión de Estructura
-            </Title>
-            <Text type="secondary" style={{ display: "block", marginTop: 6, fontSize: 13, lineHeight: 1.5 }}>
-              Estructura interna usada por el motor de reservas. Creá y reordená pisos, espacios y recursos.
-              Los cambios se aplican al guardar.
-            </Text>
-          </div>
-          <Space wrap style={{ flexShrink: 0 }}>
-            <Button
-              icon={<ReloadOutlined />}
-              onClick={cargarArbol}
-              disabled={opsCount > 0 || guardando}
-            >
-              Recargar
-            </Button>
-            <Button
-              icon={<UndoOutlined />}
-              onClick={handleCancelar}
-              disabled={opsCount === 0 || guardando}
-            >
-              Cancelar
-            </Button>
-            <Badge count={opsCount} offset={[-4, 4]}>
+      <div className={adminLayout.contentWide}>
+        <AdminPageHeader
+          eyebrow="Configuración"
+          icon={<AppstoreOutlined />}
+          title="Gestión de Estructura"
+          description="Estructura interna usada por el motor de reservas. Creá y reordená pisos, espacios y recursos. Los cambios se aplican al guardar."
+          actions={
+            <Space wrap>
               <Button
-                type="primary"
-                icon={<SaveOutlined />}
-                onClick={handleGuardar}
-                loading={guardando}
-                disabled={opsCount === 0}
+                icon={<ReloadOutlined />}
+                onClick={cargarArbol}
+                disabled={opsCount > 0 || guardando}
+                size="large"
               >
-                Guardar
+                Recargar
               </Button>
-            </Badge>
-          </Space>
-        </div>
+              <Button
+                icon={<UndoOutlined />}
+                onClick={handleCancelar}
+                disabled={opsCount === 0 || guardando}
+                size="large"
+              >
+                Cancelar
+              </Button>
+              <Badge count={opsCount} offset={[-4, 4]}>
+                <Button
+                  type="primary"
+                  icon={<SaveOutlined />}
+                  onClick={handleGuardar}
+                  loading={guardando}
+                  disabled={opsCount === 0}
+                  size="large"
+                >
+                  Guardar
+                </Button>
+              </Badge>
+            </Space>
+          }
+        />
 
         {opsCount > 0 && (
           <Alert
@@ -939,7 +921,11 @@ export default function GestionEstructura() {
           {/* ARBOL */}
           <Card
             bordered={false}
-            style={{ borderRadius: 12, boxShadow: "0 2px 8px rgba(0,0,0,0.06)" }}
+            style={{
+              borderRadius: "var(--radius-lg)",
+              boxShadow: "var(--shadow-sm)",
+              border: "1px solid var(--color-neutral-300)",
+            }}
             title={<Space><AppstoreOutlined /> Árbol</Space>}
             extra={
               <Button size="small" type="primary" icon={<PlusOutlined />} onClick={abrirCrearPiso}>
@@ -977,7 +963,11 @@ export default function GestionEstructura() {
           {/* DETALLE */}
           <Card
             bordered={false}
-            style={{ borderRadius: 12, boxShadow: "0 2px 8px rgba(0,0,0,0.06)" }}
+            style={{
+              borderRadius: "var(--radius-lg)",
+              boxShadow: "var(--shadow-sm)",
+              border: "1px solid var(--color-neutral-300)",
+            }}
             title={
               seleccion ? (
                 <Space>
@@ -1029,7 +1019,7 @@ export default function GestionEstructura() {
           setImpactoModal(null);
         }}
       />
-    </>
+    </div>
   );
 }
 
@@ -1320,7 +1310,7 @@ function ModalImpacto({ impacto, onCancel, onConfirm }) {
   return (
     <Modal
       open
-      title={<Space><WarningOutlined style={{ color: "#fa8c16" }} /> Eliminar recurso</Space>}
+      title={<Space><WarningOutlined style={{ color: "var(--color-warning)" }} /> Eliminar recurso</Space>}
       onCancel={onCancel}
       onOk={onConfirm}
       okText="Eliminar igualmente"

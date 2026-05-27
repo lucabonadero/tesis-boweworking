@@ -10,8 +10,10 @@ import {
 } from "@ant-design/icons";
 import { useAuth } from "../../context/AuthContext.jsx";
 import Header from "../../components/header.jsx";
+import AdminPageHeader from "../../components/AdminPageHeader.jsx";
+import adminLayout from "../../styles/admin/adminLayout.module.css";
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 
 const MODULO_LABELS = {
@@ -198,7 +200,7 @@ export default function GestionUsuarios() {
       key: "email",
       render: (email) => (
         <Space>
-          <MailOutlined style={{ color: "#888" }} />
+          <MailOutlined style={{ color: "var(--color-text-tertiary)" }} />
           <Text>{email}</Text>
         </Space>
       ),
@@ -291,15 +293,15 @@ export default function GestionUsuarios() {
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "space-between",
-                    padding: "8px 12px",
-                    borderRadius: 8,
-                    background: activo ? "#f6ffed" : "#fafafa",
-                    border: `1px solid ${activo ? "#b7eb8f" : "#e8e8e8"}`,
-                    transition: "all 0.2s",
+                    padding: "10px 14px",
+                    borderRadius: "var(--radius-md)",
+                    background: activo ? "var(--color-brand-primary-soft)" : "var(--color-neutral-100)",
+                    border: `1px solid ${activo ? "var(--color-brand-primary-glow)" : "var(--color-neutral-300)"}`,
+                    transition: "all var(--transition-fast)",
                     opacity: esAdmin ? 0.75 : 1,
                   }}
                 >
-                  <Text style={{ fontSize: 13 }}>{p.descripcion}</Text>
+                  <Text style={{ fontSize: "var(--text-sm)" }}>{p.descripcion}</Text>
                   <Switch
                     size="small"
                     checked={activo}
@@ -318,38 +320,38 @@ export default function GestionUsuarios() {
   };
 
   return (
-    <>
+    <div className={adminLayout.layout}>
       <Header />
-      <div style={{ maxWidth: 1100, margin: "32px auto", padding: "0 16px" }}>
-        <div
+      <div className={adminLayout.contentNarrow}>
+        <AdminPageHeader
+          eyebrow="Administración"
+          icon={<TeamOutlined />}
+          title="Gestión de Usuarios"
+          description="Creá y administrá los usuarios del panel administrativo (admin, staff y empleados)."
+          actions={
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              size="large"
+              onClick={() => {
+                formCrear.resetFields();
+                setPermisosTemp({});
+                setModalCrear(true);
+              }}
+            >
+              Nuevo usuario
+            </Button>
+          }
+        />
+
+        <Card
+          bordered={false}
           style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "flex-start",
-            marginBottom: 24,
+            borderRadius: "var(--radius-lg)",
+            boxShadow: "var(--shadow-sm)",
+            border: "1px solid var(--color-neutral-300)",
           }}
         >
-          <div>
-            <Title level={3} style={{ margin: 0 }}>
-              <TeamOutlined style={{ marginRight: 8 }} />
-              Gestión de Usuarios
-            </Title>
-            <Text type="secondary">Creá y administrá usuarios del panel de administración</Text>
-          </div>
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={() => {
-              formCrear.resetFields();
-              setPermisosTemp({});
-              setModalCrear(true);
-            }}
-          >
-            Nuevo usuario
-          </Button>
-        </div>
-
-        <Card bordered={false} style={{ borderRadius: 12, boxShadow: "0 2px 8px rgba(0,0,0,0.06)" }}>
           <Table
             dataSource={usuarios}
             columns={columns}
@@ -507,6 +509,6 @@ export default function GestionUsuarios() {
           )}
         </Modal>
       </div>
-    </>
+    </div>
   );
 }

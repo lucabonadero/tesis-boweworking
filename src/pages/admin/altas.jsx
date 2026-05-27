@@ -1,6 +1,7 @@
 import "../../styles/global.css";
 import styles from "../../styles/admin/altas.module.css";
 import Header from "../../components/header";
+import AdminPageHeader from "../../components/AdminPageHeader.jsx";
 import React, { useState, useEffect, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
@@ -145,23 +146,26 @@ export default function AltaClientes() {
       key: "cliente",
       render: (_, r) => (
         <div>
-          <div style={{ fontWeight: 600, color: "#222" }}>
+          <div style={{ fontWeight: 600, color: "var(--color-text-primary)" }}>
             <UserOutlined style={{ marginRight: 6 }} />
             {r.Nombre || `${r.cliente_nombre || ""} ${r.cliente_apellido || ""}`}
           </div>
-          <div style={{ fontSize: 12, color: "#888" }}>DNI: {r.DNI || "-"}</div>
+          <div style={{ fontSize: 12, color: "var(--color-text-tertiary)" }}>DNI: {r.DNI || "-"}</div>
         </div>
       ),
     },
     {
-      title: "Espacio",
+      title: "Recurso",
       key: "espacio",
-      render: (_, r) => (
-        <div>
-          <div style={{ fontWeight: 500 }}>{r.espacio_nombre || "-"}</div>
-          <div style={{ fontSize: 12, color: "#888" }}>{r.recurso_nombre || "-"}</div>
-        </div>
-      ),
+      render: (_, r) => {
+        const recurso = r.recurso_nombre || "-";
+        const espacio = r.espacio_nombre || "-";
+        return (
+          <Tooltip title={espacio !== "-" ? espacio : null} placement="top">
+            <span className={styles.recursoCell}>{recurso}</span>
+          </Tooltip>
+        );
+      },
     },
     {
       title: "Horario",
@@ -189,7 +193,6 @@ export default function AltaClientes() {
                 loading={procesando === r.idReserva}
                 disabled={Boolean(bloqueo)}
                 onClick={() => marcarEstado(r.idReserva, "completada")}
-                style={{ background: "#34c08f", borderColor: "#34c08f" }}
               >
                 Asistió
               </Button>
@@ -223,9 +226,17 @@ export default function AltaClientes() {
     },
     { title: "DNI", dataIndex: "DNI", key: "dni" },
     {
-      title: "Espacio",
+      title: "Recurso",
       key: "espacio",
-      render: (_, r) => `${r.espacio_nombre || "-"} / ${r.recurso_nombre || "-"}`,
+      render: (_, r) => {
+        const recurso = r.recurso_nombre || "-";
+        const espacio = r.espacio_nombre || "-";
+        return (
+          <Tooltip title={espacio !== "-" ? espacio : null} placement="top">
+            <span className={styles.recursoCell}>{recurso}</span>
+          </Tooltip>
+        );
+      },
     },
     {
       title: "Horario",
@@ -286,6 +297,13 @@ export default function AltaClientes() {
       <Layout className={styles.layout}>
         <Header />
         <Content className={styles.contentWrap}>
+          <AdminPageHeader
+            eyebrow="Recepción del día"
+            icon={<CalendarOutlined />}
+            title="Control de Asistencia"
+            description="Recepcioná clientes y controlá reservas en curso."
+            meta={<span style={{ textTransform: "capitalize" }}>{dayjs().format("dddd DD/MM/YYYY")}</span>}
+          />
           <div style={{ textAlign: "center", padding: "4rem" }}><Spin size="large" /></div>
         </Content>
       </Layout>
@@ -296,23 +314,24 @@ export default function AltaClientes() {
     <Layout className={styles.layout}>
       <Header />
       <Content className={styles.contentWrap}>
-        <div className={styles.pageHeader}>
-          <h1 className={styles.pageTitle}>
-            <CalendarOutlined /> Control de Asistencia
-          </h1>
-          <span className={styles.pageDate}>{dayjs().format("dddd DD/MM/YYYY")}</span>
-        </div>
+        <AdminPageHeader
+          eyebrow="Recepción del día"
+          icon={<CalendarOutlined />}
+          title="Control de Asistencia"
+          description="Recepcioná clientes y controlá reservas en curso."
+          meta={<span style={{ textTransform: "capitalize" }}>{dayjs().format("dddd DD/MM/YYYY")}</span>}
+        />
 
         <div className={styles.counters}>
           <Badge count={pendientes.length} showZero overflowCount={99}>
             <Card size="small" className={styles.counterCard}>
-              <ClockCircleOutlined style={{ color: "#e67e22", fontSize: 20 }} />
+              <ClockCircleOutlined style={{ color: "var(--color-warning)", fontSize: 20 }} />
               <span>Por recepcionar</span>
             </Card>
           </Badge>
           <Badge count={procesadas.length} showZero overflowCount={99} color="#34c08f">
             <Card size="small" className={styles.counterCard}>
-              <CheckCircleOutlined style={{ color: "#34c08f", fontSize: 20 }} />
+              <CheckCircleOutlined style={{ color: "var(--color-brand-primary)", fontSize: 20 }} />
               <span>Recepcionadas</span>
             </Card>
           </Badge>

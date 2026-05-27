@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import Header from "../../components/header";
+import AdminPageHeader from "../../components/AdminPageHeader.jsx";
 import { adminFetch } from "../../utils/adminApi";
 import { notifyReservasChanged } from "../../utils/boweSync.js";
 import styles from "../../styles/admin/gestionfinanciera.module.css";
@@ -20,6 +21,7 @@ import {
   Tag,
   Badge,
   Empty,
+  Tooltip,
 } from "antd";
 import {
   SearchOutlined,
@@ -124,12 +126,19 @@ export default function GestionFinanciera() {
         const first = sorted[0];
         const monto = sorted.reduce((s, x) => s + (parseFloat(x.Monto) || 0), 0);
         const recs = [...new Set(sorted.map((x) => x.recurso_nombre).filter(Boolean))];
+        const pairsMap = new Map();
+        for (const x of sorted) {
+          if (!x.recurso_nombre) continue;
+          if (!pairsMap.has(x.recurso_nombre)) pairsMap.set(x.recurso_nombre, x.espacio_nombre || null);
+        }
+        const recursos_detalle = Array.from(pairsMap, ([recurso, espacio]) => ({ recurso, espacio }));
         out.push({
           ...first,
           key: `serie-pend-${r.idSerie}`,
           idReserva: Math.min(...sorted.map((x) => x.idReserva)),
           Monto: monto,
           recurso_nombre: recs.join(", "),
+          recursos_detalle,
         });
         continue;
       }
@@ -140,16 +149,26 @@ export default function GestionFinanciera() {
         const sorted = [...grp].sort((a, b) => (a.idReserva || 0) - (b.idReserva || 0));
         const first = sorted[0];
         const monto = sorted.reduce((s, x) => s + (parseFloat(x.Monto) || 0), 0);
+        const recursos_detalle = sorted
+          .filter((x) => x.recurso_nombre)
+          .map((x) => ({ recurso: x.recurso_nombre, espacio: x.espacio_nombre || null }));
         out.push({
           ...first,
           key: `grupo-pend-${r.idReservaGrupo}`,
           idReserva: r.idReservaGrupo,
           Monto: monto,
           recurso_nombre: sorted.map((x) => x.recurso_nombre).filter(Boolean).join(", "),
+          recursos_detalle,
         });
         continue;
       }
-      out.push({ ...r, key: `pend-${r.idReserva}` });
+      out.push({
+        ...r,
+        key: `pend-${r.idReserva}`,
+        recursos_detalle: r.recurso_nombre
+          ? [{ recurso: r.recurso_nombre, espacio: r.espacio_nombre || null }]
+          : [],
+      });
     }
     return out;
   }, [reservasPendientes]);
@@ -308,14 +327,35 @@ export default function GestionFinanciera() {
       ),
     },
     {
-      title: "Espacio / Recurso",
+      title: "Recurso",
       key: "espacio",
-      render: (_, r) => (
-        <div>
-          <div style={{ fontSize: 13, color: "#333" }}>{r.espacio_nombre || "-"}</div>
-          {r.recurso_nombre && <div style={{ fontSize: 11, color: "#999" }}>{r.recurso_nombre}</div>}
-        </div>
-      ),
+      render: (_, r) => {
+        const detalle = Array.isArray(r.recursos_detalle) && r.recursos_detalle.length
+          ? r.recursos_detalle
+          : r.recurso_nombre
+            ? [{ recurso: r.recurso_nombre, espacio: r.espacio_nombre || null }]
+            : r.espacio_nombre
+              ? [{ recurso: r.espacio_nombre, espacio: null }]
+              : [];
+        const tooltipContent = detalle.length && detalle.some((d) => d.espacio) ? (
+          <div className={styles.recursoTooltip}>
+            {detalle.map((d, i) => (
+              <div key={`${d.recurso}-${i}`} className={styles.recursoTooltipRow}>
+                <strong>{d.recurso}</strong>
+                <span>{d.espacio || "Sin espacio"}</span>
+              </div>
+            ))}
+          </div>
+        ) : null;
+        const label = detalle.length
+          ? detalle.map((d) => d.recurso).join(", ")
+          : r.recurso_nombre || r.espacio_nombre || "-";
+        return (
+          <Tooltip title={tooltipContent} placement="top">
+            <span className={styles.recursoCell}>{label}</span>
+          </Tooltip>
+        );
+      },
     },
     {
       title: "Concepto",
@@ -423,6 +463,12 @@ export default function GestionFinanciera() {
       <Layout className={styles.layout}>
         <Header />
         <Content className={styles.content}>
+          <AdminPageHeader
+            eyebrow="Tesorería"
+            icon={<DollarOutlined />}
+            title="Gestión Financiera"
+            description="Revisá pagos confirmados, transacciones y pendientes de cobro."
+          />
           <div style={{ textAlign: "center", padding: "4rem" }}><Spin size="large" /></div>
         </Content>
       </Layout>
@@ -433,6 +479,13 @@ export default function GestionFinanciera() {
     <Layout className={styles.layout}>
       <Header />
       <Content className={styles.content}>
+        <AdminPageHeader
+          eyebrow="Tesorería"
+          icon={<DollarOutlined />}
+          title="Gestión Financiera"
+          description="Revisá pagos confirmados, transacciones y pendientes de cobro."
+        />
+
         {/* Stats */}
         <div className={styles.statsRow}>
           <StatCard
@@ -440,28 +493,28 @@ export default function GestionFinanciera() {
             label="Ingresos Hoy"
             value={`$${stats.ingresosHoy.toLocaleString("es-AR", { minimumFractionDigits: 2 })}`}
             sub={dayjs().format("DD/MM/YYYY")}
-            color={{ bg: "#e6f7f0", icon: "#27ae60" }}
+            color={{ bg: "var(--color-success-soft)", icon: "var(--color-success-text)" }}
           />
           <StatCard
             icon={<DollarOutlined />}
             label="Total Ingresos"
             value={`$${stats.totalIngresos.toLocaleString("es-AR", { minimumFractionDigits: 2 })}`}
             sub="pagos confirmados"
-            color={{ bg: "#eef0ff", icon: "#5b6abf" }}
+            color={{ bg: "var(--color-brand-primary-soft)", icon: "var(--color-brand-primary)" }}
           />
           <StatCard
             icon={<WalletOutlined />}
             label="Pendientes de Cobro"
             value={stats.pendientesCobro}
             sub="reservas sin pago"
-            color={{ bg: "#fff5e6", icon: "#e67e22" }}
+            color={{ bg: "var(--color-warning-soft)", icon: "var(--color-warning-text)" }}
           />
           <StatCard
             icon={<SyncOutlined />}
             label="Transacciones"
             value={stats.totalTransacciones}
             sub="registradas"
-            color={{ bg: "#fce4ec", icon: "#e74c3c" }}
+            color={{ bg: "var(--color-info-soft)", icon: "var(--color-info)" }}
           />
         </div>
 
@@ -530,7 +583,7 @@ export default function GestionFinanciera() {
               <div className={styles.formTitleRow}>
                 <h3 className={styles.formTitle}>Registrar Cobro</h3>
                 <Badge count={reservasPendientesVista.length} showZero overflowCount={99}
-                  style={{ backgroundColor: reservasPendientesVista.length > 0 ? "#d97706" : "#94a3b8" }} />
+                  style={{ backgroundColor: reservasPendientesVista.length > 0 ? "var(--color-warning)" : "var(--color-text-tertiary)" }} />
               </div>
 
               {reservasPendientesVista.length === 0 ? (

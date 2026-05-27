@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import Header from "../../components/header.jsx";
+import AdminPageHeader from "../../components/AdminPageHeader.jsx";
 import { adminFetch } from "../../utils/adminApi";
 import { BOWE_RESERVAS_CHANGED } from "../../utils/boweSync.js";
 import styles from "../../styles/admin/espaciosdashboard.module.css";
@@ -27,26 +28,27 @@ const { RangePicker } = DatePicker;
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 
 const STAT_COLORS = {
-  reservas: { bg: "rgba(91, 106, 191, 0.12)", icon: "#5b6abf", border: "#5b6abf" },
-  ingresos: { bg: "rgba(39, 174, 96, 0.12)", icon: "#27ae60", border: "#27ae60" },
-  ocupacion: { bg: "rgba(243, 156, 18, 0.14)", icon: "#e67e22", border: "#f39c12" },
-  recursos: { bg: "rgba(231, 76, 60, 0.1)", icon: "#c0392b", border: "#e74c3c" },
+  reservas:  { bg: "var(--color-brand-primary-soft)", icon: "var(--color-brand-primary)",      border: "var(--color-brand-primary)" },
+  ingresos:  { bg: "var(--color-success-soft)",       icon: "var(--color-success-text)",       border: "var(--color-success)" },
+  ocupacion: { bg: "var(--color-warning-soft)",       icon: "var(--color-warning-text)",       border: "var(--color-warning)" },
+  recursos:  { bg: "var(--color-info-soft)",          icon: "var(--color-info)",               border: "var(--color-info)" },
 };
 
 const BAR_COLORS = {
-  uso: "#5b6abf",
-  ingresos: "#27ae60",
+  uso: "#34c08f",
+  ingresos: "#1a7a40",
 };
 
+// Paleta derivada del sistema (verde brand + peach brand secundario + semánticos).
 const CHART_PALETTE = [
-  "#5b6abf",
-  "#27ae60",
-  "#e67e22",
-  "#9b59b6",
-  "#1abc9c",
-  "#e74c3c",
-  "#3498db",
-  "#16a085",
+  "#34c08f", // brand primary (verde coworking)
+  "#F9AC95", // brand secondary (peach coworking)
+  "#1a7a40", // success text
+  "#e8a830", // warning
+  "#4a90d9", // info
+  "#2aad7e", // brand dark
+  "#e88a6f", // brand secondary dark
+  "#1a1a2e", // neutral 900
 ];
 
 const DATE_PRESETS = [
@@ -75,10 +77,11 @@ function useIsMobileDatePicker() {
 }
 
 function ocupColor(pct) {
+  // Verde si está libre/poco usado, naranja si moderado, rojo si alta ocupación.
   if (pct === 0) return "#27ae60";
-  if (pct < 40) return "#2ecc71";
-  if (pct < 70) return "#f39c12";
-  return "#e74c3c";
+  if (pct < 40) return "#34c08f";
+  if (pct < 70) return "#e8a830";
+  return "#e05252";
 }
 
 function resourceStatus(r, totalDias) {
@@ -324,22 +327,22 @@ export default function EspaciosDashboard() {
     <Layout className={styles.layout}>
       <Header />
       <Content className={styles.content}>
-        <section className={styles.hero}>
-          <div className={styles.heroText}>
-            <p className={styles.heroEyebrow}>Análisis operativo</p>
-            <h1 className={styles.heroTitle}>Panel de espacios</h1>
-            <p className={styles.heroDesc}>
-              Uso, montos asociados a reservas y cobro confirmado (pagos acreditados) por período.
-            </p>
-            {metricas && fechas && (
-              <p className={styles.heroPeriod}>
+        <AdminPageHeader
+          eyebrow="Análisis operativo"
+          icon={<AppstoreOutlined />}
+          title="Panel de espacios"
+          description="Uso, montos asociados a reservas y cobro confirmado (pagos acreditados) por período."
+          meta={
+            metricas && fechas ? (
+              <>
                 <CalendarOutlined /> Período: <strong>{fechas.desde}</strong> → <strong>{fechas.hasta}</strong>
-                <span className={styles.heroPeriodDot} />
+                <span style={{ display: "inline-block", width: 4, height: 4, borderRadius: "50%", background: "rgba(255,255,255,0.4)", margin: "0 4px" }} />
                 {metricas.resumen.totalDias} días analizados
-              </p>
-            )}
-          </div>
-          <div className={styles.heroActions}>
+              </>
+            ) : null
+          }
+          actions={
+            <>
             {isMobileDate ? (
               <div className={styles.dateRangeMobile}>
                 <div className={styles.presetScroll} role="group" aria-label="Atajos de período">
@@ -407,8 +410,9 @@ export default function EspaciosDashboard() {
                 PDF
               </Button>
             </Tooltip>
-          </div>
-        </section>
+            </>
+          }
+        />
 
         {loading && (
           <div className={styles.loadingWrap}>

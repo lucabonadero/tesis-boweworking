@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import isBetween from "dayjs/plugin/isBetween";
 import Header from "../../components/header.jsx";
+import AdminPageHeader from "../../components/AdminPageHeader.jsx";
 import styles from "../../styles/admin/consultareservas.module.css";
 import "../../styles/global.css";
 import { adminFetch } from "../../utils/adminApi";
@@ -10,6 +11,9 @@ import {
   validarVentanaOperativaTurno,
   validarDiaReservaNoEnElPasadoLocal,
   validarInicioTurnoNoEnElPasadoLocal,
+  iniciosDisponiblesParaDuracion,
+  duracionesValidasParaCalendario,
+  etiquetaDuracion,
 } from "../../utils/coworkingHours.js";
 import { recursoExcluidoFlujoTurnoHora } from "../../utils/reservaRecursoRules.js";
 import { notifyReservasChanged } from "../../utils/boweSync.js";
@@ -29,13 +33,14 @@ import {
   Select,
   Button,
   DatePicker,
-  TimePicker,
   Popconfirm,
   Tag,
   message,
   Spin,
   Drawer,
   Tooltip,
+  Steps,
+  Empty,
 } from "antd";
 import {
   SearchOutlined,
@@ -46,6 +51,15 @@ import {
   DeleteOutlined,
   CalendarOutlined,
   ClockCircleOutlined,
+  UserOutlined,
+  IdcardOutlined,
+  FieldTimeOutlined,
+  ScheduleOutlined,
+  ArrowLeftOutlined,
+  ArrowRightOutlined,
+  CheckCircleOutlined,
+  LoadingOutlined,
+  MailOutlined,
 } from "@ant-design/icons";
 
 const { Content } = Layout;
@@ -70,11 +84,20 @@ export default function ControlReservas() {
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [editingRecursoId, setEditingRecursoId] = useState(null);
+  const [drawerStep, setDrawerStep] = useState(0);
   const [formData, setFormData] = useState({
     DNI: "", Nombre: "", Apellido: "", Email: "",
-    idEspacio: null, idRecurso: null,
+    idRecurso: null,
     fecha: null, hora: null, duracion: 60,
   });
+  const [disponibilidad, setDisponibilidad] = useState([]);
+  const [loadingDispo, setLoadingDispo] = useState(false);
+  const [dispoLoaded, setDispoLoaded] = useState(false);
+  const [lookupClienteLoading, setLookupClienteLoading] = useState(false);
+  const [clienteExistente, setClienteExistente] = useState(false);
+  const dispoDebounceRef = useRef(null);
+  const dniDebounceRef = useRef(null);
 
   // Occupancy view state
   const [occupancyDate, setOccupancyDate] = useState(dayjs());
@@ -159,12 +182,19 @@ export default function ControlReservas() {
           first.serie_precioFinalTotal != null
             ? parseFloat(first.serie_precioFinalTotal)
             : sorted.reduce((s, x) => s + (parseFloat(x.Monto) || 0), 0);
+        const pairsMap = new Map();
+        for (const x of sorted) {
+          if (!x.recurso_nombre) continue;
+          if (!pairsMap.has(x.recurso_nombre)) pairsMap.set(x.recurso_nombre, x.espacio_nombre || null);
+        }
+        const recursos_detalle = Array.from(pairsMap, ([recurso, espacio]) => ({ recurso, espacio }));
         out.push({
           ...first,
           key: `serie-${r.idSerie}`,
           _serieN: sorted.length,
           Monto: total,
           DiaReserva: first.DiaReserva,
+          recursos_detalle,
         });
         continue;
       }
@@ -176,6 +206,9 @@ export default function ControlReservas() {
         const first = sorted[0];
         const total = sorted.reduce((s, x) => s + (parseFloat(x.Monto) || 0), 0);
         const nombres = sorted.map((x) => x.recurso_nombre).filter(Boolean);
+        const recursos_detalle = sorted
+          .filter((x) => x.recurso_nombre)
+          .map((x) => ({ recurso: x.recurso_nombre, espacio: x.espacio_nombre || null }));
         out.push({
           ...first,
           key: `grupo-${r.idReservaGrupo}`,
@@ -183,10 +216,17 @@ export default function ControlReservas() {
           _grupoN: sorted.length,
           Monto: total,
           recurso_nombre: nombres.join(", "),
+          recursos_detalle,
         });
         continue;
       }
-      out.push({ ...r, key: r.idReserva });
+      out.push({
+        ...r,
+        key: r.idReserva,
+        recursos_detalle: r.recurso_nombre
+          ? [{ recurso: r.recurso_nombre, espacio: r.espacio_nombre || null }]
+          : [],
+      });
     }
     return out;
   }, [reservas]);
@@ -221,46 +261,136 @@ export default function ControlReservas() {
     if (reservasError) message.error("Error al cargar reservas");
   }, [reservasError]);
 
-  // Grouped resource structure for picker
-  const recursoGroups = useMemo(() => {
-    if (!formData.idEspacio) return [];
-    const raw = recursos.filter((r) => r.idEspacio === formData.idEspacio);
-    const delEspacio = raw.filter((r) => {
-      const isParent = raw.some((c) => c.idRecursoPadre === r.idRecurso);
-      if (isParent) {
-        const kids = raw.filter(
-          (c) => c.idRecursoPadre === r.idRecurso && !recursoExcluidoFlujoTurnoHora(c, recursos)
+  // Recursos por espacio, organizados en secciones, usando disponibilidad cuando esta cargada.
+  const recursoGroupsByEspacio = useMemo(() => {
+    if (!disponibilidad || disponibilidad.length === 0) return [];
+    const espacioIds = [...new Set(disponibilidad.map((r) => r.idEspacio))];
+    return espacioIds.map((espId) => {
+      const espNombre = espacios.find((e) => e.Espacio === espId)?.Nombre || `Espacio ${espId}`;
+      const recs = disponibilidad.filter((r) => r.idEspacio === espId);
+
+      const grupoIds = new Set(recs.filter((r) => r.idRecursoPadre).map((r) => r.idRecursoPadre));
+      const topLevel = recs.filter((r) => !r.idRecursoPadre);
+      const dbGroups = topLevel.filter((r) => grupoIds.has(r.idRecurso));
+      const standalones = topLevel.filter((r) => !grupoIds.has(r.idRecurso));
+
+      const sections = [];
+      const completoItems = standalones.filter((r) => r.esCompleto);
+      const individualItems = standalones.filter((r) => !r.esCompleto);
+
+      const prefixes = {};
+      individualItems.forEach((r) => {
+        const prefix = r.Nombre.replace(/\s*\d+$/, "");
+        if (!prefixes[prefix]) prefixes[prefix] = [];
+        prefixes[prefix].push(r);
+      });
+      Object.entries(prefixes).forEach(([label, items]) => {
+        if (items.length > 1) sections.push({ type: "visual-group", label: label + "s", items });
+        else sections.push({ type: "standalone", item: items[0] });
+      });
+      dbGroups.forEach((g) => {
+        const children = recs.filter(
+          (r) => r.idRecursoPadre === g.idRecurso && !recursoExcluidoFlujoTurnoHora(r, recursos)
         );
-        return kids.length > 0;
+        if (children.length > 0) sections.push({ type: "db-group", label: g.Nombre, items: children });
+      });
+      if (completoItems.length > 0) sections.push({ type: "completo", items: completoItems });
+
+      return { idEspacio: espId, espacioNombre: espNombre, sections };
+    });
+  }, [disponibilidad, espacios, recursos]);
+
+  const availableCount = useMemo(
+    () => disponibilidad.filter((r) => r.disponible === true).length,
+    [disponibilidad]
+  );
+
+  // Auto-fetch disponibilidad cuando fecha+duración+hora estan listos.
+  useEffect(() => {
+    if (!drawerOpen) return;
+    if (!formData.fecha || !formData.hora || !formData.duracion) {
+      setDisponibilidad([]);
+      setDispoLoaded(false);
+      return;
+    }
+    if (dispoDebounceRef.current) clearTimeout(dispoDebounceRef.current);
+    dispoDebounceRef.current = setTimeout(async () => {
+      setLoadingDispo(true);
+      try {
+        const horaIni = formData.hora.format("HH:mm");
+        const horaFin = formData.hora.clone().add(formData.duracion, "minute").format("HH:mm");
+        const fecha = formData.fecha.format("YYYY-MM-DD");
+        const url = `${API_URL}/api/recursos/disponibilidad?fecha=${fecha}&horaInicio=${horaIni}&horaFin=${horaFin}`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("dispo");
+        const data = await res.json();
+        setDisponibilidad(Array.isArray(data) ? data : []);
+        setDispoLoaded(true);
+      } catch {
+        setDisponibilidad([]);
+        setDispoLoaded(true);
+        message.error("Error al consultar disponibilidad");
+      } finally {
+        setLoadingDispo(false);
       }
-      return !recursoExcluidoFlujoTurnoHora(r, recursos);
-    });
-    const grupoIds = new Set(delEspacio.filter((r) => r.idRecursoPadre).map((r) => r.idRecursoPadre));
-    const topLevel = delEspacio.filter((r) => !r.idRecursoPadre);
-    const dbGroups = topLevel.filter((r) => grupoIds.has(r.idRecurso));
-    const standalones = topLevel.filter((r) => !grupoIds.has(r.idRecurso));
-    const sections = [];
-    const completoItems = standalones.filter((r) => r.esCompleto);
-    const individualItems = standalones.filter((r) => !r.esCompleto);
-    const prefixes = {};
-    individualItems.forEach((r) => {
-      const prefix = r.Nombre.replace(/\s*\d+$/, "");
-      if (!prefixes[prefix]) prefixes[prefix] = [];
-      prefixes[prefix].push(r);
-    });
-    Object.entries(prefixes).forEach(([label, items]) => {
-      if (items.length > 1) sections.push({ type: "visual-group", label: label + "s", items });
-      else sections.push({ type: "standalone", item: items[0] });
-    });
-    dbGroups.forEach((g) => {
-      const children = delEspacio.filter(
-        (r) => r.idRecursoPadre === g.idRecurso && !recursoExcluidoFlujoTurnoHora(r, recursos)
-      );
-      if (children.length > 0) sections.push({ type: "db-group", label: g.Nombre, items: children });
-    });
-    if (completoItems.length > 0) sections.push({ type: "completo", items: completoItems });
-    return sections;
-  }, [formData.idEspacio, recursos]);
+    }, 350);
+    return () => dispoDebounceRef.current && clearTimeout(dispoDebounceRef.current);
+  }, [formData.fecha, formData.hora, formData.duracion, drawerOpen]);
+
+  // Cuando cambian fecha o duracion, descarto la hora elegida si dejo de ser valida.
+  useEffect(() => {
+    if (!formData.fecha || !formData.duracion) return;
+    const slots = iniciosDisponiblesParaDuracion(formData.fecha, formData.duracion);
+    if (formData.hora && !slots.some((s) => s.isSame(formData.hora, "minute"))) {
+      setFormData((fd) => ({ ...fd, hora: null }));
+    }
+  }, [formData.fecha, formData.duracion]);
+
+  // Cuando cambia la disponibilidad, si el recurso elegido dejo de estar disponible, lo limpio.
+  useEffect(() => {
+    if (!dispoLoaded || !formData.idRecurso) return;
+    if (editingId && formData.idRecurso === editingRecursoId) return;
+    const rec = disponibilidad.find((r) => r.idRecurso === formData.idRecurso);
+    if (!rec || rec.disponible !== true) {
+      setFormData((fd) => ({ ...fd, idRecurso: null }));
+    }
+  }, [disponibilidad, dispoLoaded, editingId, editingRecursoId, formData.idRecurso]);
+
+  // DNI autocompletado: busca un cliente existente y rellena nombre/apellido/email.
+  const lookupClienteByDni = async (dni) => {
+    const clean = String(dni || "").trim();
+    if (!clean || clean.length < 7) return;
+    setLookupClienteLoading(true);
+    try {
+      const res = await adminFetch(`${API_URL}/api/clientes/${encodeURIComponent(clean)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.DNI) {
+          setFormData((fd) => ({
+            ...fd,
+            Nombre: data.Nombre ?? fd.Nombre,
+            Apellido: data.Apellido ?? fd.Apellido,
+            Email: data.Email ?? fd.Email,
+          }));
+          setClienteExistente(true);
+        }
+      } else {
+        setClienteExistente(false);
+      }
+    } catch {
+      setClienteExistente(false);
+    } finally {
+      setLookupClienteLoading(false);
+    }
+  };
+
+  const handleDniChange = (value) => {
+    setFormData((fd) => ({ ...fd, DNI: value }));
+    setClienteExistente(false);
+    if (dniDebounceRef.current) clearTimeout(dniDebounceRef.current);
+    if (!value || String(value).trim().length < 7) return;
+    dniDebounceRef.current = setTimeout(() => lookupClienteByDni(value), 500);
+  };
 
   // Occupancy data
   useEffect(() => {
@@ -353,15 +483,17 @@ export default function ControlReservas() {
         if (!res.ok) { message.error(data.message || "Error al actualizar"); return; }
         message.success("Reserva actualizada");
       } else {
-        const creaCli = await adminFetch(`${API_URL}/api/clientes`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ DNI: formData.DNI, Nombre: formData.Nombre, Apellido: formData.Apellido, Email: formData.Email }),
-        });
-        if (!creaCli.ok) {
-          const d = await creaCli.json().catch(() => ({}));
-          message.error(d.message || "Error al registrar el cliente");
-          return;
+        if (!clienteExistente) {
+          const creaCli = await adminFetch(`${API_URL}/api/clientes`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ DNI: formData.DNI, Nombre: formData.Nombre, Apellido: formData.Apellido, Email: formData.Email }),
+          });
+          if (!creaCli.ok) {
+            const d = await creaCli.json().catch(() => ({}));
+            message.error(d.message || "Error al registrar el cliente");
+            return;
+          }
         }
         const res = await adminFetch(`${API_URL}/api/reservas`, {
           method: "POST",
@@ -407,7 +539,8 @@ export default function ControlReservas() {
     let duracion = 60;
     if (record.HorarioReserva) {
       const [hh, mm] = record.HorarioReserva.split(":");
-      hora = dayjs().hour(parseInt(hh) || 0).minute(parseInt(mm) || 0).second(0);
+      const baseDate = fecha || dayjs();
+      hora = baseDate.hour(parseInt(hh) || 0).minute(parseInt(mm) || 0).second(0).millisecond(0);
     }
     if (record.HorarioReserva && record.HorarioFin) {
       const [h1, m1] = record.HorarioReserva.split(":").map(Number);
@@ -415,18 +548,27 @@ export default function ControlReservas() {
       duracion = (h2 * 60 + m2) - (h1 * 60 + m1);
       if (duracion <= 0) duracion = 60;
     }
-    const recurso = recursos.find((r) => r.idRecurso === record.idRecurso);
     setFormData({
       DNI: record.DNI || "", Nombre: nombre || "", Apellido: rest.join(" ") || "", Email: "",
-      idEspacio: recurso ? recurso.idEspacio : null, idRecurso: record.idRecurso || null,
+      idRecurso: record.idRecurso || null,
       fecha, hora, duracion,
     });
+    setClienteExistente(true);
+    setEditingRecursoId(record.idRecurso || null);
+    setDisponibilidad([]);
+    setDispoLoaded(false);
+    setDrawerStep(0);
     setDrawerOpen(true);
   };
 
   const handleLimpiar = () => {
     setEditingId(null);
-    setFormData({ DNI: "", Nombre: "", Apellido: "", Email: "", idEspacio: null, idRecurso: null, fecha: null, hora: null, duracion: 60 });
+    setEditingRecursoId(null);
+    setFormData({ DNI: "", Nombre: "", Apellido: "", Email: "", idRecurso: null, fecha: null, hora: null, duracion: 60 });
+    setClienteExistente(false);
+    setDisponibilidad([]);
+    setDispoLoaded(false);
+    setDrawerStep(0);
     setDrawerOpen(false);
   };
 
@@ -440,18 +582,37 @@ export default function ControlReservas() {
       render: (_, r) => (
         <div>
           <div style={{ fontWeight: 600 }}>{r.Nombre || "-"}</div>
-          <div style={{ fontSize: 11, color: "#999" }}>DNI: {r.DNI || "-"}</div>
+          <div style={{ fontSize: 11, color: "var(--color-text-tertiary)" }}>DNI: {r.DNI || "-"}</div>
         </div>
       ),
     },
     {
-      title: "Espacio / Recurso", key: "espacio",
-      render: (_, r) => (
-        <div>
-          <div style={{ fontWeight: 500, fontSize: 13 }}>{r.espacio_nombre || "-"}</div>
-          <div style={{ fontSize: 12, color: "#888" }}>{r.recurso_nombre || "-"}</div>
-        </div>
-      ),
+      title: "Recurso", key: "espacio",
+      render: (_, r) => {
+        const detalle = Array.isArray(r.recursos_detalle) && r.recursos_detalle.length
+          ? r.recursos_detalle
+          : r.recurso_nombre
+            ? [{ recurso: r.recurso_nombre, espacio: r.espacio_nombre || null }]
+            : [];
+        const tooltipContent = detalle.length ? (
+          <div className={styles.recursoTooltip}>
+            {detalle.map((d, i) => (
+              <div key={`${d.recurso}-${i}`} className={styles.recursoTooltipRow}>
+                <strong>{d.recurso}</strong>
+                <span>{d.espacio || "Sin espacio"}</span>
+              </div>
+            ))}
+          </div>
+        ) : null;
+        const label = detalle.length
+          ? detalle.map((d) => d.recurso).join(", ")
+          : r.recurso_nombre || "-";
+        return (
+          <Tooltip title={tooltipContent} placement="top">
+            <span className={styles.recursoCell}>{label}</span>
+          </Tooltip>
+        );
+      },
     },
     {
       title: "Fecha", dataIndex: "DiaReserva", key: "fecha",
@@ -568,23 +729,99 @@ export default function ControlReservas() {
     },
   ];
 
-  const renderChip = (r) => (
-    <button
-      key={r.idRecurso}
-      type="button"
-      className={[styles.chip, r.esCompleto ? styles.chipCompleto : "", formData.idRecurso === r.idRecurso ? styles.chipActive : ""].join(" ")}
-      onClick={() => setFormData({ ...formData, idRecurso: r.idRecurso })}
-    >
-      {r.esCompleto && <ExpandAltOutlined style={{ fontSize: 12 }} />}
-      {r.Nombre}
-    </button>
-  );
+  const renderResourceChip = (r) => {
+    const isCurrentOwn = editingId && r.idRecurso === editingRecursoId;
+    const isGroup = r.esGrupo === true || r.disponible === null;
+    const isAvailable = isCurrentOwn || r.disponible === true;
+    const disabled = isGroup || !isAvailable;
+    const selected = formData.idRecurso === r.idRecurso;
+    return (
+      <button
+        key={r.idRecurso}
+        type="button"
+        disabled={disabled}
+        className={[
+          styles.resourceChip,
+          r.esCompleto ? styles.resourceChipCompleto : "",
+          selected ? styles.resourceChipActive : "",
+          disabled ? styles.resourceChipDisabled : "",
+        ].filter(Boolean).join(" ")}
+        onClick={() => !disabled && setFormData({ ...formData, idRecurso: r.idRecurso })}
+        title={r.Nombre + (disabled && !isGroup ? " (ocupado)" : "")}
+      >
+        <span className={styles.resourceChipIcon}>
+          {r.esCompleto ? <ExpandAltOutlined /> : <AppstoreOutlined />}
+        </span>
+        <span className={styles.resourceChipName}>{r.Nombre}</span>
+        {!isGroup && (
+          <span
+            className={[
+              styles.resourceChipBadge,
+              isAvailable ? styles.resourceChipBadgeOk : styles.resourceChipBadgeBusy,
+            ].join(" ")}
+          >
+            {isAvailable ? "Libre" : "Ocupado"}
+          </span>
+        )}
+      </button>
+    );
+  };
+
+  const renderResourceSections = (sections) =>
+    sections.map((s, idx) => {
+      const items = s.items || (s.item ? [s.item] : []);
+      if (items.length === 0) return null;
+      const sectionLabel =
+        s.type === "visual-group" || s.type === "db-group" ? s.label :
+        s.type === "completo" ? "Espacio completo" : null;
+      return (
+        <div key={`${s.type}-${idx}`} className={styles.resourceSubgroup}>
+          {sectionLabel && (
+            <span className={styles.resourceSubgroupLabel}>{sectionLabel}</span>
+          )}
+          <div className={styles.resourceChipGrid}>{items.map(renderResourceChip)}</div>
+        </div>
+      );
+    });
+
+  // Validacion por paso del wizard.
+  const stepClienteValido = useMemo(() => {
+    const dniOk = String(formData.DNI || "").trim().length >= 7;
+    const nombreOk = String(formData.Nombre || "").trim().length > 0;
+    const apellidoOk = String(formData.Apellido || "").trim().length > 0;
+    return dniOk && nombreOk && apellidoOk;
+  }, [formData.DNI, formData.Nombre, formData.Apellido]);
+
+  const stepFechaEspacioValido = useMemo(() => {
+    return !!formData.fecha && !!formData.duracion && !!formData.hora && !!formData.idRecurso;
+  }, [formData.fecha, formData.duracion, formData.hora, formData.idRecurso]);
+
+  const canAdvanceStep = (step) => {
+    if (step === 0) return stepClienteValido;
+    if (step === 1) return stepFechaEspacioValido;
+    return false;
+  };
+
+  const goNextStep = () => {
+    if (!canAdvanceStep(drawerStep)) return;
+    setDrawerStep((s) => Math.min(s + 1, 2));
+  };
+
+  const goPrevStep = () => setDrawerStep((s) => Math.max(s - 1, 0));
 
   if (loading) {
     return (
       <Layout className={styles.layout}>
         <Header />
         <Content className={styles.content}>
+          <div className={styles.container}>
+            <AdminPageHeader
+              eyebrow="Operaciones"
+              icon={<AppstoreOutlined />}
+              title="Control de Reservas"
+              description="Administrá reservas activas, su ocupación y el historial completo."
+            />
+          </div>
           <div style={{ textAlign: "center", padding: "4rem" }}><Spin size="large" /></div>
         </Content>
       </Layout>
@@ -596,23 +833,36 @@ export default function ControlReservas() {
       <Header />
       <Content className={styles.content}>
         <div className={styles.container}>
-          <div className={styles.pageHeader}>
-            <h1 className={styles.pageTitle}>Control de Reservas</h1>
-            <div style={{ display: "flex", gap: 8 }}>
-              <Button
-                type={showOccupancy ? "primary" : "default"}
-                icon={<ClockCircleOutlined />}
-                onClick={() => setShowOccupancy(!showOccupancy)}
-                style={showOccupancy ? { background: "#34c08f", borderColor: "#34c08f" } : {}}
-              >
-                {showOccupancy ? "Ver tabla" : "Ver ocupacion"}
-              </Button>
-              <Button type="primary" icon={<PlusOutlined />} onClick={() => { handleLimpiar(); setDrawerOpen(true); }}
-                style={{ background: "#34c08f", borderColor: "#34c08f" }}>
-                Nueva reserva
-              </Button>
-            </div>
-          </div>
+          <AdminPageHeader
+            eyebrow="Operaciones"
+            icon={<AppstoreOutlined />}
+            title="Control de Reservas"
+            description="Administrá reservas activas, su ocupación y el historial completo."
+            actions={
+              <>
+                <Button
+                  type={showOccupancy ? "primary" : "default"}
+                  icon={<ClockCircleOutlined />}
+                  onClick={() => setShowOccupancy(!showOccupancy)}
+                  size="large"
+                >
+                  {showOccupancy ? "Ver tabla" : "Ver ocupación"}
+                </Button>
+                <Button
+                  type="primary"
+                  icon={<PlusOutlined />}
+                  onClick={() => {
+                    handleLimpiar();
+                    setDrawerOpen(true);
+                    setDrawerStep(0);
+                  }}
+                  size="large"
+                >
+                  Nueva reserva
+                </Button>
+              </>
+            }
+          />
 
           {/* Filters */}
           <div className={styles.filtersRow}>
@@ -674,10 +924,10 @@ export default function ControlReservas() {
 
               <div className={styles.occupancyLegend}>
                 <span className={styles.occupancyLegendItem}>
-                  <span className={styles.occupancyLegendDot} style={{ background: "#34c08f" }} /> Reservado
+                  <span className={styles.occupancyLegendDot} style={{ background: "var(--color-brand-primary)" }} /> Reservado
                 </span>
                 <span className={styles.occupancyLegendItem}>
-                  <span className={styles.occupancyLegendDot} style={{ background: "#e8a830" }} /> Todo el día
+                  <span className={styles.occupancyLegendDot} style={{ background: "var(--color-warning)" }} /> Todo el día
                 </span>
               </div>
 
@@ -709,7 +959,7 @@ export default function ControlReservas() {
                             if (!bk.HorarioReserva) {
                               return (
                                 <div key={bk.idReserva} className={styles.occupancyBlock}
-                                  style={{ left: "0%", width: "100%", background: "#e8a830" }}
+                                  style={{ left: "0%", width: "100%", background: "var(--color-warning)" }}
                                   title={`${bk.Nombre} (todo el día)`}>
                                   <span>{bk.Nombre}</span>
                                 </div>
@@ -751,110 +1001,382 @@ export default function ControlReservas() {
         <Drawer
           title={editingId ? "Modificar Reserva" : "Nueva Reserva"}
           placement="right"
-          width={400}
+          width={520}
           onClose={handleLimpiar}
           open={drawerOpen}
+          className={styles.reservaDrawer}
           footer={
-            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+            <div className={styles.drawerFooter}>
               <Button onClick={handleLimpiar}>Cancelar</Button>
-              <Button type="primary" onClick={handleGuardar} style={{ background: "#34c08f", borderColor: "#34c08f" }}>
-                {editingId ? "Actualizar" : "Crear Reserva"}
-              </Button>
+              <div className={styles.drawerFooterRight}>
+                {drawerStep > 0 && (
+                  <Button icon={<ArrowLeftOutlined />} onClick={goPrevStep}>
+                    Volver
+                  </Button>
+                )}
+                {drawerStep < 2 && (
+                  <Button
+                    type="primary"
+                    onClick={goNextStep}
+                    disabled={!canAdvanceStep(drawerStep)}
+                  >
+                    Continuar
+                    <ArrowRightOutlined />
+                  </Button>
+                )}
+                {drawerStep === 2 && (
+                  <Button
+                    type="primary"
+                    icon={<CheckCircleOutlined />}
+                    onClick={handleGuardar}
+                    disabled={!stepClienteValido || !stepFechaEspacioValido}
+                  >
+                    {editingId ? "Actualizar reserva" : "Confirmar reserva"}
+                  </Button>
+                )}
+              </div>
             </div>
           }
         >
-          <div className={styles.drawerForm}>
-            <div className={styles.formField}>
-              <label className={styles.label}>DNI</label>
-              <Input value={formData.DNI} onChange={(e) => setFormData({ ...formData, DNI: e.target.value })} />
-            </div>
-            <div className={styles.formField}>
-              <label className={styles.label}>Nombre</label>
-              <Input value={formData.Nombre} onChange={(e) => setFormData({ ...formData, Nombre: e.target.value })} />
-            </div>
-            <div className={styles.formField}>
-              <label className={styles.label}>Apellido</label>
-              <Input value={formData.Apellido} onChange={(e) => setFormData({ ...formData, Apellido: e.target.value })} />
-            </div>
-            <div className={styles.formField}>
-              <label className={styles.label}>Email</label>
-              <Input value={formData.Email} onChange={(e) => setFormData({ ...formData, Email: e.target.value })} />
-            </div>
-            <div className={styles.formField}>
-              <label className={styles.label}>Espacio</label>
-              <Select style={{ width: "100%" }} value={formData.idEspacio}
-                onChange={(v) => setFormData({ ...formData, idEspacio: v, idRecurso: null })}
-                placeholder="Seleccionar espacio">
-                {espacios.map((e) => <Option key={e.Espacio} value={e.Espacio}>{e.Nombre}</Option>)}
-              </Select>
-            </div>
-            {formData.idEspacio && (
+          <Steps
+            current={drawerStep}
+            size="small"
+            className={styles.drawerSteps}
+            items={[
+              { title: "Cliente", icon: <UserOutlined /> },
+              { title: "Fecha y espacio", icon: <CalendarOutlined /> },
+              { title: "Confirmar", icon: <CheckCircleOutlined /> },
+            ]}
+          />
+
+          {/* STEP 0: Cliente */}
+          {drawerStep === 0 && (
+            <div className={styles.drawerStepBody}>
+              <div className={styles.stepIntro}>
+                <h3 className={styles.stepTitle}>¿Para quién es la reserva?</h3>
+                <p className={styles.stepSub}>
+                  Ingresá el DNI del cliente. Si ya está registrado, sus datos se completan automáticamente.
+                </p>
+              </div>
+
               <div className={styles.formField}>
-                <label className={styles.label}>Recurso</label>
-                {recursoGroups.length === 0 ? (
-                  <span style={{ fontSize: 12, color: "var(--color-text-tertiary)" }}>
-                    No hay recursos reservables en este espacio.
+                <label className={styles.label}>
+                  <IdcardOutlined /> DNI
+                </label>
+                <Input
+                  value={formData.DNI}
+                  placeholder="Ej: 30123456"
+                  onChange={(e) => handleDniChange(e.target.value)}
+                  disabled={!!editingId}
+                  suffix={
+                    lookupClienteLoading ? (
+                      <LoadingOutlined style={{ color: "var(--color-brand-primary)" }} />
+                    ) : clienteExistente ? (
+                      <Tooltip title="Cliente ya registrado">
+                        <CheckCircleOutlined style={{ color: "var(--color-brand-primary)" }} />
+                      </Tooltip>
+                    ) : null
+                  }
+                />
+                {clienteExistente && !editingId && (
+                  <span className={styles.fieldHintOk}>
+                    <CheckCircleOutlined /> Cliente existente — datos completados.
                   </span>
-                ) : (
-                  <div className={styles.chipGroups}>
-                    {recursoGroups.map((s, idx) => {
-                      const items = s.items || (s.item ? [s.item] : []);
-                      if (items.length === 0) return null;
-                      const sectionLabel =
-                        s.type === "visual-group" || s.type === "db-group" ? s.label :
-                        s.type === "completo" ? "Espacio completo" : null;
-                      return (
-                        <div key={`${s.type}-${idx}`} className={styles.chipGroup}>
-                          {sectionLabel && (
-                            <span className={styles.chipGroupLabel}>{sectionLabel}</span>
-                          )}
-                          <div className={styles.chipGrid}>{items.map(renderChip)}</div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                )}
+                {!clienteExistente && !editingId && String(formData.DNI || "").trim().length >= 7 && (
+                  <span className={styles.fieldHint}>
+                    Cliente nuevo — se creará al confirmar la reserva.
+                  </span>
                 )}
               </div>
-            )}
-            <div className={styles.formField}>
-              <label className={styles.label}>Fecha</label>
-              <DatePicker format="DD/MM/YYYY" style={{ width: "100%" }} value={formData.fecha}
-                onChange={(v) => setFormData({ ...formData, fecha: v })} />
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-              <div className={styles.formField}>
-                <label className={styles.label}>Hora inicio</label>
-                <TimePicker format="HH:mm" minuteStep={30} style={{ width: "100%" }} value={formData.hora}
-                  onChange={(v) => setFormData({ ...formData, hora: v })}
-                  disabledHours={() => {
-                    const h = [];
-                    for (let i = 0; i < COWORKING_OPEN; i++) h.push(i);
-                    for (let i = COWORKING_CLOSE; i < 24; i++) h.push(i);
-                    return h;
-                  }}
-                  disabledMinutes={(selectedHour) => {
-                    if (selectedHour == null || !formData.duracion) return [];
-                    const cierreMin = COWORKING_CLOSE * 60;
-                    const bad = [];
-                    for (const mm of [0, 30]) {
-                      if (selectedHour * 60 + mm + formData.duracion > cierreMin) bad.push(mm);
-                    }
-                    return bad;
-                  }} />
+
+              <div className={styles.formRow2}>
+                <div className={styles.formField}>
+                  <label className={styles.label}>
+                    <UserOutlined /> Nombre
+                  </label>
+                  <Input
+                    value={formData.Nombre}
+                    onChange={(e) => setFormData({ ...formData, Nombre: e.target.value })}
+                  />
+                </div>
+                <div className={styles.formField}>
+                  <label className={styles.label}>Apellido</label>
+                  <Input
+                    value={formData.Apellido}
+                    onChange={(e) => setFormData({ ...formData, Apellido: e.target.value })}
+                  />
+                </div>
               </div>
+
               <div className={styles.formField}>
-                <label className={styles.label}>Duracion</label>
-                <Select style={{ width: "100%" }} value={formData.duracion}
-                  onChange={(v) => setFormData({ ...formData, duracion: v })}>
-                  <Option value={60}>1 hora</Option>
-                  <Option value={120}>2 horas</Option>
-                  <Option value={180}>3 horas</Option>
-                  <Option value={240}>Medio dia</Option>
-                  <Option value={480}>Dia completo</Option>
-                </Select>
+                <label className={styles.label}>
+                  <MailOutlined /> Email
+                </label>
+                <Input
+                  type="email"
+                  value={formData.Email}
+                  placeholder="opcional"
+                  onChange={(e) => setFormData({ ...formData, Email: e.target.value })}
+                />
               </div>
             </div>
-          </div>
+          )}
+
+          {/* STEP 1: Fecha + Hora + Recurso */}
+          {drawerStep === 1 && (
+            <div className={styles.drawerStepBody}>
+              <div className={styles.stepIntro}>
+                <h3 className={styles.stepTitle}>¿Cuándo y dónde?</h3>
+                <p className={styles.stepSub}>
+                  Elegí fecha, duración y horario. Vas a ver solo los recursos libres en ese turno.
+                </p>
+                <span className={styles.hoursBadge}>
+                  <ClockCircleOutlined /> 09:00 – 21:00 hs
+                </span>
+              </div>
+
+              <div className={styles.formField}>
+                <div className={styles.fieldLabelRow}>
+                  <CalendarOutlined className={styles.fieldLabelIcon} />
+                  <label className={styles.label}>Fecha</label>
+                </div>
+                <DatePicker
+                  format="DD/MM/YYYY"
+                  style={{ width: "100%" }}
+                  value={formData.fecha}
+                  placeholder="Seleccioná el día"
+                  onChange={(v) => setFormData({ ...formData, fecha: v })}
+                  disabledDate={(d) => d && d.isBefore(dayjs().startOf("day"))}
+                />
+              </div>
+
+              <div className={styles.formField}>
+                <div className={styles.fieldLabelRow}>
+                  <FieldTimeOutlined className={styles.fieldLabelIcon} />
+                  <label className={styles.label}>Duración</label>
+                </div>
+                <div className={styles.durationChips}>
+                  {duracionesValidasParaCalendario().map((d) => (
+                    <button
+                      key={d}
+                      type="button"
+                      className={[
+                        styles.durationChip,
+                        formData.duracion === d ? styles.durationChipActive : "",
+                      ].filter(Boolean).join(" ")}
+                      onClick={() => setFormData({ ...formData, duracion: d })}
+                    >
+                      {etiquetaDuracion(d)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className={styles.formField}>
+                <div className={styles.fieldLabelRow}>
+                  <ScheduleOutlined className={styles.fieldLabelIcon} />
+                  <label className={styles.label}>Hora de inicio</label>
+                </div>
+                {(() => {
+                  if (!formData.fecha) {
+                    return <p className={styles.fieldHint}>Elegí primero la fecha.</p>;
+                  }
+                  if (!formData.duracion) {
+                    return <p className={styles.fieldHint}>Elegí la duración para ver los horarios.</p>;
+                  }
+                  const slots = iniciosDisponiblesParaDuracion(formData.fecha, formData.duracion);
+                  if (slots.length === 0) {
+                    return (
+                      <p className={styles.fieldHintWarn}>
+                        No hay inicios posibles para esta duración sin pasar las 21:00. Probá otra duración o fecha.
+                      </p>
+                    );
+                  }
+                  const slotsManana = slots.filter((s) => s.hour() < 14);
+                  const slotsTarde = slots.filter((s) => s.hour() >= 14);
+                  const renderSlot = (slot) => {
+                    const active = formData.hora && slot.isSame(formData.hora, "minute");
+                    return (
+                      <button
+                        key={slot.format("YYYY-MM-DD-HH-mm")}
+                        type="button"
+                        className={[
+                          styles.timeSlot,
+                          active ? styles.timeSlotActive : "",
+                        ].filter(Boolean).join(" ")}
+                        onClick={() => setFormData({ ...formData, hora: slot })}
+                      >
+                        {slot.format("HH:mm")}
+                      </button>
+                    );
+                  };
+                  return (
+                    <>
+                      {slotsManana.length > 0 && (
+                        <div className={styles.timeSlotBlock}>
+                          <span className={styles.timeSlotBlockTitle}>Mañana y mediodía</span>
+                          <div className={styles.timeSlotGrid}>{slotsManana.map(renderSlot)}</div>
+                        </div>
+                      )}
+                      {slotsTarde.length > 0 && (
+                        <div className={styles.timeSlotBlock}>
+                          <span className={styles.timeSlotBlockTitle}>Tarde</span>
+                          <div className={styles.timeSlotGrid}>{slotsTarde.map(renderSlot)}</div>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
+              </div>
+
+              {/* Resource availability */}
+              <div className={styles.availabilityWrap}>
+                {loadingDispo && (
+                  <div className={styles.availabilityLoading}>
+                    <Spin size="small" />
+                    <span>Buscando disponibilidad…</span>
+                  </div>
+                )}
+                {!loadingDispo && !dispoLoaded && (
+                  <div className={styles.availabilityIdle}>
+                    <AppstoreOutlined />
+                    <span>Completá fecha, duración y horario para ver los recursos disponibles.</span>
+                  </div>
+                )}
+                {!loadingDispo && dispoLoaded && disponibilidad.length === 0 && (
+                  <Empty
+                    description="No hay recursos disponibles para esos criterios"
+                    image={Empty.PRESENTED_IMAGE_SIMPLE}
+                  />
+                )}
+                {!loadingDispo && dispoLoaded && disponibilidad.length > 0 && (
+                  <>
+                    <div className={styles.availabilityHeader}>
+                      <span className={styles.availabilityTitle}>
+                        <AppstoreOutlined /> Recursos
+                      </span>
+                      <span className={styles.availabilityCount}>
+                        {availableCount} libre{availableCount !== 1 ? "s" : ""}
+                      </span>
+                    </div>
+                    {recursoGroupsByEspacio.map((grp) => (
+                      <div key={grp.idEspacio} className={styles.espacioBlock}>
+                        <span className={styles.espacioBlockTitle}>{grp.espacioNombre}</span>
+                        <div className={styles.resourceSubgroups}>
+                          {renderResourceSections(grp.sections)}
+                        </div>
+                      </div>
+                    ))}
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* STEP 2: Confirmar */}
+          {drawerStep === 2 && (
+            <div className={styles.drawerStepBody}>
+              <div className={styles.stepIntro}>
+                <h3 className={styles.stepTitle}>Revisá los datos</h3>
+                <p className={styles.stepSub}>
+                  Si todo está bien, confirmá la reserva. Podés volver atrás para corregir cualquier campo.
+                </p>
+              </div>
+
+              <div className={styles.summaryCard}>
+                <div className={styles.summarySection}>
+                  <span className={styles.summarySectionTitle}>
+                    <UserOutlined /> Cliente
+                  </span>
+                  <div className={styles.summaryGrid}>
+                    <div className={styles.summaryItem}>
+                      <span className={styles.summaryLabel}>DNI</span>
+                      <span className={styles.summaryValue}>{formData.DNI || "-"}</span>
+                    </div>
+                    <div className={styles.summaryItem}>
+                      <span className={styles.summaryLabel}>Nombre</span>
+                      <span className={styles.summaryValue}>
+                        {`${formData.Nombre || ""} ${formData.Apellido || ""}`.trim() || "-"}
+                      </span>
+                    </div>
+                    {formData.Email && (
+                      <div className={styles.summaryItem} style={{ gridColumn: "1 / -1" }}>
+                        <span className={styles.summaryLabel}>Email</span>
+                        <span className={styles.summaryValue}>{formData.Email}</span>
+                      </div>
+                    )}
+                    {!editingId && (
+                      <div className={styles.summaryItem} style={{ gridColumn: "1 / -1" }}>
+                        <span className={styles.summaryLabel}>Estado</span>
+                        <span className={styles.summaryValue}>
+                          {clienteExistente ? (
+                            <Tag color="green">Cliente existente</Tag>
+                          ) : (
+                            <Tag color="blue">Cliente nuevo (se creará)</Tag>
+                          )}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className={styles.summarySection}>
+                  <span className={styles.summarySectionTitle}>
+                    <CalendarOutlined /> Turno
+                  </span>
+                  <div className={styles.summaryGrid}>
+                    <div className={styles.summaryItem}>
+                      <span className={styles.summaryLabel}>Fecha</span>
+                      <span className={styles.summaryValue}>
+                        {formData.fecha ? formData.fecha.format("DD/MM/YYYY") : "-"}
+                      </span>
+                    </div>
+                    <div className={styles.summaryItem}>
+                      <span className={styles.summaryLabel}>Horario</span>
+                      <span className={styles.summaryValue}>
+                        {formData.hora
+                          ? `${formData.hora.format("HH:mm")} - ${formData.hora
+                              .clone()
+                              .add(formData.duracion, "minute")
+                              .format("HH:mm")}`
+                          : "-"}
+                      </span>
+                    </div>
+                    <div className={styles.summaryItem}>
+                      <span className={styles.summaryLabel}>Duración</span>
+                      <span className={styles.summaryValue}>
+                        {formData.duracion ? etiquetaDuracion(formData.duracion) : "-"}
+                      </span>
+                    </div>
+                    <div className={styles.summaryItem}>
+                      <span className={styles.summaryLabel}>Recurso</span>
+                      <span className={styles.summaryValue}>
+                        {(() => {
+                          const r =
+                            disponibilidad.find((x) => x.idRecurso === formData.idRecurso) ||
+                            recursos.find((x) => x.idRecurso === formData.idRecurso);
+                          return r ? r.Nombre : "-";
+                        })()}
+                      </span>
+                    </div>
+                    <div className={styles.summaryItem} style={{ gridColumn: "1 / -1" }}>
+                      <span className={styles.summaryLabel}>Espacio</span>
+                      <span className={styles.summaryValue}>
+                        {(() => {
+                          const r =
+                            disponibilidad.find((x) => x.idRecurso === formData.idRecurso) ||
+                            recursos.find((x) => x.idRecurso === formData.idRecurso);
+                          if (!r) return "-";
+                          return espacios.find((e) => e.Espacio === r.idEspacio)?.Nombre || "-";
+                        })()}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </Drawer>
       </Content>
     </Layout>

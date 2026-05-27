@@ -161,8 +161,23 @@
   color: var(--color-text-primary);
 }
 
-.reservasTable :global(.ant-table-tbody > tr:hover > td) {
-  background: var(--color-brand-primary-soft) !important;
+/* Solid hover bg — avoids translucent overlay showing rows underneath
+   on fixed columns (Fecha / Pago). */
+.reservasTable :global(.ant-table-tbody > tr > td) {
+  background: #ffffff;
+  transition: background-color var(--transition-fast);
+}
+
+.reservasTable :global(.ant-table-tbody > tr:hover > td),
+.reservasTable :global(.ant-table-tbody > tr:hover > td.ant-table-cell-fix-left),
+.reservasTable :global(.ant-table-tbody > tr:hover > td.ant-table-cell-fix-right),
+.reservasTable :global(.ant-table-tbody > tr.ant-table-row-hover > td) {
+  background: #ebf9f4 !important;
+}
+
+.reservasTable :global(.ant-table-tbody > tr > td.ant-table-cell-fix-left),
+.reservasTable :global(.ant-table-tbody > tr > td.ant-table-cell-fix-right) {
+  background: #ffffff;
 }
 
 .recursoSub {
@@ -170,6 +185,43 @@
   color: #888;
   line-height: 1.35;
   word-break: break-word;
+}
+
+.recursoCell {
+  font-weight: 500;
+  color: var(--color-text-primary);
+  cursor: help;
+  border-bottom: 1px dotted var(--color-neutral-400);
+}
+
+.recursoTooltip {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 180px;
+}
+
+.recursoTooltipRow {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.recursoTooltipRow strong {
+  font-weight: 600;
+  color: #fff;
+}
+
+.recursoTooltipRow span {
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 11px;
+}
+
+.recursoTooltipRow + .recursoTooltipRow {
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.18);
 }
 
 .cellMuted {

@@ -13,6 +13,13 @@
   --color-brand-primary-mid:  rgba(52, 192, 143, 0.20);
   --color-brand-primary-glow: rgba(52, 192, 143, 0.32);
 
+  /* Brand secondary — peach del coworking, usado como acento cálido */
+  --color-brand-secondary:      #F9AC95;
+  --color-brand-secondary-dark: #e88a6f;
+  --color-brand-secondary-soft: rgba(249, 172, 149, 0.14);
+  --color-brand-secondary-mid:  rgba(249, 172, 149, 0.28);
+  --color-brand-secondary-glow: rgba(249, 172, 149, 0.40);
+
   /* ── Dark scale (brand navy) ──────────────────── */
   --color-neutral-900: #1a1a2e;
   --color-neutral-800: #2d2d4e;
@@ -102,6 +109,7 @@
   --shadow-brand: 0 4px 20px rgba(52, 192, 143, 0.30);
   --shadow-brand-lg: 0 8px 32px rgba(52, 192, 143, 0.38);
   --shadow-dark:  0 18px 48px rgba(26, 26, 46, 0.35);
+  --shadow-hero:  0 18px 48px rgba(42, 173, 126, 0.28);
 
   /* ── Transitions ──────────────────────────────── */
   --transition-fast:   0.15s ease;

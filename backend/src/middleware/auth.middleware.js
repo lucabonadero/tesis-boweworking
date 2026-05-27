@@ -51,3 +51,19 @@ export const verificarPermiso = (permiso) => (req, res, next) => {
   }
   next();
 };
+
+/**
+ * Como verificarPermiso pero acepta cualquiera de varias claves.
+ * Útil cuando varios permisos pueden habilitar la misma acción
+ * (por ej. ver estructura: ver_espacios OR gestionar_estructura).
+ */
+export const verificarPermisoAlguno = (...claves) => (req, res, next) => {
+  const usuario = req.usuario;
+  if (!usuario) return res.status(401).json({ message: "No autenticado" });
+  if (usuario.rol === "admin") return next();
+  const permisos = Array.isArray(usuario.permisos) ? usuario.permisos : [];
+  if (!claves.some((c) => permisos.includes(c))) {
+    return res.status(403).json({ message: "No tenés permiso para realizar esta acción" });
+  }
+  next();
+};

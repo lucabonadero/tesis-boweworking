@@ -1590,38 +1590,39 @@ export default function RegistroCliente() {
 
         {step === 0 && <ReservaModificacionAviso className={styles.reservaAvisoTop} />}
 
-        {(activeTab === "turno" || activeTab === "fijo") && (
-          <div className={styles.packBanner} onClick={() => switchTab("pack")}>
-            <div className={styles.packBannerIcon}><CalendarOutlined /></div>
-            <div className={styles.packBannerText}>
-              <strong>Packs Semanales y Mensuales disponibles</strong>
-              <span>Ahorra reservando oficinas privadas por semana o mes</span>
-            </div>
-            <ArrowRightOutlined className={styles.packBannerArrow} />
-          </div>
-        )}
-
-        <div className={styles.tabBar}>
+        <div className={styles.tabBar} role="tablist" aria-label="Tipo de reserva">
           <button
             type="button"
+            role="tab"
+            aria-selected={activeTab === "turno"}
             className={[styles.tab, activeTab === "turno" ? styles.tabActive : ""].join(" ")}
             onClick={() => switchTab("turno")}
           >
-            <ClockCircleOutlined /> Reserva por turno
+            <ClockCircleOutlined className={styles.tabIcon} />
+            <span className={styles.tabLabel}>Reserva por turno</span>
+            <span className={styles.tabHint}>Por horas</span>
           </button>
           <button
             type="button"
+            role="tab"
+            aria-selected={activeTab === "fijo"}
             className={[styles.tab, activeTab === "fijo" ? styles.tabActive : ""].join(" ")}
             onClick={() => switchTab("fijo")}
           >
-            <FieldTimeOutlined /> Horario fijo (4 sem.)
+            <FieldTimeOutlined className={styles.tabIcon} />
+            <span className={styles.tabLabel}>Horario fijo</span>
+            <span className={styles.tabHint}>4 semanas</span>
           </button>
           <button
             type="button"
+            role="tab"
+            aria-selected={activeTab === "pack"}
             className={[styles.tab, styles.tabPack, activeTab === "pack" ? styles.tabActive : ""].join(" ")}
             onClick={() => switchTab("pack")}
           >
-            <CalendarOutlined /> Packs de Oficina
+            <CalendarOutlined className={styles.tabIcon} />
+            <span className={styles.tabLabel}>Packs de Oficina</span>
+            <span className={styles.tabHint}>Semanal / Mensual</span>
           </button>
         </div>
 

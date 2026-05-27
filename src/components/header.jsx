@@ -12,8 +12,7 @@ import {
   InfoCircleOutlined,
   SettingOutlined,
   RobotOutlined,
-  TeamOutlined,
-  DollarOutlined,
+  DashboardOutlined,
 } from "@ant-design/icons";
 
 export default function Header() {
@@ -24,7 +23,6 @@ export default function Header() {
 
   const isAdmin = auth.isAdmin;
   const isStaff = auth.isStaff;
-  const hp = auth.hasPermission;
 
   const getLinkClass = (path) => (location.pathname === path ? "active" : "");
 
@@ -59,6 +57,12 @@ export default function Header() {
   const adminMenu = {
     items: [
       {
+        key: "panel",
+        icon: <DashboardOutlined />,
+        label: "Volver al panel",
+        onClick: () => navigate("/panel"),
+      },
+      {
         key: "logout",
         icon: <LogoutOutlined />,
         label: "Cerrar sesión",
@@ -73,21 +77,9 @@ export default function Header() {
     { path: "/espacios", label: "Espacios", icon: <AppstoreOutlined /> },
   ];
 
-  // Links de panel staff: cada uno se muestra según el permiso correspondiente
-  const staffPanelLinks = [
-    hp("ver_reservas") && { path: "/control", label: "Consultar Reservas", icon: <CalendarOutlined /> },
-    hp("altas_clientes") && { path: "/altas", label: "Control de Asistencia", icon: <AppstoreOutlined /> },
-    hp("ver_espacios") && { path: "/admin-espacios", label: "Panel de Espacios", icon: <AppstoreOutlined /> },
-    hp("gestionar_estructura") && { path: "/admin-estructura", label: "Estructura", icon: <AppstoreOutlined /> },
-  ].filter(Boolean);
-
-  const adminOnlyLinks = [
-    { path: "/gestion", label: "Gestión Financiera", icon: <DollarOutlined /> },
-    { path: "/admin-usuarios", label: "Gestión de Usuarios", icon: <TeamOutlined /> },
-  ];
-
+  // Staff/Admin: solo se muestra acceso al panel. Los módulos viven dentro del dashboard.
   const navLinks = isStaff
-    ? [...publicLinks, ...staffPanelLinks, ...(isAdmin ? adminOnlyLinks : [])]
+    ? [{ path: "/panel", label: "Panel", icon: <DashboardOutlined /> }]
     : publicLinks;
 
   return (
@@ -101,13 +93,15 @@ export default function Header() {
         </div>
 
         <ul className="header__links">
-          {navLinks.map((link) => (
-            <li key={link.path}>
-              <Link to={link.path} className={getLinkClass(link.path)}>
-                {link.label}
-              </Link>
-            </li>
-          ))}
+          {navLinks
+            .filter((link) => !(isStaff && link.path === "/panel"))
+            .map((link) => (
+              <li key={link.path}>
+                <Link to={link.path} className={getLinkClass(link.path)}>
+                  {link.label}
+                </Link>
+              </li>
+            ))}
           {!isStaff && (
             <li>
               <a
@@ -127,14 +121,23 @@ export default function Header() {
 
         <div className="header__auth">
           {isStaff ? (
-            <Dropdown menu={adminMenu} placement="bottomRight" trigger={["click"]}>
-              <button type="button" className="header__user-btn">
-                <SettingOutlined />
-                <span className="header__user-name">
-                  {isAdmin ? "Admin" : auth.user?.rol === "staff" ? "Staff" : "Personal"}
-                </span>
-              </button>
-            </Dropdown>
+            <>
+              <Link
+                to="/panel"
+                className={`header__panel-chip ${getLinkClass("/panel")}`.trim()}
+              >
+                <DashboardOutlined />
+                Panel
+              </Link>
+              <Dropdown menu={adminMenu} placement="bottomRight" trigger={["click"]}>
+                <button type="button" className="header__user-btn">
+                  <SettingOutlined />
+                  <span className="header__user-name">
+                    {isAdmin ? "Admin" : auth.user?.rol === "staff" ? "Staff" : "Personal"}
+                  </span>
+                </button>
+              </Dropdown>
+            </>
           ) : auth.isAuthenticated ? (
             <Dropdown menu={userMenu} placement="bottomRight" trigger={["click"]}>
               <button type="button" className="header__user-btn">

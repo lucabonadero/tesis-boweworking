@@ -58,8 +58,10 @@ app.use("/api/reservas", reservasRoutes);
 app.use("/api/pagos", pagosRoutes);
 app.use("/api/dashboard/espacios", espaciosDashboardRoutes);
 app.use("/api/ai", aiReservaRoutes);
-app.use("/api/admin", adminUsuariosRoutes);
+// /api/admin/estructura debe ir ANTES que /api/admin para que el middleware
+// global de adminUsuariosRoutes no intercepte los requests de estructura.
 app.use("/api/admin/estructura", estructuraRoutes);
+app.use("/api/admin", adminUsuariosRoutes);
 app.use("/api/pisos/publicos", pisosPublicoRoutes);
 
 // Ruta de prueba

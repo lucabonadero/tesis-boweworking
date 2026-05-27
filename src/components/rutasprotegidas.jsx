@@ -41,13 +41,13 @@ export default function ProtectedRoute({ children, adminOnly = false, requiredPe
   }
 
   if (adminOnly) {
-    if (!isAdmin) return <Navigate to="/control" replace />;
+    if (!isAdmin) return <Navigate to="/panel" replace />;
   } else if (!isStaff) {
     return <Navigate to="/" replace />;
   }
 
   if (requiredPermission && !hasPermission(requiredPermission)) {
-    return <Navigate to="/control" replace />;
+    return <Navigate to="/panel" replace />;
   }
 
   return children;

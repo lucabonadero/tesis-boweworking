@@ -163,6 +163,44 @@ body {
     color: var(--color-text-primary);
 }
 
+/* ── Panel chip (link destacado para staff/admin, en el auth area) ─ */
+.header__panel-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 18px;
+    margin-right: 12px;
+    border-radius: var(--radius-full);
+    background: var(--color-brand-primary);
+    color: var(--color-text-inverse);
+    font-weight: var(--weight-semibold);
+    font-size: var(--text-sm);
+    text-decoration: none;
+    box-shadow: var(--shadow-brand);
+    transition:
+        background var(--transition-fast),
+        box-shadow var(--transition-fast),
+        transform var(--transition-fast);
+}
+
+.header__panel-chip:hover {
+    background: var(--color-brand-primary-dark);
+    color: var(--color-text-inverse);
+    box-shadow: var(--shadow-brand-lg);
+    transform: translateY(-1px);
+}
+
+.header__panel-chip.active {
+    background: var(--color-brand-primary-dark);
+    color: var(--color-text-inverse);
+}
+
+@media (max-width: 768px) {
+    .header__panel-chip {
+        display: none;
+    }
+}
+
 /* ── Auth area ────────────────────────────────────────────────── */
 .header__auth {
     display: flex;

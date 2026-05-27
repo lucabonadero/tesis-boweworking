@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Modal, Form, Input, Button, message } from "antd";
 import { LockOutlined, MailOutlined, UserOutlined, IdcardOutlined, PhoneOutlined } from "@ant-design/icons";
 import { GoogleLogin } from "@react-oauth/google";
@@ -23,8 +23,11 @@ export default function AuthModal() {
   const [loginForm] = Form.useForm();
   const [registerForm] = Form.useForm();
   const [profileForm] = Form.useForm();
+  const navigate = useNavigate();
 
   const view = authModalView;
+
+  const isStaffRol = (rol) => rol === "admin" || rol === "empleado" || rol === "staff";
 
   const handleLogin = async (values) => {
     setLoading(true);
@@ -32,8 +35,9 @@ export default function AuthModal() {
       const usr = await login(values.email, values.password);
       message.success(`Bienvenido/a, ${usr.nombre}!`);
       loginForm.resetFields();
-      if (usr.rol === "admin" || usr.rol === "empleado") {
+      if (isStaffRol(usr.rol)) {
         closeAuthModal();
+        navigate("/panel");
       } else if (!usr.perfil_completo) {
         openAuthModal("completar-perfil");
       } else {
@@ -79,7 +83,11 @@ export default function AuthModal() {
     setLoading(true);
     try {
       const usr = await googleAuth(credentialResponse.credential);
-      if (!usr.perfil_completo) {
+      if (isStaffRol(usr.rol)) {
+        message.success(`Bienvenido/a, ${usr.nombre}!`);
+        closeAuthModal();
+        navigate("/panel");
+      } else if (!usr.perfil_completo) {
         message.info("Completá tu perfil para poder reservar.");
         openAuthModal("completar-perfil");
       } else {
