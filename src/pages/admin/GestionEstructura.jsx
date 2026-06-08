@@ -23,9 +23,7 @@ const TIPO_ESPACIO_OPCIONES = [
   { value: "espacio", label: "Espacio" },
 ];
 
-// ============================================================
-// Helpers: tempIds + clonado profundo + diff de operaciones
-// ============================================================
+// Utilidades: tempIds + clonado profundo + diff de operaciones
 let _tempCounter = 0;
 const makeTempId = (prefix) => `${prefix}_t${++_tempCounter}`;
 const isTempId = (id) => typeof id === "string" && id.includes("_t");
@@ -256,7 +254,7 @@ function reordenarHermanosOp(opsRef, arbol, tipoNodo, nuevoPadreInfo) {
   opsRef.current.push({ tipo: `${tipoNodo}.reordenar`, orden });
 }
 
-// Helper de búsqueda compartido
+// Función de búsqueda compartida
 function buscarNodoEn(arbolBase, tipo, id) {
   for (const piso of arbolBase) {
     if (tipo === NODO_PISO && piso.idPiso === id) return { nodo: piso };
@@ -855,9 +853,7 @@ export default function GestionEstructura() {
     formEditar.setFieldsValue(raw);
   };
 
-  // ----------------------------------------------------------
-  // Render
-  // ----------------------------------------------------------
+  // Renderizado
   return (
     <div className={adminLayout.layout}>
       <Header />
@@ -918,7 +914,7 @@ export default function GestionEstructura() {
             gap: 16,
           }}
         >
-          {/* ARBOL */}
+          {/* Árbol */}
           <Card
             bordered={false}
             style={{

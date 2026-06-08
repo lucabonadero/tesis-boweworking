@@ -1,20 +1,18 @@
-/**
- * Sugerencias sin LLM: solo datos reales de snapshot (catalogo + slots).
- * Útil para desarrollo / tesis sin gastar en APIs.
- */
+// Sugerencias sin LLM: usa solo datos reales del snapshot (catálogo + slots).
+// Sirve para desarrollo / tesis sin gastar en APIs de pago.
 export function sugerirHeuristico(snapshot, mensaje) {
   const m = mensaje.toLowerCase();
   const numMatch = mensaje.match(/(\d+)\s*(personas?|gente|persona|people)?/i);
-  let minCap = 1;
-  if (numMatch) minCap = Math.max(1, parseInt(numMatch[1], 10));
+  let capacidadMinima = 1;
+  if (numMatch) capacidadMinima = Math.max(1, parseInt(numMatch[1], 10));
 
   const quiereReunion =
     /reuni|equipo|meeting|presentaci|grupo|juntada|videollamada|llamada/i.test(mensaje);
 
-  const catalogById = Object.fromEntries(snapshot.catalogo.map((c) => [c.idRecurso, c]));
+  const catalogoPorId = Object.fromEntries(snapshot.catalogo.map((c) => [c.idRecurso, c]));
 
-  const scoreRecurso = (idRecurso) => {
-    const c = catalogById[idRecurso];
+  const puntuarRecurso = (idRecurso) => {
+    const c = catalogoPorId[idRecurso];
     if (!c) return -100;
     let s = 0;
     const n = `${c.nombre} ${c.descripcion}`.toLowerCase();
@@ -34,29 +32,29 @@ export function sugerirHeuristico(snapshot, mensaje) {
       if (!c.esCompleto) s += 12;
     }
     const cap = c.capacidadEspacio ?? 0;
-    if (cap >= minCap) s += Math.min(cap, 25);
+    if (cap >= capacidadMinima) s += Math.min(cap, 25);
     else s -= 80;
     return s;
   };
 
   const sugerencias = [];
   for (const slot of snapshot.slots) {
-    const ranked = [...slot.idsDisponibles]
-      .map((id) => ({ id, score: scoreRecurso(id) }))
-      .filter((x) => x.score > 0)
-      .sort((a, b) => b.score - a.score);
-    if (ranked.length === 0) continue;
-    const best = ranked[0];
-    const c = catalogById[best.id];
+    const ordenados = [...slot.idsDisponibles]
+      .map((id) => ({ id, puntaje: puntuarRecurso(id) }))
+      .filter((x) => x.puntaje > 0)
+      .sort((a, b) => b.puntaje - a.puntaje);
+    if (ordenados.length === 0) continue;
+    const mejor = ordenados[0];
+    const c = catalogoPorId[mejor.id];
     sugerencias.push({
-      idRecurso: best.id,
+      idRecurso: mejor.id,
       fecha: slot.fecha,
       horaInicio: slot.horaInicio,
       horaFin: slot.horaFin,
       motivo: quiereReunion
         ? "Prioricé un espacio tipo sala/reunión con capacidad suficiente, según datos del sistema."
         : "Opción disponible alineada con puestos/zonas abiertas, según datos del sistema.",
-      etiquetaRecurso: c?.nombre || String(best.id),
+      etiquetaRecurso: c?.nombre || String(mejor.id),
     });
     if (sugerencias.length >= 3) break;
   }

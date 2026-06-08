@@ -47,7 +47,7 @@ function App() {
               <ProtectedRoute><ControlReservas /></ProtectedRoute>
             } />
             <Route path="/gestion" element={
-              <ProtectedRoute requiredPermission="ver_financiero"><GestionFinanciera /></ProtectedRoute>
+              <ProtectedRoute permisoRequerido="ver_financiero"><GestionFinanciera /></ProtectedRoute>
             } />
             <Route path="/altas" element={
               <ProtectedRoute><AltaClientes /></ProtectedRoute>
@@ -56,10 +56,10 @@ function App() {
               <ProtectedRoute><EspaciosDashboard /></ProtectedRoute>
             } />
             <Route path="/admin-usuarios" element={
-              <ProtectedRoute requiredPermission="gestionar_usuarios"><GestionUsuarios /></ProtectedRoute>
+              <ProtectedRoute permisoRequerido="gestionar_usuarios"><GestionUsuarios /></ProtectedRoute>
             } />
             <Route path="/admin-estructura" element={
-              <ProtectedRoute requiredPermission="gestionar_estructura"><GestionEstructura /></ProtectedRoute>
+              <ProtectedRoute permisoRequerido="gestionar_estructura"><GestionEstructura /></ProtectedRoute>
             } />
             <Route path="*" element={<h1>404 - Página no encontrada</h1>} />
           </Routes>

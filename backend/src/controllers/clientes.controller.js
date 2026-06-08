@@ -1,42 +1,42 @@
 import pool from "../config/db.js";
 import { parsePagination } from "../utils/pagination.js";
 
-function buildClientesFilters(query) {
-  const conditions = [];
+function armarFiltrosClientes(query) {
+  const condiciones = [];
   const params = [];
   let i = 1;
 
-  const qRaw = query.q ?? query.search;
-  if (qRaw != null && String(qRaw).trim() !== "") {
-    const term = `%${String(qRaw).trim()}%`;
-    conditions.push(
+  const consultaCruda = query.q ?? query.search;
+  if (consultaCruda != null && String(consultaCruda).trim() !== "") {
+    const termino = `%${String(consultaCruda).trim()}%`;
+    condiciones.push(
       `(c."DNI"::text ILIKE $${i} OR COALESCE(c."Nombre",'') ILIKE $${i} OR COALESCE(c."Apellido",'') ILIKE $${i} OR COALESCE(c."Email",'') ILIKE $${i})`
     );
-    params.push(term);
+    params.push(termino);
     i++;
   }
 
-  const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
-  return { where, params, nextParamIndex: i };
+  const where = condiciones.length ? `WHERE ${condiciones.join(" AND ")}` : "";
+  return { where, params, siguienteIndiceParam: i };
 }
 
 export const obtenerClientes = async (req, res) => {
   try {
     const { limit, offset } = parsePagination(req.query, { defaultLimit: 30, maxLimit: 200 });
-    const { where, params, nextParamIndex } = buildClientesFilters(req.query);
+    const { where, params, siguienteIndiceParam } = armarFiltrosClientes(req.query);
 
-    const baseFrom = `FROM "Cliente" c LEFT JOIN "Empresa" e ON c."idEmpresa" = e."idEmpresa"`;
+    const desdeBase = `FROM "Cliente" c LEFT JOIN "Empresa" e ON c."idEmpresa" = e."idEmpresa"`;
 
-    const { rows: countRows } = await pool.query(`SELECT COUNT(*)::int AS c ${baseFrom} ${where}`, params);
-    const total = countRows[0]?.c ?? 0;
+    const { rows: filasConteo } = await pool.query(`SELECT COUNT(*)::int AS c ${desdeBase} ${where}`, params);
+    const total = filasConteo[0]?.c ?? 0;
 
     const { rows } = await pool.query(
       `
       SELECT c.*, e."Nombre" AS empresa_nombre
-      ${baseFrom}
+      ${desdeBase}
       ${where}
       ORDER BY c."Apellido" ASC NULLS LAST, c."Nombre" ASC NULLS LAST, c."DNI" ASC
-      LIMIT $${nextParamIndex} OFFSET $${nextParamIndex + 1}
+      LIMIT $${siguienteIndiceParam} OFFSET $${siguienteIndiceParam + 1}
     `,
       [...params, limit, offset]
     );

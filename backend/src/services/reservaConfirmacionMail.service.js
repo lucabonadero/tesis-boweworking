@@ -1,7 +1,7 @@
 import { sendMail, smtpConfigured } from "./mailer.service.js";
 import { serializarHorariosReservaEnFilas } from "./horarioReserva.service.js";
 
-function escapeHtml(s) {
+function escaparHtml(s) {
   if (s == null || s === "") return "";
   return String(s)
     .replace(/&/g, "&amp;")
@@ -10,7 +10,7 @@ function escapeHtml(s) {
     .replace(/"/g, "&quot;");
 }
 
-function formatFecha(d) {
+function formatearFecha(d) {
   if (!d) return "—";
   const x = d instanceof Date ? d : new Date(d);
   if (Number.isNaN(x.getTime())) return String(d);
@@ -38,7 +38,7 @@ function duracionTurno(horaIni, horaFin) {
   return `${m} min`;
 }
 
-function labelTipoReserva(tipo) {
+function etiquetaTipoReserva(tipo) {
   switch (tipo) {
     case "semanal":
       return "Pack semanal";
@@ -68,7 +68,7 @@ function metodoPagoLegible(metodo, tipoPago) {
   if (!metodo) return "Sin registrar";
   const m = String(metodo).toLowerCase();
   if (m === "mercadopago") return "Mercado Pago";
-  const base = escapeHtml(metodo);
+  const base = escaparHtml(metodo);
   if (tipoPago === "online") return `${base} (online)`;
   if (tipoPago === "presencial") return `${base} (en local)`;
   return base;
@@ -80,32 +80,32 @@ function estadoPagoLegible(estado) {
   if (e === "Pagado") return { texto: "Pagado", color: "#2e7d32" };
   if (e === "Pendiente") return { texto: "Pendiente", color: "#e67e22" };
   if (e === "Rechazado") return { texto: "Rechazado", color: "#c0392b" };
-  return { texto: escapeHtml(e), color: "#555" };
+  return { texto: escaparHtml(e), color: "#555" };
 }
 
-function formatMonto(n) {
+function formatearMonto(n) {
   const v = parseFloat(n);
   if (Number.isNaN(v)) return "—";
   return v.toLocaleString("es-AR", { style: "currency", currency: "ARS" });
 }
 
-function buildHtml({ clienteNombre, emailCliente, dni, filas, cantidadLugares }) {
-  const rowsHtml = filas
+function armarHtml({ clienteNombre, emailCliente, dni, filas, cantidadLugares }) {
+  const filasHtml = filas
     .map((row) => {
       const tipo = row.TipoReserva || "turno";
       const ep = estadoPagoLegible(row.EstadoPago);
       return `
       <tr>
         <td style="padding:12px 10px;border-bottom:1px solid #eee;vertical-align:top;">
-          <strong>#${escapeHtml(row.idReserva)}</strong><br/>
-          <span style="font-size:12px;color:#666;">${escapeHtml(row.recurso_nombre || "—")}</span>
+          <strong>#${escaparHtml(row.idReserva)}</strong><br/>
+          <span style="font-size:12px;color:#666;">${escaparHtml(row.recurso_nombre || "—")}</span>
         </td>
-        <td style="padding:12px 10px;border-bottom:1px solid #eee;">${escapeHtml(row.espacio_nombre || "—")}</td>
-        <td style="padding:12px 10px;border-bottom:1px solid #eee;">${escapeHtml(formatFecha(row.DiaReserva))}</td>
-        <td style="padding:12px 10px;border-bottom:1px solid #eee;">${escapeHtml(horarioTexto(row))}</td>
-        <td style="padding:12px 10px;border-bottom:1px solid #eee;">${escapeHtml(labelTipoReserva(tipo))}</td>
-        <td style="padding:12px 10px;border-bottom:1px solid #eee;">${escapeHtml(duracionPorTipo(tipo, row.HorarioReserva, row.HorarioFin))}</td>
-        <td style="padding:12px 10px;border-bottom:1px solid #eee;">${formatMonto(row.Monto)}</td>
+        <td style="padding:12px 10px;border-bottom:1px solid #eee;">${escaparHtml(row.espacio_nombre || "—")}</td>
+        <td style="padding:12px 10px;border-bottom:1px solid #eee;">${escaparHtml(formatearFecha(row.DiaReserva))}</td>
+        <td style="padding:12px 10px;border-bottom:1px solid #eee;">${escaparHtml(horarioTexto(row))}</td>
+        <td style="padding:12px 10px;border-bottom:1px solid #eee;">${escaparHtml(etiquetaTipoReserva(tipo))}</td>
+        <td style="padding:12px 10px;border-bottom:1px solid #eee;">${escaparHtml(duracionPorTipo(tipo, row.HorarioReserva, row.HorarioFin))}</td>
+        <td style="padding:12px 10px;border-bottom:1px solid #eee;">${formatearMonto(row.Monto)}</td>
         <td style="padding:12px 10px;border-bottom:1px solid #eee;font-size:13px;">${metodoPagoLegible(row.MetodoPago, row.TipoPago)}</td>
         <td style="padding:12px 10px;border-bottom:1px solid #eee;">
           <span style="display:inline-block;padding:4px 10px;border-radius:999px;background:${ep.color}22;color:${ep.color};font-weight:600;font-size:13px;">${ep.texto}</span>
@@ -133,15 +133,15 @@ function buildHtml({ clienteNombre, emailCliente, dni, filas, cantidadLugares })
           <tr>
             <td style="padding:24px;">
               <p style="margin:0 0 16px;font-size:15px;line-height:1.5;color:#333;">
-                Hola <strong>${escapeHtml(clienteNombre)}</strong>,
+                Hola <strong>${escaparHtml(clienteNombre)}</strong>,
               </p>
               <p style="margin:0 0 20px;font-size:15px;line-height:1.5;color:#555;">
                 Confirmamos los datos de tu reserva. Guardá este correo como comprobante.
               </p>
               <table role="presentation" width="100%" style="margin-bottom:20px;font-size:14px;color:#444;">
-                <tr><td style="padding:6px 0;"><strong>Nombre</strong></td><td>${escapeHtml(clienteNombre)}</td></tr>
-                <tr><td style="padding:6px 0;"><strong>Email</strong></td><td>${escapeHtml(emailCliente)}</td></tr>
-                <tr><td style="padding:6px 0;"><strong>DNI</strong></td><td>${escapeHtml(dni)}</td></tr>
+                <tr><td style="padding:6px 0;"><strong>Nombre</strong></td><td>${escaparHtml(clienteNombre)}</td></tr>
+                <tr><td style="padding:6px 0;"><strong>Email</strong></td><td>${escaparHtml(emailCliente)}</td></tr>
+                <tr><td style="padding:6px 0;"><strong>DNI</strong></td><td>${escaparHtml(dni)}</td></tr>
                 <tr><td style="padding:6px 0;"><strong>Lugares / recursos reservados</strong></td><td>${cantidadLugares}</td></tr>
               </table>
               <h2 style="margin:0 0 12px;font-size:16px;color:#2c3e50;">Detalle</h2>
@@ -160,11 +160,11 @@ function buildHtml({ clienteNombre, emailCliente, dni, filas, cantidadLugares })
                       <th style="padding:10px;border-bottom:2px solid #e0e6ea;">Estado</th>
                     </tr>
                   </thead>
-                  <tbody>${rowsHtml}</tbody>
+                  <tbody>${filasHtml}</tbody>
                 </table>
               </div>
               <p style="margin:16px 0 0;font-size:15px;color:#2e7d32;font-weight:600;">
-                Total estimado: ${formatMonto(total)}
+                Total estimado: ${formatearMonto(total)}
               </p>
               <p style="margin:20px 0 0;font-size:13px;line-height:1.5;color:#777;">
                 Si elegiste pagar en el local o tu pago está pendiente, podés completarlo al llegar o desde tu perfil en la web.
@@ -185,7 +185,7 @@ function buildHtml({ clienteNombre, emailCliente, dni, filas, cantidadLugares })
 </html>`;
 }
 
-async function fetchDestinatario(pool, dni) {
+async function obtenerDestinatario(pool, dni) {
   const { rows } = await pool.query(
     `SELECT COALESCE(NULLIF(TRIM(c."Email"),''), cu.email) AS email,
             TRIM(CONCAT(COALESCE(c."Nombre",''), ' ', COALESCE(c."Apellido",''))) AS nombre_cliente,
@@ -204,7 +204,7 @@ async function fetchDestinatario(pool, dni) {
   return { email: r.email || null, nombre };
 }
 
-async function fetchFilasReserva(pool, idReservas) {
+async function obtenerFilasReserva(pool, idReservas) {
   const { rows } = await pool.query(
     `SELECT r."idReserva", r."Nombre", r."DNI", r."DiaReserva", r."HorarioReserva", r."HorarioFin",
             r."TipoReserva", r."Monto", r."Estado",
@@ -222,11 +222,7 @@ async function fetchFilasReserva(pool, idReservas) {
   return rows;
 }
 
-/**
- * Envía el correo de confirmación. No lanza si SMTP no está configurado.
- * @param {import('pg').Pool} pool
- * @param {number[]} idReservas
- */
+// Envía el correo de confirmación. No lanza error si SMTP no está configurado.
 export async function enviarConfirmacionReserva(pool, idReservas) {
   if (!idReservas?.length) return;
   if (!smtpConfigured()) {
@@ -234,13 +230,13 @@ export async function enviarConfirmacionReserva(pool, idReservas) {
     return;
   }
 
-  const filasRaw = await fetchFilasReserva(pool, idReservas);
+  const filasRaw = await obtenerFilasReserva(pool, idReservas);
   if (filasRaw.length === 0) return;
   const filas = serializarHorariosReservaEnFilas(filasRaw);
 
   const dni = filas[0].DNI;
   const clienteNombreReserva = filas[0].Nombre || "";
-  const { email, nombre } = await fetchDestinatario(pool, dni);
+  const { email, nombre } = await obtenerDestinatario(pool, dni);
   const to = email?.trim();
   if (!to) {
     console.warn(`[reserva email] Cliente ${dni} sin email; no se envía confirmación.`);
@@ -249,7 +245,7 @@ export async function enviarConfirmacionReserva(pool, idReservas) {
 
   const clienteNombre = (nombre && nombre.trim()) || clienteNombreReserva || "Cliente";
 
-  const html = buildHtml({
+  const html = armarHtml({
     clienteNombre,
     emailCliente: to,
     dni: dni || "—",
@@ -270,9 +266,7 @@ export async function enviarConfirmacionReserva(pool, idReservas) {
   });
 }
 
-/**
- * No bloquea la respuesta HTTP ni falla la reserva si el correo falla.
- */
+// No bloquea la respuesta HTTP ni hace fallar la reserva si el correo falla.
 export function enviarConfirmacionReservaEnBackground(pool, idReservas) {
   void enviarConfirmacionReserva(pool, idReservas).catch((err) => {
     console.error("[reserva email] Error al enviar confirmación:", err.message || err);

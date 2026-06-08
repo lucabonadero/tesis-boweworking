@@ -5,7 +5,7 @@ import { OAuth2Client } from "google-auth-library";
 import pool from "../config/db.js";
 import { sendMail } from "../services/mailer.service.js";
 
-function getGoogleOAuthClient() {
+function obtenerClienteOAuthGoogle() {
   const id = process.env.GOOGLE_CLIENT_ID?.trim();
   if (!id) return null;
   return new OAuth2Client(id);
@@ -13,7 +13,7 @@ function getGoogleOAuthClient() {
 
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "8h";
 
-function signClienteToken(user) {
+function firmarTokenCliente(user) {
   return jwt.sign(
     { id: user.id, email: user.email, dni: user.dni || null, tipo: "cliente", rol: "cliente", perfil_completo: user.perfil_completo },
     process.env.JWT_SECRET,
@@ -21,7 +21,7 @@ function signClienteToken(user) {
   );
 }
 
-function signAdminToken(admin, permisos = []) {
+function firmarTokenAdmin(admin, permisos = []) {
   return jwt.sign(
     { id: admin.id, email: admin.email, rol: admin.rol, tipo: admin.rol, permisos },
     process.env.JWT_SECRET,
@@ -29,7 +29,7 @@ function signAdminToken(admin, permisos = []) {
   );
 }
 
-async function getPermisos(usuarioId, rol) {
+async function obtenerPermisos(usuarioId, rol) {
   if (rol === "admin") {
     const { rows } = await pool.query("SELECT clave FROM permisos ORDER BY clave");
     return rows.map((r) => r.clave);
@@ -47,12 +47,12 @@ function nombreDeRol(rol) {
   return "Empleado";
 }
 
-function safeUser(row) {
+function usuarioSeguro(row) {
   const { password, ...rest } = row;
   return rest;
 }
 
-async function syncCliente(user) {
+async function sincronizarCliente(user) {
   if (!user.perfil_completo || !user.dni) return;
   const { rows } = await pool.query('SELECT "DNI" FROM "Cliente" WHERE "DNI" = $1', [user.dni]);
   if (rows.length === 0) {
@@ -95,12 +95,12 @@ export const registro = async (req, res) => {
     );
 
     const user = rows[0];
-    await syncCliente(user);
+    await sincronizarCliente(user);
 
-    const token = signClienteToken(user);
+    const token = firmarTokenCliente(user);
     res.status(201).json({
       token,
-      usuario: { ...safeUser(user), rol: "cliente", tiene_password: true },
+      usuario: { ...usuarioSeguro(user), rol: "cliente", tiene_password: true },
     });
   } catch (error) {
     console.error("Error en registro cliente:", error);
@@ -111,7 +111,7 @@ export const registro = async (req, res) => {
   }
 };
 
-// ── POST /login (unified: checks admin/employee + client tables) ──
+// ── POST /login (unificado: busca en las tablas de admin/empleado y de cliente) ──
 
 export const login = async (req, res) => {
   try {
@@ -126,10 +126,10 @@ export const login = async (req, res) => {
     );
     if (adminRows.length > 0) {
       const admin = adminRows[0];
-      const validAdmin = await bcrypt.compare(password, admin.password);
-      if (validAdmin) {
-        const permisos = await getPermisos(admin.id, admin.rol);
-        const token = signAdminToken(admin, permisos);
+      const adminValido = await bcrypt.compare(password, admin.password);
+      if (adminValido) {
+        const permisos = await obtenerPermisos(admin.id, admin.rol);
+        const token = firmarTokenAdmin(admin, permisos);
         return res.json({
           token,
           usuario: {
@@ -157,15 +157,15 @@ export const login = async (req, res) => {
       return res.status(401).json({ message: "Esta cuenta usa inicio de sesión con Google." });
     }
 
-    const valid = await bcrypt.compare(password, user.password);
-    if (!valid) {
+    const passwordValida = await bcrypt.compare(password, user.password);
+    if (!passwordValida) {
       return res.status(401).json({ message: "Credenciales incorrectas." });
     }
 
-    const token = signClienteToken(user);
+    const token = firmarTokenCliente(user);
     res.json({
       token,
-      usuario: { ...safeUser(user), rol: "cliente", tiene_password: Boolean(user.password) },
+      usuario: { ...usuarioSeguro(user), rol: "cliente", tiene_password: Boolean(user.password) },
     });
   } catch (error) {
     console.error("Error en login:", error);
@@ -177,7 +177,7 @@ export const login = async (req, res) => {
 // Flujo: Sign In con Google (ID token desde el front). No usa Client Secret ni callback en el servidor.
 
 export const googleAuth = async (req, res) => {
-  const googleClient = getGoogleOAuthClient();
+  const googleClient = obtenerClienteOAuthGoogle();
   if (!googleClient) {
     return res.status(503).json({
       message: "Google Sign-In no está configurado. Definí GOOGLE_CLIENT_ID en el .env del backend.",
@@ -214,31 +214,31 @@ export const googleAuth = async (req, res) => {
       ({ rows } = await pool.query('SELECT * FROM "ClienteUsuario" WHERE email = $1', [email]));
 
       if (rows.length > 0) {
-        const existing = rows[0];
-        if (existing.google_id && existing.google_id !== googleId) {
+        const existente = rows[0];
+        if (existente.google_id && existente.google_id !== googleId) {
           return res.status(409).json({
             message:
               "Este email ya está vinculado a otra cuenta de Google. Usá esa cuenta o iniciá sesión con email y contraseña.",
           });
         }
-        await pool.query('UPDATE "ClienteUsuario" SET google_id = $1 WHERE id = $2', [googleId, existing.id]);
-        const refreshed = await pool.query('SELECT * FROM "ClienteUsuario" WHERE id = $1', [existing.id]);
-        rows = refreshed.rows;
+        await pool.query('UPDATE "ClienteUsuario" SET google_id = $1 WHERE id = $2', [googleId, existente.id]);
+        const refrescado = await pool.query('SELECT * FROM "ClienteUsuario" WHERE id = $1', [existente.id]);
+        rows = refrescado.rows;
       } else {
-        const inserted = await pool.query(
+        const insertado = await pool.query(
           `INSERT INTO "ClienteUsuario" (email, google_id, nombre, apellido, perfil_completo)
            VALUES ($1,$2,$3,$4,false) RETURNING *`,
           [email, googleId, given_name || "", family_name || ""]
         );
-        rows = inserted.rows;
+        rows = insertado.rows;
       }
     }
 
     const user = rows[0];
-    const token = signClienteToken(user);
+    const token = firmarTokenCliente(user);
     res.json({
       token,
-      usuario: { ...safeUser(user), rol: "cliente", tiene_password: Boolean(user.password) },
+      usuario: { ...usuarioSeguro(user), rol: "cliente", tiene_password: Boolean(user.password) },
     });
   } catch (error) {
     console.error("Error en Google auth:", error);
@@ -260,7 +260,7 @@ export const googleAuth = async (req, res) => {
   }
 };
 
-// ── GET /me (unified: handles admin + client) ────────────
+// ── GET /me (unificado: admin y cliente) ────────────
 
 export const me = async (req, res) => {
   try {
@@ -273,7 +273,7 @@ export const me = async (req, res) => {
         return res.status(404).json({ message: "Usuario no encontrado." });
       }
       const admin = rows[0];
-      const permisos = await getPermisos(admin.id, admin.rol);
+      const permisos = await obtenerPermisos(admin.id, admin.rol);
       return res.json({
         id: admin.id,
         email: admin.email,
@@ -298,7 +298,7 @@ export const me = async (req, res) => {
 
     const row = rows[0];
     res.json({
-      ...safeUser(row),
+      ...usuarioSeguro(row),
       rol: "cliente",
       tiene_password: Boolean(row.password),
     });
@@ -332,12 +332,12 @@ export const actualizarPerfil = async (req, res) => {
     }
 
     const user = rows[0];
-    await syncCliente(user);
+    await sincronizarCliente(user);
 
-    const token = signClienteToken(user);
+    const token = firmarTokenCliente(user);
     res.json({
       token,
-      usuario: { ...safeUser(user), rol: "cliente", tiene_password: Boolean(user.password) },
+      usuario: { ...usuarioSeguro(user), rol: "cliente", tiene_password: Boolean(user.password) },
     });
   } catch (error) {
     console.error("Error al actualizar perfil:", error);
@@ -373,12 +373,12 @@ export const completarPerfil = async (req, res) => {
     );
 
     const user = rows[0];
-    await syncCliente(user);
+    await sincronizarCliente(user);
 
-    const token = signClienteToken(user);
+    const token = firmarTokenCliente(user);
     res.json({
       token,
-      usuario: { ...safeUser(user), rol: "cliente", tiene_password: Boolean(user.password) },
+      usuario: { ...usuarioSeguro(user), rol: "cliente", tiene_password: Boolean(user.password) },
     });
   } catch (error) {
     console.error("Error en completar perfil:", error);
@@ -391,12 +391,12 @@ export const completarPerfil = async (req, res) => {
 
 const RECUPERACION_MS = 60 * 60 * 1000; // 1 h
 
-function appBaseUrl() {
+function urlBaseApp() {
   const u = process.env.FRONTEND_URL || process.env.PUBLIC_APP_URL || "http://localhost:5173";
   return String(u).replace(/\/$/, "");
 }
 
-function hashResetToken(token) {
+function hashTokenRecuperacion(token) {
   return createHash("sha256").update(token, "utf8").digest("hex");
 }
 
@@ -410,11 +410,11 @@ const MSG_RECUPERACION_ENVIADA = {
 
 export const solicitarRecuperacionPassword = async (req, res) => {
   try {
-    const emailNorm = String(req.body.email).trim().toLowerCase();
+    const emailNormalizado = String(req.body.email).trim().toLowerCase();
 
     const { rows } = await pool.query(
       `SELECT id, email, password FROM "ClienteUsuario" WHERE LOWER(TRIM(email)) = $1`,
-      [emailNorm]
+      [emailNormalizado]
     );
 
     if (rows.length === 0 || !rows[0].password) {
@@ -422,8 +422,8 @@ export const solicitarRecuperacionPassword = async (req, res) => {
     }
 
     const user = rows[0];
-    const rawToken = randomBytes(32).toString("base64url");
-    const tokenHash = hashResetToken(rawToken);
+    const tokenCrudo = randomBytes(32).toString("base64url");
+    const tokenHash = hashTokenRecuperacion(tokenCrudo);
     const expiresAt = new Date(Date.now() + RECUPERACION_MS);
 
     await pool.query(
@@ -433,7 +433,7 @@ export const solicitarRecuperacionPassword = async (req, res) => {
       [tokenHash, expiresAt, user.id]
     );
 
-    const link = `${appBaseUrl()}/restablecer-contrasena?token=${encodeURIComponent(rawToken)}`;
+    const link = `${urlBaseApp()}/restablecer-contrasena?token=${encodeURIComponent(tokenCrudo)}`;
     const nombre = user.nombre || "Hola";
 
     try {
@@ -465,7 +465,7 @@ export const solicitarRecuperacionPassword = async (req, res) => {
 export const validarTokenRecuperacion = async (req, res) => {
   try {
     const token = req.query.token;
-    const tokenHash = hashResetToken(token);
+    const tokenHash = hashTokenRecuperacion(token);
     const { rows } = await pool.query(
       `SELECT id FROM "ClienteUsuario"
        WHERE password_reset_token_hash = $1 AND password_reset_expires_at > NOW()`,
@@ -483,7 +483,7 @@ export const validarTokenRecuperacion = async (req, res) => {
 export const restablecerPassword = async (req, res) => {
   try {
     const { token, password } = req.body;
-    const tokenHash = hashResetToken(token);
+    const tokenHash = hashTokenRecuperacion(token);
 
     const { rows } = await pool.query(
       `SELECT id FROM "ClienteUsuario"
@@ -509,11 +509,11 @@ export const restablecerPassword = async (req, res) => {
     );
 
     const user = updated[0];
-    const jwtToken = signClienteToken(user);
+    const jwtToken = firmarTokenCliente(user);
     res.json({
       message: "Contraseña actualizada. Ya podés iniciar sesión.",
       token: jwtToken,
-      usuario: { ...safeUser(user), rol: "cliente", tiene_password: true },
+      usuario: { ...usuarioSeguro(user), rol: "cliente", tiene_password: true },
     });
   } catch (error) {
     console.error("Error en restablecer contraseña:", error);
@@ -559,11 +559,11 @@ export const cambiarPassword = async (req, res) => {
     );
 
     const fresh = upd[0];
-    const jwtToken = signClienteToken(fresh);
+    const jwtToken = firmarTokenCliente(fresh);
     res.json({
       message: "Contraseña actualizada.",
       token: jwtToken,
-      usuario: { ...safeUser(fresh), rol: "cliente", tiene_password: true },
+      usuario: { ...usuarioSeguro(fresh), rol: "cliente", tiene_password: true },
     });
   } catch (error) {
     console.error("Error al cambiar contraseña:", error);

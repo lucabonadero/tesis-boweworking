@@ -22,6 +22,7 @@ import {
   Badge,
   Empty,
   Tooltip,
+  Modal,
 } from "antd";
 import {
   SearchOutlined,
@@ -98,6 +99,11 @@ export default function GestionFinanciera() {
   const [formReserva, setFormReserva] = useState(null);
   const [formMetodo, setFormMetodo] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+
+  // Cobro de una transacción pendiente (p. ej. cargo de extensión).
+  const [cobrarTarget, setCobrarTarget] = useState(null);
+  const [cobrarMetodo, setCobrarMetodo] = useState(null);
+  const [cobrarSubmitting, setCobrarSubmitting] = useState(false);
 
   /** Una fila por serie o por lote multi-recurso (evita duplicar cobros/pendientes en UI). */
   const reservasPendientesVista = useMemo(() => {
@@ -282,6 +288,34 @@ export default function GestionFinanciera() {
     }
   };
 
+  /* ── Cobrar una transacción pendiente (cargo de extensión, etc.) ── */
+  const cobrarPendiente = async () => {
+    if (!cobrarTarget || !cobrarMetodo) {
+      message.warning("Elegí el método de pago");
+      return;
+    }
+    setCobrarSubmitting(true);
+    try {
+      const res = await adminFetch(`${API_URL}/api/pagos/${cobrarTarget.idTransaccion}/estado`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ EstadoPago: "Pagado", MetodoPago: cobrarMetodo }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.message || "No se pudo registrar el cobro");
+      }
+      message.success("Cobro registrado");
+      setCobrarTarget(null);
+      setCobrarMetodo(null);
+      void refreshAfterMutation();
+    } catch (err) {
+      message.error(err.message);
+    } finally {
+      setCobrarSubmitting(false);
+    }
+  };
+
   /* ── Register payment (always as Pagado) ── */
   const onRegistrar = async () => {
     if (!formReserva || !formMetodo) {
@@ -377,6 +411,18 @@ export default function GestionFinanciera() {
             </Tag>
           );
         }
+        if (c === "extension") {
+          const min = r.extension_minutos;
+          const detalle =
+            r.extension_fin_anterior && r.extension_fin_nuevo
+              ? `Extensión del turno #${r.idReserva}: ${r.extension_fin_anterior} → ${r.extension_fin_nuevo}`
+              : "Cobro de extensión de turno";
+          return (
+            <Tag color="gold" title={detalle}>
+              Extensión{min ? ` +${min}m` : ""}
+            </Tag>
+          );
+        }
         return <span style={{ fontSize: 12, color: "#94a3b8" }}>Turno</span>;
       },
     },
@@ -439,21 +485,39 @@ export default function GestionFinanciera() {
     {
       title: "",
       key: "action",
-      width: 120,
-      render: (_, record) => (
-        <Popconfirm
-          title="Revertir esta transacción?"
-          description="Solo se anula el registro de cobro; el estado del turno (activa, recepción, etc.) no cambia."
-          onConfirm={() => revertirPago(record.idTransaccion)}
-          okText="Revertir"
-          cancelText="Cancelar"
-          okButtonProps={{ danger: true }}
-        >
-          <button type="button" className={styles.revertBtn}>
-            <UndoOutlined /> Revertir
-          </button>
-        </Popconfirm>
-      ),
+      width: 130,
+      render: (_, record) => {
+        const pendiente = String(record.EstadoPago || "").trim().toLowerCase() === "pendiente";
+        if (pendiente) {
+          return (
+            <Button
+              type="primary"
+              size="small"
+              icon={<CheckCircleOutlined />}
+              onClick={() => {
+                setCobrarTarget(record);
+                setCobrarMetodo(null);
+              }}
+            >
+              Cobrar
+            </Button>
+          );
+        }
+        return (
+          <Popconfirm
+            title="Revertir esta transacción?"
+            description="Solo se anula el registro de cobro; el estado del turno (activa, recepción, etc.) no cambia."
+            onConfirm={() => revertirPago(record.idTransaccion)}
+            okText="Revertir"
+            cancelText="Cancelar"
+            okButtonProps={{ danger: true }}
+          >
+            <button type="button" className={styles.revertBtn}>
+              <UndoOutlined /> Revertir
+            </button>
+          </Popconfirm>
+        );
+      },
     },
   ];
 
@@ -486,7 +550,7 @@ export default function GestionFinanciera() {
           description="Revisá pagos confirmados, transacciones y pendientes de cobro."
         />
 
-        {/* Stats */}
+        {/* Métricas */}
         <div className={styles.statsRow}>
           <StatCard
             icon={<DollarOutlined />}
@@ -518,9 +582,9 @@ export default function GestionFinanciera() {
           />
         </div>
 
-        {/* Main grid */}
+        {/* Grilla principal */}
         <div className={styles.mainGrid}>
-          {/* Table */}
+          {/* Tabla */}
           <div className={styles.tableCard}>
             <div className={styles.tableHeader}>
               <h2 className={styles.tableTitle}>Transacciones</h2>
@@ -576,9 +640,9 @@ export default function GestionFinanciera() {
             </div>
           </div>
 
-          {/* Right panel */}
+          {/* Panel derecho */}
           <div className={styles.rightPanel}>
-            {/* Register payment */}
+            {/* Registrar pago */}
             <div className={`${styles.formCard} ${reservasPendientesVista.length > 0 ? styles.formCardPendientesHighlight : ""}`}>
               <div className={styles.formTitleRow}>
                 <h3 className={styles.formTitle}>Registrar Cobro</h3>
@@ -703,7 +767,7 @@ export default function GestionFinanciera() {
               )}
             </div>
 
-            {/* Quick info */}
+            {/* Info rápida */}
             <div className={styles.quickInfo}>
               <h4 className={styles.quickInfoTitle}>Resumen de Caja</h4>
               <div className={styles.quickInfoRow}>
@@ -739,6 +803,45 @@ export default function GestionFinanciera() {
             </div>
           </div>
         </div>
+
+        <Modal
+          title="Registrar cobro"
+          open={Boolean(cobrarTarget)}
+          onCancel={() => (cobrarSubmitting ? null : setCobrarTarget(null))}
+          onOk={cobrarPendiente}
+          okText="Cobrar"
+          cancelText="Cancelar"
+          confirmLoading={cobrarSubmitting}
+          okButtonProps={{ disabled: !cobrarMetodo }}
+          destroyOnClose
+        >
+          {cobrarTarget && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <div style={{ fontSize: 13, color: "#555" }}>
+                <div><strong>{cobrarTarget.reserva_nombre || "-"}</strong></div>
+                <div>
+                  {cobrarTarget.ClasificacionPago === "extension"
+                    ? `Extensión${cobrarTarget.extension_minutos ? ` (+${cobrarTarget.extension_minutos} min)` : ""}`
+                    : "Cobro de reserva"}
+                  {" · "}
+                  <strong>
+                    ${parseFloat(cobrarTarget.Monto || 0).toLocaleString("es-AR", { minimumFractionDigits: 2 })}
+                  </strong>
+                </div>
+              </div>
+              <div>
+                <label className={styles.label}>Método de pago</label>
+                <Select
+                  style={{ width: "100%" }}
+                  placeholder="¿Cómo paga el cliente?"
+                  value={cobrarMetodo}
+                  onChange={setCobrarMetodo}
+                  options={METODOS_FILTRO.map((m) => ({ label: m, value: m }))}
+                />
+              </div>
+            </div>
+          )}
+        </Modal>
       </Content>
     </Layout>
   );

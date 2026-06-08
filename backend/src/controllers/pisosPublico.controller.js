@@ -1,12 +1,6 @@
 import pool from "../config/db.js";
 
-/**
- * GET /api/pisos/publicos
- * Endpoint público (sin auth) que devuelve los pisos publicados con su contenido
- * marketing (descripción, idealPara, amenities, imágenes) para el Carrusel.
- *
- * Solo incluye pisos con Activo=true y Publicado=true.
- */
+// Endpoint público (sin auth) para la home: pisos publicados con su contenido para el carrusel.
 export const obtenerPisosPublicos = async (_req, res) => {
   try {
     const { rows } = await pool.query(`

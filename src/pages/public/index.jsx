@@ -43,7 +43,7 @@ export default function Index() {
     <div>
       <Header />
 
-      {/* HERO */}
+      {/* Portada */}
       <section className={styles.hero}>
         <div className={styles.heroOverlay}>
           <div className={styles.heroContent}>
@@ -84,7 +84,7 @@ export default function Index() {
         </div>
       </section>
 
-      {/* COMO FUNCIONA */}
+      {/* Cómo funciona */}
       <section className={`${styles.howItWorks} ${styles.animateOnScroll}`}>
         <h2 className={styles.sectionTitle}>Como funciona?</h2>
         <p className={styles.sectionSub}>Reservar tu espacio es muy simple</p>
@@ -112,7 +112,7 @@ export default function Index() {
         </div>
       </section>
 
-      {/* SPACES */}
+      {/* Espacios */}
       <section className={`${styles.espacios} ${styles.animateOnScroll}`}>
         <h2 className={styles.sectionTitle}>Nuestros espacios</h2>
         <p className={styles.sectionSub}>Tres pisos, multiples posibilidades</p>
@@ -174,7 +174,7 @@ export default function Index() {
         </div>
       </section>
 
-      {/* BENEFITS */}
+      {/* Beneficios */}
       <section className={`${styles.beneficios} ${styles.animateOnScroll}`}>
         <h2 className={styles.sectionTitle}>Todo lo que necesitas</h2>
         <p className={styles.sectionSub}>Equipados para que solo te preocupes por trabajar</p>
@@ -202,7 +202,7 @@ export default function Index() {
         </div>
       </section>
 
-      {/* PACKS PREVIEW */}
+      {/* Vista previa de packs */}
       <section className={`${styles.packs} ${styles.animateOnScroll}`}>
         <h2 className={styles.sectionTitle}>Packs semanales y mensuales</h2>
         <p className={styles.sectionSub}>Ahorra con nuestros planes extendidos para oficinas privadas</p>
@@ -230,18 +230,20 @@ export default function Index() {
         </div>
       </section>
 
-      {/* CTA */}
-      <section className={`${styles.ctaFinal} ${styles.animateOnScroll}`}>
-        <div className={styles.ctaContent}>
-          <h2>Listo para empezar?</h2>
-          <p>Reserva tu espacio en minutos y transforma tu manera de trabajar.</p>
-          <button className={styles.ctaBtn} onClick={() => navigate("/registro")}>
-            Reservar mi espacio <ArrowRightOutlined />
-          </button>
-        </div>
-      </section>
+      {/* Cierre + pie de página — mismo gradiente, sin corte */}
+      <div className={styles.ctaFooterWrap}>
+        <section className={`${styles.ctaFinal} ${styles.animateOnScroll}`}>
+          <div className={styles.ctaContent}>
+            <h2>Listo para empezar?</h2>
+            <p>Reserva tu espacio en minutos y transforma tu manera de trabajar.</p>
+            <button className={styles.ctaBtn} onClick={() => navigate("/registro")}>
+              Reservar mi espacio <ArrowRightOutlined />
+            </button>
+          </div>
+        </section>
 
-      <Footer />
+        <Footer className="footer--transparent" />
+      </div>
     </div>
   );
 }

@@ -6,6 +6,13 @@
   padding: 2rem 1.5rem 4rem;
 }
 
+/* Ancla invisible para el scroll automático entre pasos del flujo de reserva. */
+.scrollAnchor {
+  height: 0;
+  margin: 0;
+  padding: 0;
+}
+
 .mainHeader {
   text-align: center;
   font-size: 2rem;

@@ -1,7 +1,5 @@
-/**
- * Reglas de negocio: qué reservas pueden editarse o eliminarse desde la app.
- * Usa zona horaria del coworking (por defecto Argentina) para comparar con el calendario del turno.
- */
+// Reglas de negocio: qué reservas se pueden editar o eliminar desde la app.
+// Usa la zona horaria del coworking (Argentina por defecto) para comparar con el calendario del turno.
 
 export const COWORKING_TZ = process.env.COWORKING_TZ || "America/Argentina/Cordoba";
 
@@ -33,9 +31,7 @@ export function minutosDiaEnZona(now, tz = COWORKING_TZ) {
   return h * 60 + mi;
 }
 
-/**
- * DATE de PostgreSQL: en node-pg suele venir como Date a medianoche UTC.
- */
+// DATE de PostgreSQL: en node-pg suele llegar como Date a medianoche UTC.
 export function pgDateToYmd(dia) {
   if (dia == null) return null;
   if (dia instanceof Date) {
@@ -93,10 +89,7 @@ export function reservaPeriodoAunNoTermino(row, now = new Date(), tz = COWORKING
   return false;
 }
 
-/**
- * @param {Record<string, unknown>} row Fila de "Reservas" (y opcional EstadoPago del join; no altera la decisión).
- * @returns {{ puedeEditar: boolean; puedeEliminar: boolean; codigo: string | null; mensaje: string | null }}
- */
+// row: fila de "Reservas" (el EstadoPago del join es opcional y no altera la decisión).
 export function evaluarMutacionReserva(row, now = new Date()) {
   const estado = row.Estado || "activa";
 
@@ -153,10 +146,7 @@ export function evaluarMutacionReserva(row, now = new Date()) {
   return { puedeEditar: true, puedeEliminar: true, codigo: null, mensaje: null };
 }
 
-/**
- * @param {Record<string, unknown>} opciones
- * @param {boolean} [opciones.staffNoEliminarSiPagado] — En listados / acciones de personal: no eliminar si hay cobro registrado como Pagado.
- */
+// opciones.staffNoEliminarSiPagado: en listados/acciones del personal, no permitir eliminar si el cobro figura como Pagado.
 export function enriquecerFilaConMutacion(rowSerializada, rowCruda, now = new Date(), opciones = {}) {
   const staffNoEliminarSiPagado = opciones.staffNoEliminarSiPagado === true;
   const ev = evaluarMutacionReserva(rowCruda, now);

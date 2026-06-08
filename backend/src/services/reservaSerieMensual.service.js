@@ -1,10 +1,8 @@
-/**
- * Reserva fija mensual (serie): mismo día ISO de la semana (1=lun … 7=dom) y mismo horario,
- * con exactamente 4 ocurrencias — la fecha de inicio y las mismas 3 semanas siguientes.
- * Por defecto solo días hábiles (lun–vie): el día elegido debe ser 1–5.
- */
+// Reserva fija mensual (serie): mismo día ISO de la semana (1=lun … 7=dom) y mismo horario,
+// con exactamente 4 ocurrencias — la fecha de inicio y las 3 semanas siguientes.
+// Por defecto solo días hábiles (lun–vie): el día elegido debe ser 1–5.
 
-/** Cantidad de turnos semanales consecutivos (misma weekday) desde fechaInicio. */
+// Cantidad de turnos semanales consecutivos (mismo día de semana) desde fechaInicio.
 export const N_OCURRENCIAS_SERIE_MENSUAL = 4;
 
 export function descuentoSerieMensualDefault() {
@@ -32,9 +30,9 @@ function toIsoYmd(d) {
 /** Primer día después de la última ocurrencia de la serie (4 semanas desde inicio). */
 export function fechaFinPeriodoExclusiva(fechaInicioYmd) {
   const [y, m, d] = fechaInicioYmd.split("-").map(Number);
-  const lastOffset = (N_OCURRENCIAS_SERIE_MENSUAL - 1) * 7;
-  const endExclusive = new Date(y, m - 1, d + lastOffset + 1);
-  return toIsoYmd(endExclusive);
+  const ultimoDesplazamiento = (N_OCURRENCIAS_SERIE_MENSUAL - 1) * 7;
+  const finExclusivo = new Date(y, m - 1, d + ultimoDesplazamiento + 1);
+  return toIsoYmd(finExclusivo);
 }
 
 /** ISO weekday (1–7) de una fecha YYYY-MM-DD en hora local. */
@@ -45,21 +43,16 @@ export function diaSemanaIsoDesdeYmd(fechaYmd) {
   return dow === 0 ? 7 : dow;
 }
 
-/**
- * Todas las fechas en [fechaInicio, fechaFinExclusiva) con ese día de semana ISO.
- * @param {string} fechaInicioYmd YYYY-MM-DD
- * @param {string} fechaFinExclusivaYmd YYYY-MM-DD
- * @param {number} diaSemanaIso 1–7
- * @param {{ soloDiasHabiles?: boolean }} opts si true, excluye sáb/dom aunque coincidan con diaSemanaIso
- */
+// Todas las fechas en [fechaInicio, fechaFinExclusiva) que caen en ese día de semana ISO.
+// Con soloDiasHabiles (por defecto true) se excluyen sábado y domingo aunque coincidan.
 export function fechasDiaSemanaEnRango(fechaInicioYmd, fechaFinExclusivaYmd, diaSemanaIso, opts = {}) {
   const soloDiasHabiles = opts.soloDiasHabiles !== false;
   const [y0, m0, d0] = fechaInicioYmd.split("-").map(Number);
   const [y1, m1, d1] = fechaFinExclusivaYmd.split("-").map(Number);
-  const start = new Date(y0, m0 - 1, d0);
-  const endExclusive = new Date(y1, m1 - 1, d1);
+  const inicio = new Date(y0, m0 - 1, d0);
+  const finExclusivo = new Date(y1, m1 - 1, d1);
   const out = [];
-  for (let cur = new Date(start); cur < endExclusive; cur.setDate(cur.getDate() + 1)) {
+  for (let cur = new Date(inicio); cur < finExclusivo; cur.setDate(cur.getDate() + 1)) {
     const dow = cur.getDay();
     const iso = dow === 0 ? 7 : dow;
     if (iso !== diaSemanaIso) continue;
@@ -69,12 +62,8 @@ export function fechasDiaSemanaEnRango(fechaInicioYmd, fechaFinExclusivaYmd, dia
   return out;
 }
 
-/**
- * Cuatro semanas desde fechaInicio: la fecha debe ser ese día ISO; luego +7, +14, +21 días.
- * @param {string} fechaInicioYmd
- * @param {number} diaSemanaIso
- * @returns {string[]} fechas YYYY-MM-DD o [] si la fecha no coincide con diaSemanaIso o no es hábil permitido.
- */
+// Cuatro semanas desde fechaInicio: la fecha debe caer en ese día ISO; luego +7, +14 y +21 días.
+// Devuelve las fechas YYYY-MM-DD, o [] si la fecha no coincide con el día o no es un día permitido.
 export function fechasSerieMensualRodante(fechaInicioYmd, diaSemanaIso) {
   const [y0, m0, d0] = fechaInicioYmd.split("-").map(Number);
   const iso = diaSemanaIsoDesdeYmd(fechaInicioYmd);
@@ -88,30 +77,21 @@ export function fechasSerieMensualRodante(fechaInicioYmd, diaSemanaIso) {
   return out;
 }
 
-/**
- * Solo fechas >= fechaMin (YYYY-MM-DD), comparación lexicográfica válida para ISO.
- * @param {string[]} fechasIso
- * @param {string} fechaMinIso
- */
+// Solo fechas >= fechaMin (YYYY-MM-DD); la comparación lexicográfica es válida para formato ISO.
 export function filtrarDesdeFecha(fechasIso, fechaMinIso) {
   if (!fechaMinIso) return fechasIso;
   return fechasIso.filter((f) => f >= fechaMinIso);
 }
 
-/**
- * Reparte `total` en `n` partes con dos decimales; la última fila absorbe el redondeo.
- * @param {number} total
- * @param {number} n
- * @returns {number[]}
- */
+// Reparte `total` en `n` partes con dos decimales; la última fila absorbe el redondeo.
 export function repartirMontoTotal(total, n) {
   if (n <= 0) return [];
-  const cents = Math.round(total * 100);
-  const base = Math.floor(cents / n);
-  const rem = cents - base * n;
+  const centavos = Math.round(total * 100);
+  const base = Math.floor(centavos / n);
+  const resto = centavos - base * n;
   const out = [];
   for (let i = 0; i < n; i++) {
-    const c = base + (i === n - 1 ? rem : 0);
+    const c = base + (i === n - 1 ? resto : 0);
     out.push(c / 100);
   }
   return out;

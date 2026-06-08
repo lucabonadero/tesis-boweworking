@@ -5,7 +5,7 @@ import Footer from "../../components/footer.jsx";
 import styles from "../../styles/public/espacios.module.css";
 import "../../styles/global.css";
 
-// ── Assets ──────────────────────────────────────────────────────────────────
+// ── Imágenes ──────────────────────────────────────────────────────────────────
 import imgFrenteBowe    from "../../assets/frentebowe.jpg";
 import imgPlantaBaja    from "../../assets/plantabaja.png";
 import imgPrimerPiso    from "../../assets/primerpiso.png";
@@ -24,7 +24,7 @@ import imgServicios     from "../../assets/serviciosvarios.png";
 import imgEspaciosPB    from "../../assets/espacios_plantabaja.png";
 import imgSalaChica     from "../../assets/salareunionesachicada.png";
 
-// ── Static content data ──────────────────────────────────────────────────────
+// ── Datos de contenido estático ──────────────────────────────────────────────────────
 const PISOS = [
   {
     id: "planta-baja",
@@ -199,7 +199,7 @@ const RECURSOS = [
   },
 ];
 
-// ── Lightbox ─────────────────────────────────────────────────────────────────
+// ── Visor de imágenes ─────────────────────────────────────────────────────────────────
 function Lightbox({ src, caption, onClose }) {
   useEffect(() => {
     const onKey = (e) => { if (e.key === "Escape") onClose(); };
@@ -234,7 +234,7 @@ function Lightbox({ src, caption, onClose }) {
   );
 }
 
-// ── Floor Section ─────────────────────────────────────────────────────────────
+// ── Sección de piso ─────────────────────────────────────────────────────────────
 function FloorSection({ piso, onOpenLightbox }) {
   return (
     <section
@@ -243,7 +243,7 @@ function FloorSection({ piso, onOpenLightbox }) {
       data-animate
       style={{ "--accent": piso.accent }}
     >
-      {/* Hero image */}
+      {/* Imagen de portada */}
       <div className={styles.floorHero}>
         <img src={piso.heroImg} alt={piso.label} className={styles.floorHeroImg} />
         <div className={styles.floorHeroOverlay}>
@@ -255,7 +255,7 @@ function FloorSection({ piso, onOpenLightbox }) {
         </div>
       </div>
 
-      {/* Info + Gallery */}
+      {/* Info + galería */}
       <div className={styles.floorBody}>
         <div className={styles.floorInfo}>
           <p className={styles.floorDesc}>{piso.descripcion}</p>
@@ -289,7 +289,7 @@ function FloorSection({ piso, onOpenLightbox }) {
         </div>
       </div>
 
-      {/* Spaces */}
+      {/* Espacios */}
       <div className={styles.spacesBlock}>
         <h3 className={styles.spacesBlockTitle}>Espacios en {piso.label}</h3>
         <div className={styles.spacesGrid}>
@@ -311,13 +311,13 @@ function FloorSection({ piso, onOpenLightbox }) {
   );
 }
 
-// ── Page ──────────────────────────────────────────────────────────────────────
+// ── Página ──────────────────────────────────────────────────────────────────────
 export default function Espacios() {
   const [activeFloor, setActiveFloor] = useState(PISOS[0].id);
   const [lightbox, setLightbox]       = useState(null);
   const navRef = useRef(null);
 
-  // Smooth-scroll to a floor section, accounting for sticky nav height
+  // Desplaza suavemente a la sección de un piso, descontando la altura de la nav fija
   const scrollToFloor = useCallback((id) => {
     const el = document.getElementById(id);
     if (!el) return;
@@ -326,7 +326,7 @@ export default function Espacios() {
     window.scrollTo({ top, behavior: "smooth" });
   }, []);
 
-  // Highlight active floor as user scrolls
+  // Resalta el piso activo a medida que el usuario hace scroll
   useEffect(() => {
     const sections = PISOS.map((p) => document.getElementById(p.id)).filter(Boolean);
     if (!sections.length) return;
@@ -343,7 +343,7 @@ export default function Espacios() {
     return () => obs.disconnect();
   }, []);
 
-  // Fade-in on scroll for all [data-animate] elements
+  // Aparición progresiva al hacer scroll para los elementos [data-animate]
   useEffect(() => {
     const els = document.querySelectorAll("[data-animate]");
     if (!els.length) return;
@@ -367,7 +367,7 @@ export default function Espacios() {
     <div className={styles.page}>
       <Header />
 
-      {/* ── Hero ── */}
+      {/* ── Portada ── */}
       <section className={styles.hero}>
         <img
           src={imgFrenteBowe}
@@ -404,7 +404,7 @@ export default function Espacios() {
         </div>
       </section>
 
-      {/* ── Sticky floor nav ── */}
+      {/* ── Navegación de pisos fija ── */}
       <nav
         className={styles.floorNav}
         ref={navRef}
@@ -428,7 +428,7 @@ export default function Espacios() {
         </div>
       </nav>
 
-      {/* ── Floor sections ── */}
+      {/* ── Secciones de pisos ── */}
       <main className={styles.main}>
         {PISOS.map((piso) => (
           <FloorSection
@@ -464,21 +464,25 @@ export default function Espacios() {
         </div>
       </section>
 
-      {/* ── CTA ── */}
-      <section className={styles.ctaSection} data-animate>
-        <div className={styles.ctaContent}>
-          <h2>¿Listo para reservar tu espacio?</h2>
-          <p>Elegí el espacio que más te guste y reservalo en minutos.</p>
-          <div className={styles.ctaBtns}>
-            <Link to="/registro" className={styles.ctaBtnPrimary}>
-              Reservar ahora
-            </Link>
-            <Link to="/asistente" className={styles.ctaBtnSecondary}>
-              Consultar con asistente
-            </Link>
+      {/* ── Cierre + pie de página — mismo gradiente, sin corte ── */}
+      <div className={styles.ctaFooterWrap}>
+        <section className={styles.ctaSection} data-animate>
+          <div className={styles.ctaContent}>
+            <h2>¿Listo para reservar tu espacio?</h2>
+            <p>Elegí el espacio que más te guste y reservalo en minutos.</p>
+            <div className={styles.ctaBtns}>
+              <Link to="/registro" className={styles.ctaBtnPrimary}>
+                Reservar ahora
+              </Link>
+              <Link to="/asistente" className={styles.ctaBtnSecondary}>
+                Consultar con asistente
+              </Link>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+
+        <Footer className="footer--transparent" />
+      </div>
 
       {lightbox && (
         <Lightbox
@@ -487,8 +491,6 @@ export default function Espacios() {
           onClose={() => setLightbox(null)}
         />
       )}
-
-      <Footer />
     </div>
   );
 }

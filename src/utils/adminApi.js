@@ -22,7 +22,7 @@ export function isStaffTokenValid() {
   return rol === "admin" || rol === "empleado";
 }
 
-/** @deprecated Usar isStaffTokenValid; el panel admite admin y empleado. */
+// Obsoleto: usar isStaffTokenValid; el panel admite admin y empleado.
 export function isAdminTokenValid() {
   return isStaffTokenValid();
 }

@@ -8,6 +8,7 @@ import {
   actualizarReserva,
   eliminarReserva,
   cambiarEstadoReserva,
+  extenderReserva,
   obtenerMisReservas,
   cotizarSerieMensual,
   crearSerieMensual,
@@ -32,6 +33,7 @@ router.post("/", verificarToken, validateCrearReservaBody, crearReserva);
 router.post("/multiples", verificarToken, validateBody(crearReservasMultiplesSchema), crearReservasMultiples);
 router.put("/:id", verificarToken, actualizarReserva);
 router.patch("/:id/estado", verificarToken, verificarStaff, cambiarEstadoReserva);
+router.post("/:id/extender", verificarToken, verificarStaff, extenderReserva);
 router.delete("/:id", verificarToken, eliminarReserva);
 
 export default router;

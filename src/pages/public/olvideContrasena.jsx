@@ -11,7 +11,7 @@ const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 
 export default function OlvideContrasena() {
   const [loading, setLoading] = useState(false);
-  const [sent, setSent] = useState(false);
+  const [enviado, setEnviado] = useState(false);
   const [form] = Form.useForm();
 
   const onFinish = async ({ email }) => {
@@ -28,7 +28,7 @@ export default function OlvideContrasena() {
         return;
       }
       message.success(data.message || "Revisá tu correo");
-      setSent(true);
+      setEnviado(true);
     } catch {
       message.error("Error de conexión");
     } finally {
@@ -41,7 +41,7 @@ export default function OlvideContrasena() {
       <Header />
       <main className={styles.wrapper}>
         <div className={styles.card}>
-          {sent ? (
+          {enviado ? (
             <>
               <Result
                 status="success"

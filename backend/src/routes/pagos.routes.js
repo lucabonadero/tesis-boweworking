@@ -38,7 +38,7 @@ router.get("/estado/:idReserva", verificarToken, obtenerEstadoPago);
 
 // Lectura del módulo financiero: ver_financiero
 const puedeVerFinanciero = verificarPermiso("ver_financiero");
-// Escritura: gestionar_pagos OR registrar_pagos
+// Escritura: gestionar_pagos o registrar_pagos
 const puedeGestionarPagos = verificarPermisoAlguno("gestionar_pagos", "registrar_pagos");
 
 router.get("/reservas-sin-pago", verificarToken, puedeVerFinanciero, obtenerReservasSinPago);

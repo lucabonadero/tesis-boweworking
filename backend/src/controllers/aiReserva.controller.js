@@ -1,4 +1,4 @@
-import { buildVentanaDisponibilidad } from "../services/aiReservaSnapshot.service.js";
+import { armarVentanaDisponibilidad } from "../services/aiReservaSnapshot.service.js";
 import { recursoDisponibleEnTurno } from "../services/disponibilidadTurno.service.js";
 import { permiteReservaPorTurno } from "../services/reservaRules.service.js";
 import { sugerirHeuristico } from "../services/asistenteHeuristico.service.js";
@@ -13,38 +13,66 @@ function esBaseUrlLocal(base) {
 }
 
 async function armarRespuestaValidada(parsed, snapshot) {
-  const rawSugerencias = Array.isArray(parsed.sugerencias) ? parsed.sugerencias : [];
+  const sugerenciasCrudas = Array.isArray(parsed.sugerencias) ? parsed.sugerencias : [];
   const sugerenciasValidadas = [];
 
-  for (const s of rawSugerencias.slice(0, 5)) {
-    const idRecurso = Number(s.idRecurso);
+  for (const s of sugerenciasCrudas.slice(0, 5)) {
+    // Soporta idsRecursos (array) o idRecurso (singular, retrocompat)
+    const ids =
+      Array.isArray(s.idsRecursos) && s.idsRecursos.length > 0
+        ? s.idsRecursos.map(Number)
+        : s.idRecurso != null
+        ? [Number(s.idRecurso)]
+        : [];
+
+    if (ids.length === 0) continue;
+
     const fecha = String(s.fecha || "").slice(0, 10);
     const horaInicio = String(s.horaInicio || "");
     const horaFin = String(s.horaFin || "");
 
+    // Todos los recursos deben estar en el mismo slot
     const slot = snapshot.slots.find(
       (sl) =>
         sl.fecha === fecha &&
         sl.horaInicio === horaInicio &&
         sl.horaFin === horaFin &&
-        slotContains(sl, idRecurso)
+        ids.every((id) => slotContiene(sl, id))
     );
-
     if (!slot) continue;
 
-    const okDb = await validarSugerenciaConDb({ idRecurso, fecha, horaInicio, horaFin });
-    if (!okDb) continue;
+    // Validar todos los recursos contra la BD
+    const validaciones = await Promise.all(
+      ids.map((id) => validarSugerenciaConDb({ idRecurso: id, fecha, horaInicio, horaFin }))
+    );
+    if (!validaciones.every(Boolean)) continue;
 
-    const cat = snapshot.catalogo.find((c) => c.idRecurso === idRecurso);
+    const etiquetasIA = Array.isArray(s.etiquetasRecursos) ? s.etiquetasRecursos : [];
+    const recursos = ids.map((id, i) => {
+      const cat = snapshot.catalogo.find((c) => c.idRecurso === id);
+      return {
+        idRecurso: id,
+        etiqueta: etiquetasIA[i] || cat?.nombre || String(id),
+        espacioNombre: cat?.espacioNombre || "",
+        precioHora: cat?.precioHora ?? null,
+      };
+    });
+
+    const precioTotal =
+      recursos.every((r) => r.precioHora != null)
+        ? recursos.reduce((acc, r) => acc + r.precioHora, 0)
+        : null;
+
     sugerenciasValidadas.push({
-      idRecurso,
+      idsRecursos: ids,
+      etiquetasRecursos: recursos.map((r) => r.etiqueta),
+      etiquetaRecurso: recursos.map((r) => r.etiqueta).join(", "),
       fecha,
       horaInicio,
       horaFin,
       motivo: s.motivo || "",
-      etiquetaRecurso: s.etiquetaRecurso || cat?.nombre || String(idRecurso),
-      espacioNombre: cat?.espacioNombre || "",
-      precioHora: cat?.precioHora ?? null,
+      espacioNombre: recursos[0]?.espacioNombre || "",
+      precioHora: precioTotal,
     });
 
     if (sugerenciasValidadas.length >= 3) break;
@@ -54,44 +82,45 @@ async function armarRespuestaValidada(parsed, snapshot) {
     mensajeAmigable: parsed.mensajeAmigable || "Estas son opciones que encajan con tu pedido.",
     preguntaAclaratoria: parsed.preguntaAclaratoria ?? null,
     sugerenciasValidadas,
-    descartadasPorValidacion: rawSugerencias.length - sugerenciasValidadas.length,
+    descartadasPorValidacion: sugerenciasCrudas.length - sugerenciasValidadas.length,
     meta: snapshot.meta,
   };
 }
 
-/**
- * Prompt de sistema: la IA solo elige entre datos provistos; no inventa ids ni horarios.
- * (Copiá este texto para documentación o ajustes en el panel del proveedor.)
- */
-export const PROMPT_SISTEMA_ASISTENTE_RESERVAS = `Sos el asistente de reservas de un coworking. Tu trabajo es interpretar el pedido del usuario en español y proponer opciones de reserva SOLO usando el JSON que recibís en el mensaje del usuario.
+// Prompt de sistema: la IA solo elige entre los datos provistos; no inventa ids ni horarios.
+export const PROMPT_SISTEMA_ASISTENTE_RESERVAS = `Sos el asistente de reservas de un coworking. Interpretá el pedido del usuario en español y proponé hasta 3 opciones usando SOLO los datos de "slotsDisponibles".
 
 Reglas estrictas:
-- NO inventes idRecurso, fechas u horarios. Cada sugerencia DEBE usar exactamente un idRecurso que aparezca en "catalogo" y ese id DEBE estar en idsDisponibles del mismo slot (fecha + horaInicio + horaFin).
-- Si el pedido no encaja con ningún slot o recurso (capacidad, tipo de espacio), devolvé sugerencias vacías y explicá qué falta en "preguntaAclaratoria" o en "mensajeAmigable".
-- La capacidad por recurso es la del espacio ("capacidadEspacio"). Si piden más personas que la capacidad de todos los recursos disponibles, no fuerces una opción: sugerencias vacías y mensaje claro.
-- Preferí recursos adecuados para reuniones (nombres/descripciones tipo sala, conferencias, completo) cuando el usuario pide reunión o equipo; para trabajo individual, puestos o zonas abiertas si encajan.
-- Respondé SIEMPRE con un único objeto JSON válido (sin markdown) con las claves exactas del esquema indicado al final.
+- Cada sugerencia DEBE usar un idRecurso que exista dentro del array "recursosDisponibles" del slot elegido. NO podés usar un idRecurso de otro slot.
+- NO inventes fechas, horarios ni idRecurso.
+- Si el pedido menciona cantidad de personas, usá solo recursos cuya "capacidad" sea >= esa cantidad.
+- Para reuniones, equipos o grupos: preferí recursos con nombre/descripción tipo sala, conferencia, completo.
+- Para trabajo individual o concentración: preferí puestos, escritorios, bancos, zonas abiertas.
+- Interpretá expresiones temporales en español ("mañana", "esta semana", "a la tarde", "el viernes", "por la mañana") usando la fecha base en "meta.fechaInicioVentana". "A la tarde" = después de las 14:00; "por la mañana" = antes de las 13:00.
+- IMPORTANTE: Si el usuario pide un tipo de espacio por característica ("aire libre", "silencioso", "con luz", "cómodo") y no encontrás esa palabra exacta en los nombres, buscá recursos que PODRÍAN cumplirla por su nombre o descripción (ej: "terraza" o "balcón" para "aire libre"; "sala privada" para "silencioso"). Siempre sugerí la opción más cercana disponible y explicá en el "motivo" por qué podría encajar. NUNCA digas que no hay opciones si hay slots disponibles para esa fecha y hora — siempre devolvé las mejores alternativas posibles.
+- Si el usuario pide múltiples recursos del mismo tipo (ej: "3 bancos", "2 escritorios", "un banco para cada uno"), agrupálos en UNA SOLA sugerencia poniendo todos los idRecurso en el array "idsRecursos". Todos deben pertenecer al mismo slot (misma fecha y horario).
+- Si el usuario pide un solo recurso, igual usá "idsRecursos" con un solo elemento.
 - Máximo 3 sugerencias, ordenadas de mejor a peor opción.
+- Respondé SIEMPRE con un único objeto JSON válido (sin markdown) con este esquema exacto:
 
-Esquema de salida:
 {
-  "mensajeAmigable": "string",
+  "mensajeAmigable": "string explicando las opciones o por qué no hay resultados",
   "sugerencias": [
     {
-      "idRecurso": number,
+      "idsRecursos": [number, ...],
       "fecha": "YYYY-MM-DD",
       "horaInicio": "HH:MM",
       "horaFin": "HH:MM",
-      "motivo": "string breve por qué conviene",
-      "etiquetaRecurso": "nombre legible del recurso tal como en catalogo"
+      "motivo": "por qué esta opción encaja con el pedido del usuario",
+      "etiquetasRecursos": ["nombre del recurso 1", "nombre del recurso 2"]
     }
   ],
   "preguntaAclaratoria": null
 }
 
-Si necesitás más datos del usuario, usá "preguntaAclaratoria" como string; si no, null.`;
+Si necesitás más info del usuario para decidir (por ejemplo no especificó cantidad de personas ni tipo de espacio), poné la pregunta en "preguntaAclaratoria" y dejá sugerencias vacías.`;
 
-function extractJsonObject(text) {
+function extraerObjetoJson(text) {
   const t = text.trim();
   const start = t.indexOf("{");
   const end = t.lastIndexOf("}");
@@ -99,7 +128,7 @@ function extractJsonObject(text) {
   return JSON.parse(t.slice(start, end + 1));
 }
 
-function slotContains(slot, idRecurso) {
+function slotContiene(slot, idRecurso) {
   return slot.idsDisponibles.includes(idRecurso);
 }
 
@@ -141,7 +170,7 @@ export const sugerirReservaIA = async (req, res) => {
     const tz = timezone || process.env.APP_TIMEZONE || "America/Argentina/Buenos_Aires";
     const dias = Math.min(Math.max(Number(diasVentana) || 5, 1), 14);
 
-    const snapshot = await buildVentanaDisponibilidad({
+    const snapshot = await armarVentanaDisponibilidad({
       timeZone: tz,
       dias,
       fechaBaseYmd: fechaBase || null,
@@ -172,20 +201,49 @@ export const sugerirReservaIA = async (req, res) => {
       return res.json({ ...body, origen: "heuristic" });
     }
 
+    const catalogoPorId = Object.fromEntries(snapshot.catalogo.map((c) => [c.idRecurso, c]));
+
+    const obtenerDiaSemana = (ymd, timeZone) => {
+      const [y, m, d] = ymd.split("-").map(Number);
+      return new Intl.DateTimeFormat("es-AR", { weekday: "long", timeZone }).format(
+        new Date(Date.UTC(y, m - 1, d, 12, 0, 0))
+      );
+    };
+
+    const slotsParaIA = snapshot.slots.map((slot) => ({
+      fecha: slot.fecha,
+      diaSemana: obtenerDiaSemana(slot.fecha, tz),
+      horaInicio: slot.horaInicio,
+      horaFin: slot.horaFin,
+      recursosDisponibles: slot.idsDisponibles.map((id) => {
+        const c = catalogoPorId[id];
+        if (!c) return { idRecurso: id };
+        return {
+          idRecurso: id,
+          nombre: c.nombre,
+          ...(c.descripcion ? { descripcion: c.descripcion } : {}),
+          ...(c.espacioNombre ? { espacioNombre: c.espacioNombre } : {}),
+          capacidad: c.capacidadEspacio,
+          precioHora: c.precioHora,
+          esCompleto: c.esCompleto,
+        };
+      }),
+    }));
+
     const payloadUsuario = JSON.stringify(
       {
-        instruccion:
-          "Elegí hasta 3 opciones que cumplan el pedido. Solo ids y horarios que existan en slots y catalogo.",
         pedidoUsuario: mensaje.trim(),
-        catalogo: snapshot.catalogo,
-        slots: snapshot.slots,
-        meta: snapshot.meta,
+        slotsDisponibles: slotsParaIA,
+        meta: {
+          ...snapshot.meta,
+          hoyDiaSemana: obtenerDiaSemana(snapshot.meta.fechaInicioVentana, tz),
+        },
       },
       null,
       0
     );
 
-    const requestBody = {
+    const cuerpoPeticion = {
       model,
       temperature: 0.2,
       messages: [
@@ -194,7 +252,7 @@ export const sugerirReservaIA = async (req, res) => {
       ],
     };
     if (!esBaseUrlLocal(baseUrl)) {
-      requestBody.response_format = { type: "json_object" };
+      cuerpoPeticion.response_format = { type: "json_object" };
     }
 
     const openaiRes = await fetch(chatCompletionsUrl(), {
@@ -203,27 +261,27 @@ export const sugerirReservaIA = async (req, res) => {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(requestBody),
+      body: JSON.stringify(cuerpoPeticion),
     });
 
     if (!openaiRes.ok) {
-      const errText = await openaiRes.text();
-      console.error("OpenAI error:", openaiRes.status, errText);
+      const textoError = await openaiRes.text();
+      console.error("OpenAI error:", openaiRes.status, textoError);
       let openaiCode = null;
       try {
-        const body = JSON.parse(errText);
+        const body = JSON.parse(textoError);
         openaiCode = body?.error?.code || body?.error?.type;
       } catch {
         /* cuerpo no JSON */
       }
-      if (openaiCode === "insufficient_quota" || errText.includes("insufficient_quota")) {
+      if (openaiCode === "insufficient_quota" || textoError.includes("insufficient_quota")) {
         return res.status(503).json({
           message:
             "OpenAI indica que no hay cuota o créditos disponibles para esta API key. Entrá a https://platform.openai.com/account/billing , verificá método de pago y límites de uso, o usá otra organización/cuenta.",
           code: "openai_insufficient_quota",
         });
       }
-      return res.status(502).json({ message: "Error al consultar el proveedor de IA", detalle: errText.slice(0, 500) });
+      return res.status(502).json({ message: "Error al consultar el proveedor de IA", detalle: textoError.slice(0, 500) });
     }
 
     const openaiData = await openaiRes.json();
@@ -234,7 +292,7 @@ export const sugerirReservaIA = async (req, res) => {
 
     let parsed;
     try {
-      parsed = extractJsonObject(content);
+      parsed = extraerObjetoJson(content);
     } catch (e) {
       console.error("JSON IA:", content, e);
       return res.status(502).json({ message: "No se pudo interpretar la respuesta de la IA" });

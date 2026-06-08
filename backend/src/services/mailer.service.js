@@ -4,15 +4,15 @@ function smtpConfigured() {
   return Boolean(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
 }
 
-let cachedTransport = null;
+let transporteCacheado = null;
 
-function getTransport() {
+function obtenerTransporte() {
   if (!smtpConfigured()) return null;
-  if (cachedTransport) return cachedTransport;
+  if (transporteCacheado) return transporteCacheado;
   const port = parseInt(process.env.SMTP_PORT || "587", 10);
   const secure =
     process.env.SMTP_SECURE === "true" || process.env.SMTP_SECURE === "1" || port === 465;
-  cachedTransport = nodemailer.createTransport({
+  transporteCacheado = nodemailer.createTransport({
     host: process.env.SMTP_HOST,
     port,
     secure,
@@ -21,14 +21,11 @@ function getTransport() {
       pass: process.env.SMTP_PASS,
     },
   });
-  return cachedTransport;
+  return transporteCacheado;
 }
 
-/**
- * @param {{ to: string; subject: string; html: string; text?: string }} opts
- */
 export async function sendMail(opts) {
-  const transport = getTransport();
+  const transport = obtenerTransporte();
   if (!transport) {
     console.warn("[mailer] SMTP no configurado: omitiendo envío de correo.");
     return { skipped: true };

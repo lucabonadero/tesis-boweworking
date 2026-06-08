@@ -2,19 +2,8 @@ import React from "react";
 import BotonVolverPanel from "./BotonVolverPanel.jsx";
 import styles from "../styles/components/adminPageHeader.module.css";
 
-/**
- * Header unificado para todas las páginas administrativas.
- * Render: BotonVolverPanel + hero dark navy con eyebrow / título / descripción / meta + slot de acciones.
- *
- * Props:
- *  - eyebrow:     string         — kicker arriba del título (ej. "Análisis operativo").
- *  - icon:        ReactNode      — icono a la izquierda del título.
- *  - title:       string|ReactNode — título grande (obligatorio).
- *  - description: string|ReactNode — copy de apoyo bajo el título.
- *  - meta:        ReactNode      — fila extra debajo (período, fecha, contadores...).
- *  - actions:     ReactNode      — slot a la derecha (botones, datepicker...).
- *  - showBackButton: boolean     — default true, oculta BotonVolverPanel cuando es false.
- */
+// Encabezado unificado de las páginas administrativas: botón de volver + hero con
+// título, descripción, meta y un espacio para acciones a la derecha.
 export default function AdminPageHeader({
   eyebrow,
   icon,

@@ -2,10 +2,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import pool from "../config/db.js";
 
-/**
- * Login legado (solo tabla `usuarios`). Preferí POST /api/auth/cliente/login: unifica admin, empleado y cliente
- * y es el que usa el frontend (AuthModal / panel).
- */
+// Login legado (tabla usuarios). El frontend usa POST /api/auth/cliente/login, que unifica admin, empleado y cliente.
 export const login = async (req, res) => {
   try {
     const { email, password } = req.body;

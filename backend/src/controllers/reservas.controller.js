@@ -20,7 +20,16 @@ import {
   evaluarMutacionReserva,
   ymdEnZona,
   minutosDiaEnZona,
+  reservaPeriodoAunNoTermino,
+  pgDateToYmd,
 } from "../services/reservaMutability.service.js";
+import {
+  calcularFracciones,
+  sumarMinutosAHora,
+  minutoFinReal,
+  horaAMinutos,
+  minutosAHora,
+} from "../services/extensionReserva.service.js";
 import { lateralUltimaTransaccion } from "../services/transaccionUltimaJoin.service.js";
 import {
   descuentoSerieMensualDefault,
@@ -112,20 +121,10 @@ async function esGrupo(db, idRecurso) {
   return parseInt(rows[0].n) > 0;
 }
 
-/**
- * Universal overlap check: does a NEW reservation conflict with EXISTING ones?
- *
- * Existing reservations can be turno, semanal, or mensual.
- * The new reservation defines its "shadow" on the calendar:
- *   - turno:   single day + time range
- *   - semanal: DiaReserva .. DiaReserva+6  (all day)
- *   - mensual: DiaReserva .. DiaReserva+29 (all day)
- *
- * An existing reservation casts its own shadow. Two shadows conflict when
- * their date ranges overlap AND (if both are turnos on the same day) their
- * time ranges overlap.
- */
-function conflictSQL(extraRecursoWhere, excludeId) {
+// Detecta si una reserva NUEVA choca con las EXISTENTES (que pueden ser turno, semanal o mensual).
+// Cada reserva ocupa un rango de fechas; el turno además ocupa un rango horario. Dos reservas chocan
+// cuando sus rangos de fechas se solapan y, si ambas son turno el mismo día, también sus horarios.
+function sqlConflicto(extraRecursoWhere, excludeId) {
   const ex = excludeId ? `AND res."idReserva" != ${parseInt(excludeId)}` : "";
   return `
     SELECT COUNT(*) AS n
@@ -177,7 +176,7 @@ function conflictSQL(extraRecursoWhere, excludeId) {
   `;
 }
 
-function packDays(tipo) {
+function diasPack(tipo) {
   if (tipo === "semanal") return 6;
   if (tipo === "mensual") return 29;
   return 0;
@@ -198,7 +197,7 @@ async function verificarConflictos(db, idRecurso, DiaReserva, HorarioReserva, Ho
     return "Este recurso es un grupo. Elegí un recurso específico dentro del grupo.";
   }
 
-  const dias = packDays(tipo);
+  const dias = diasPack(tipo);
   const horaIni = tipo === "turno" ? HorarioReserva : "00:00";
   const horaFin = tipo === "turno" ? HorarioFin : "23:59";
   const ex = excludeReservaId || null;
@@ -224,9 +223,9 @@ async function verificarConflictos(db, idRecurso, DiaReserva, HorarioReserva, Ho
     return { text: s, vals };
   };
 
-  // Direct conflict on the same resource
+  // Conflicto directo sobre el mismo recurso
   const q1 = bind(
-    conflictSQL(null, ex),
+    sqlConflicto(null, ex),
     { $p_recurso: idRecurso }
   );
   const r1 = await db.query(q1.text, q1.vals);
@@ -234,11 +233,11 @@ async function verificarConflictos(db, idRecurso, DiaReserva, HorarioReserva, Ho
     return "Este recurso ya está reservado en ese período.";
   }
 
-  // "Completo" logic
+  // Lógica de recurso "completo"
   if (recurso.esCompleto) {
     if (recurso.idRecursoPadre) {
       const q = bind(
-        conflictSQL(`rec."idRecursoPadre" = $p_padre AND rec."esCompleto" = false`, ex),
+        sqlConflicto(`rec."idRecursoPadre" = $p_padre AND rec."esCompleto" = false`, ex),
         { $p_padre: recurso.idRecursoPadre }
       );
       const r = await db.query(q.text, q.vals);
@@ -246,7 +245,7 @@ async function verificarConflictos(db, idRecurso, DiaReserva, HorarioReserva, Ho
         return "No se puede reservar completo: hay recursos individuales reservados en ese período.";
     } else {
       const q = bind(
-        conflictSQL(`rec."idEspacio" = $p_esp AND rec."idRecurso" != $p_self`, ex),
+        sqlConflicto(`rec."idEspacio" = $p_esp AND rec."idRecurso" != $p_self`, ex),
         { $p_esp: recurso.idEspacio, $p_self: idRecurso }
       );
       const r = await db.query(q.text, q.vals);
@@ -256,7 +255,7 @@ async function verificarConflictos(db, idRecurso, DiaReserva, HorarioReserva, Ho
   } else {
     if (recurso.idRecursoPadre) {
       const q = bind(
-        conflictSQL(`rec."idRecursoPadre" = $p_padre AND rec."esCompleto" = true`, ex),
+        sqlConflicto(`rec."idRecursoPadre" = $p_padre AND rec."esCompleto" = true`, ex),
         { $p_padre: recurso.idRecursoPadre }
       );
       const r = await db.query(q.text, q.vals);
@@ -264,7 +263,7 @@ async function verificarConflictos(db, idRecurso, DiaReserva, HorarioReserva, Ho
         return "El grupo completo ya está reservado en ese período.";
     }
     const q = bind(
-      conflictSQL(`rec."idEspacio" = $p_esp AND rec."esCompleto" = true AND rec."idRecursoPadre" IS NULL`, ex),
+      sqlConflicto(`rec."idEspacio" = $p_esp AND rec."esCompleto" = true AND rec."idRecursoPadre" IS NULL`, ex),
       { $p_esp: recurso.idEspacio }
     );
     const r = await db.query(q.text, q.vals);
@@ -276,7 +275,7 @@ async function verificarConflictos(db, idRecurso, DiaReserva, HorarioReserva, Ho
 }
 
 /** Filtros opcionales para listados admin (búsqueda, espacio, fechas, día calendario afectado). */
-function buildReservasAdminFilters(query) {
+function armarFiltrosReservasAdmin(query) {
   const conditions = [];
   const params = [];
   let i = 1;
@@ -601,13 +600,67 @@ async function sweepEnCursoVencidas(db = pool) {
     if (e.code === "23514" || e.code === "42703") return;
     throw e;
   }
+  // Cierre natural: el cliente usó toda la ventana extendida, el cargo provisional
+  // (sobre el fin actual) ya es el real → sólo marcar la extensión como finalizada.
+  try {
+    await db.query(
+      `UPDATE "ReservaExtension" e
+       SET "Finalizada" = true, "ActualizadaEn" = now()
+       FROM "Reservas" r
+       WHERE e."idReserva" = r."idReserva" AND e."Finalizada" = false AND r."Estado" = 'completada'`
+    );
+  } catch (e) {
+    if (e.code === "42P01" || e.code === "42703") return;
+    throw e;
+  }
+}
+
+/**
+ * Adjunta a cada item el resumen de su extensión (veces, minutos, monto y si el
+ * cargo sigue pendiente de pago). Resiliente: si la migración de extensiones aún
+ * no fue aplicada, no rompe el listado.
+ */
+async function adjuntarConteoExtensiones(items) {
+  if (!Array.isArray(items) || items.length === 0) return items;
+  const ids = items.map((r) => r.idReserva).filter((x) => x != null);
+  if (ids.length === 0) return items;
+  try {
+    const { rows } = await pool.query(
+      `SELECT e."idReserva", e."Veces"::int AS veces, e."MinutosExtension"::int AS min,
+              e."Monto"::numeric AS monto, e."Finalizada" AS finalizada,
+              EXISTS (
+                SELECT 1 FROM "Transaccion" t
+                WHERE t."idExtension" = e."idExtension" AND t."EstadoPago" = 'Pagado'
+              ) AS pagada
+       FROM "ReservaExtension" e
+       WHERE e."idReserva" = ANY($1::int[])`,
+      [ids]
+    );
+    const byId = new Map(rows.map((r) => [r.idReserva, r]));
+    for (const it of items) {
+      const m = byId.get(it.idReserva);
+      it.extensionesCount = m ? m.veces : 0;
+      it.extensionesMinutos = m ? m.min : 0;
+      it.extensionMonto = m ? parseFloat(m.monto) || 0 : 0;
+      it.extensionPendiente = m ? !m.pagada : false;
+    }
+  } catch (e) {
+    if (e.code !== "42P01") throw e;
+    for (const it of items) {
+      it.extensionesCount = 0;
+      it.extensionesMinutos = 0;
+      it.extensionMonto = 0;
+      it.extensionPendiente = false;
+    }
+  }
+  return items;
 }
 
 export const obtenerReservas = async (req, res) => {
   try {
     await sweepEnCursoVencidas();
     const { limit, offset } = parsePagination(req.query, { defaultLimit: 20, maxLimit: 200 });
-    const { where, params, nextParamIndex } = buildReservasAdminFilters(req.query);
+    const { where, params, nextParamIndex } = armarFiltrosReservasAdmin(req.query);
 
     const baseFrom = `
       FROM "Reservas" r
@@ -625,7 +678,7 @@ export const obtenerReservas = async (req, res) => {
       `
       SELECT r.*,
              c."Nombre" AS cliente_nombre, c."Apellido" AS cliente_apellido,
-             rec."Nombre" AS recurso_nombre, rec."esCompleto",
+             rec."Nombre" AS recurso_nombre, rec."esCompleto", rec."PrecioHora" AS recurso_precio_hora,
              e."Nombre" AS espacio_nombre,
              tx."EstadoPago",
              rs."anio" AS "serie_anio",
@@ -649,6 +702,7 @@ export const obtenerReservas = async (req, res) => {
         staffNoEliminarSiPagado: true,
       })
     );
+    await adjuntarConteoExtensiones(items);
     res.json({ items, total, limit, offset });
   } catch (error) {
     console.error("Error al obtener reservas:", error);
@@ -664,7 +718,7 @@ export const obtenerReservasOcupacionDia = async (req, res) => {
     if (!fecha || String(fecha).trim() === "") {
       return res.status(400).json({ message: "Parámetro requerido: fecha (YYYY-MM-DD)." });
     }
-    const { where, params, nextParamIndex } = buildReservasAdminFilters({ ...req.query, afectaDia: fecha });
+    const { where, params, nextParamIndex } = armarFiltrosReservasAdmin({ ...req.query, afectaDia: fecha });
     const baseFrom = `
       FROM "Reservas" r
       LEFT JOIN "Cliente" c ON r."DNI" = c."DNI"
@@ -676,7 +730,7 @@ export const obtenerReservasOcupacionDia = async (req, res) => {
       `
       SELECT r.*,
              c."Nombre" AS cliente_nombre, c."Apellido" AS cliente_apellido,
-             rec."Nombre" AS recurso_nombre, rec."esCompleto",
+             rec."Nombre" AS recurso_nombre, rec."esCompleto", rec."PrecioHora" AS recurso_precio_hora,
              e."Nombre" AS espacio_nombre,
              tx."EstadoPago"
       ${baseFrom}
@@ -691,6 +745,7 @@ export const obtenerReservasOcupacionDia = async (req, res) => {
         staffNoEliminarSiPagado: true,
       })
     );
+    await adjuntarConteoExtensiones(items);
     res.json({ items, fecha: String(fecha).trim() });
   } catch (error) {
     console.error("Error al obtener ocupación del día:", error);
@@ -951,9 +1006,9 @@ export const actualizarReserva = async (req, res) => {
       return res.status(400).json({ message: "ID de reserva inválido." });
     }
 
-    const { rows: existingRows } = await pool.query('SELECT * FROM "Reservas" WHERE "idReserva" = $1', [idReserva]);
-    if (existingRows.length === 0) return res.status(404).json({ message: "Reserva no encontrada" });
-    const ex = existingRows[0];
+    const { rows: filasExistentes } = await pool.query('SELECT * FROM "Reservas" WHERE "idReserva" = $1', [idReserva]);
+    if (filasExistentes.length === 0) return res.status(404).json({ message: "Reserva no encontrada" });
+    const ex = filasExistentes[0];
 
     if (!esStaff(req.usuario) && !esCliente(req.usuario)) {
       return res.status(403).json({ message: "No autorizado a modificar reservas." });
@@ -1077,18 +1132,8 @@ export const actualizarReserva = async (req, res) => {
   }
 };
 
-/**
- * Devuelve "completada" si el turno ya terminó al momento de la recepción,
- * o "en_curso" si todavía está dentro de su ventana.
- *
- * Sólo aplica a tipo "turno" con HorarioFin; el resto va directo a completada.
- */
-/**
- * Decide si una recepción debe ir directo a "completada" (turno ya pasó)
- * o a "en_curso" (todavía está vigente).
- *
- * Usa la zona del coworking para comparaciones.
- */
+// Al recibir al cliente, devuelve "completada" si el turno ya terminó o "en_curso" si sigue vigente.
+// Solo aplica a turnos con HorarioFin; el resto va directo a completada. Compara en la zona del coworking.
 function estadoAsistenciaInicialPara(row, now = new Date()) {
   try {
     const tipo = row.TipoReserva || "turno";
@@ -1119,9 +1164,9 @@ function estadoAsistenciaInicialPara(row, now = new Date()) {
 export const cambiarEstadoReserva = async (req, res) => {
   try {
     const { estado, esFinalizacionManual } = req.body;
-    const valid = ["activa", "en_curso", "completada", "cancelada", "no_asistio"];
-    if (!valid.includes(estado)) {
-      return res.status(400).json({ message: `Estado inválido. Valores: ${valid.join(", ")}` });
+    const estadosValidos = ["activa", "en_curso", "completada", "cancelada", "no_asistio"];
+    if (!estadosValidos.includes(estado)) {
+      return res.status(400).json({ message: `Estado inválido. Valores: ${estadosValidos.join(", ")}` });
     }
 
     const idReserva = parseInt(req.params.id, 10);
@@ -1181,6 +1226,43 @@ export const cambiarEstadoReserva = async (req, res) => {
       estadoFinal = estadoAsistenciaInicialPara(row0, new Date());
     }
 
+    // Al cerrar el turno (completada) se liquidan las extensiones pendientes:
+    // se recalcula el cargo sobre el tiempo realmente usado y se encoge el horario.
+    if (estadoFinal === "completada") {
+      const client = await pool.connect();
+      try {
+        await client.query("BEGIN");
+        const upd = await client.query(
+          `UPDATE "Reservas" SET "Estado" = $1 WHERE "idReserva" = ANY($2::int[])`,
+          [estadoFinal, idsEstado]
+        );
+        if (upd.rowCount === 0) {
+          await client.query("ROLLBACK");
+          return res.status(404).json({ message: "Reserva no encontrada" });
+        }
+        const ahora = new Date();
+        for (const rid of idsEstado) {
+          try {
+            await liquidarExtensionAlFinalizar(client, rid, ahora);
+          } catch (e) {
+            // Si falta la migración de extensiones, no bloquear el cierre del turno.
+            if (e.code !== "42P01" && e.code !== "42703") throw e;
+          }
+        }
+        await client.query("COMMIT");
+      } catch (err) {
+        try {
+          await client.query("ROLLBACK");
+        } catch {
+          /* */
+        }
+        throw err;
+      } finally {
+        client.release();
+      }
+      return res.status(200).json({ message: "Estado actualizado", estado: estadoFinal });
+    }
+
     // UPDATE simple: solo Estado.
     const result = await pool.query(
       `UPDATE "Reservas" SET "Estado" = $1 WHERE "idReserva" = ANY($2::int[])`,
@@ -1196,6 +1278,280 @@ export const cambiarEstadoReserva = async (req, res) => {
       return res.status(503).json({
         message:
           "El servidor aún no tiene aplicada la migración backend/database/migration_estado_en_curso.sql. Ejecutala contra Postgres y reinicia el backend.",
+      });
+    }
+    res.status(500).json({ message: "Error interno del servidor" });
+  }
+};
+
+/**
+ * Liquida la extensión de una reserva al CERRAR el turno: recalcula el cargo
+ * sobre el tiempo realmente usado (fracciones de 30 min, redondeo hacia arriba),
+ * encoge "HorarioFin" al fin real y marca la extensión como Finalizada.
+ *
+ * No toca extensiones ya pagadas (el cliente pagó la ventana reservada) ni las
+ * ya finalizadas. Debe correr dentro de una transacción (recibe el client).
+ */
+async function liquidarExtensionAlFinalizar(client, idReserva, now = new Date()) {
+  const { rows } = await client.query(
+    'SELECT * FROM "ReservaExtension" WHERE "idReserva" = $1 AND "Finalizada" = false FOR UPDATE',
+    [idReserva]
+  );
+  if (rows.length === 0) return;
+  const ext = rows[0];
+
+  // Si el cargo ya está pagado, no recalcular (se cobró lo reservado).
+  const { rows: pagadas } = await client.query(
+    `SELECT 1 FROM "Transaccion" WHERE "idExtension" = $1 AND "EstadoPago" = 'Pagado' LIMIT 1`,
+    [ext.idExtension]
+  );
+
+  const { rows: rsv } = await client.query(
+    'SELECT "DiaReserva" FROM "Reservas" WHERE "idReserva" = $1',
+    [idReserva]
+  );
+  const diaYmd = rsv.length ? pgDateToYmd(rsv[0].DiaReserva) : null;
+
+  const finOriginal = formatearHoraParaApi(ext.HorarioFinOriginal) || String(ext.HorarioFinOriginal).slice(0, 5);
+  const finActual = formatearHoraParaApi(ext.HorarioFinActual) || String(ext.HorarioFinActual).slice(0, 5);
+
+  if (pagadas.length > 0) {
+    // Pagada: sólo marcar finalizada, sin cambiar montos ni horario.
+    await client.query('UPDATE "ReservaExtension" SET "Finalizada" = true, "ActualizadaEn" = now() WHERE "idExtension" = $1', [ext.idExtension]);
+    return;
+  }
+
+  const mismoDia = diaYmd != null && diaYmd === ymdEnZona(now);
+  const finRealMin = minutoFinReal({
+    finOriginalMin: horaAMinutos(finOriginal),
+    finActualMin: horaAMinutos(finActual),
+    nowMin: minutosDiaEnZona(now),
+    mismoDia,
+  });
+  const finReal = minutosAHora(finRealMin);
+  const minutosReales = Math.max(0, finRealMin - horaAMinutos(finOriginal));
+  const fracciones = calcularFracciones(minutosReales);
+  const precioFraccion = parseFloat(ext.PrecioFraccion) || 0;
+  const monto = Math.round(precioFraccion * fracciones * 100) / 100;
+
+  // Encoger el fin de la reserva al fin real usado.
+  await client.query('UPDATE "Reservas" SET "HorarioFin" = $1 WHERE "idReserva" = $2', [finReal, idReserva]);
+  await client.query(
+    `UPDATE "ReservaExtension"
+     SET "HorarioFinActual" = $1::time, "MinutosExtension" = $2, "Fracciones" = $3, "Monto" = $4,
+         "Finalizada" = true, "ActualizadaEn" = now()
+     WHERE "idExtension" = $5`,
+    [finReal, minutosReales, fracciones, monto, ext.idExtension]
+  );
+
+  // Si la extensión real quedó en 0 (se fue antes/justo en el fin original),
+  // descartar el cargo pendiente para no dejar una transacción en $0.
+  if (fracciones === 0) {
+    await client.query(
+      `DELETE FROM "Transaccion" WHERE "idExtension" = $1 AND "EstadoPago" <> 'Pagado'`,
+      [ext.idExtension]
+    );
+  }
+}
+
+/**
+ * Extiende una reserva EN CURSO modificando su HorarioFin (la misma reserva, no se
+ * duplica). NO cobra en el momento: deja un cargo PENDIENTE de pago que se registra
+ * después. La facturación es por fracciones de 30 minutos (redondeo hacia arriba) y
+ * se calcula sobre el total extendido respecto del fin ORIGINAL; al cerrar el turno
+ * se recalcula sobre el tiempo realmente usado.
+ *
+ * Estado acumulado por reserva en "ReservaExtension" (1:1) + una "Transaccion"
+ * Pendiente con ClasificacionPago='extension'.
+ */
+export const extenderReserva = async (req, res) => {
+  try {
+    const idReserva = parseInt(req.params.id, 10);
+    if (!Number.isFinite(idReserva) || idReserva <= 0) {
+      return res.status(400).json({ message: "ID de reserva inválido." });
+    }
+
+    const minutos = parseInt(req.body?.minutos, 10);
+    if (!Number.isFinite(minutos) || minutos <= 0) {
+      return res.status(400).json({ message: "Indicá los minutos de extensión (mayor a 0)." });
+    }
+    if (minutos > 12 * 60) {
+      return res.status(400).json({ message: "La extensión solicitada es demasiado larga." });
+    }
+
+    const { rows: exRows } = await pool.query('SELECT * FROM "Reservas" WHERE "idReserva" = $1', [idReserva]);
+    if (exRows.length === 0) return res.status(404).json({ message: "Reserva no encontrada" });
+    const reserva = exRows[0];
+
+    const tipo = reserva.TipoReserva || "turno";
+    if (tipo !== "turno") {
+      return res.status(400).json({ message: "Solo se pueden extender reservas por turno." });
+    }
+    if ((reserva.Estado || "activa") !== "en_curso") {
+      return res.status(409).json({ message: "Solo se puede extender una reserva en curso." });
+    }
+    if (!reserva.HorarioFin) {
+      return res.status(400).json({ message: "La reserva no tiene horario de fin definido." });
+    }
+    // El turno no debe haber finalizado ya (reloj de pared en zona del coworking).
+    if (!reservaPeriodoAunNoTermino(reserva, new Date())) {
+      return res.status(409).json({ message: "El turno ya finalizó; no se puede extender." });
+    }
+
+    // Precio del recurso para calcular el cargo de la extensión.
+    const { rows: recRows } = await pool.query(
+      'SELECT "PrecioHora" FROM "Recursos" WHERE "idRecurso" = $1',
+      [reserva.idRecurso]
+    );
+    const precioHora = recRows.length ? parseFloat(recRows[0].PrecioHora) || 0 : 0;
+    const precioFraccion = precioHora > 0 ? Math.round((precioHora / 2) * 100) / 100 : 0;
+    const creadaPor = String(req.usuario?.nombre || req.usuario?.email || "staff").slice(0, 120);
+
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      await bloquearEspaciosDeRecursos(client, [reserva.idRecurso]);
+
+      // Revalidar dentro de la transacción (evita carreras con otra reserva/extensión).
+      const { rows: freshRows } = await client.query(
+        'SELECT "Estado","HorarioReserva","HorarioFin","DiaReserva" FROM "Reservas" WHERE "idReserva" = $1 FOR UPDATE',
+        [idReserva]
+      );
+      const fresh = freshRows[0];
+      if (!fresh || (fresh.Estado || "") !== "en_curso") {
+        await client.query("ROLLBACK");
+        return res.status(409).json({ message: "La reserva ya no está en curso." });
+      }
+
+      const finActual = formatearHoraParaApi(fresh.HorarioFin) || String(fresh.HorarioFin).slice(0, 5);
+      const iniActual = formatearHoraParaApi(fresh.HorarioReserva) || String(fresh.HorarioReserva).slice(0, 5);
+      const nuevoFin = sumarMinutosAHora(finActual, minutos);
+      if (!nuevoFin) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({ message: "La extensión supera el horario válido del día." });
+      }
+
+      // El turno extendido completo debe respetar la ventana operativa (cierre 21:00).
+      const errVentana = validarVentanaOperativaTurno(iniActual, nuevoFin);
+      if (errVentana) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({ message: errVentana });
+      }
+
+      // Disponibilidad: la ventana completa extendida no debe chocar con otra reserva
+      // (excluyendo la propia). Cubre recurso, grupo y espacio completo.
+      const conflicto = await verificarConflictos(
+        client,
+        reserva.idRecurso,
+        pgDateToYmd(fresh.DiaReserva),
+        iniActual,
+        nuevoFin,
+        "turno",
+        idReserva
+      );
+      if (conflicto) {
+        await client.query("ROLLBACK");
+        return res.status(409).json({
+          message: "No se puede extender: hay otra reserva sobre este recurso en el horario solicitado.",
+          detalle: conflicto,
+        });
+      }
+
+      // Estado de extensión acumulado (1:1 con la reserva).
+      const { rows: extRows } = await client.query(
+        'SELECT * FROM "ReservaExtension" WHERE "idReserva" = $1 FOR UPDATE',
+        [idReserva]
+      );
+      const prev = extRows[0] || null;
+      // Fin original: el guardado en la extensión previa, o el fin vigente antes de extender.
+      const finOriginal = prev
+        ? formatearHoraParaApi(prev.HorarioFinOriginal) || String(prev.HorarioFinOriginal).slice(0, 5)
+        : finActual;
+      const minutosTotal = horaAMinutos(nuevoFin) - horaAMinutos(finOriginal);
+      const fracciones = calcularFracciones(minutosTotal);
+      const monto = Math.round(precioFraccion * fracciones * 100) / 100;
+
+      // Extender la MISMA reserva; preservar el fin original en la primera extensión.
+      await client.query(
+        `UPDATE "Reservas"
+         SET "HorarioFin" = $1,
+             "HorarioFinOriginal" = COALESCE("HorarioFinOriginal", "HorarioFin"::time)
+         WHERE "idReserva" = $2`,
+        [nuevoFin, idReserva]
+      );
+
+      let extension;
+      if (prev) {
+        const upd = await client.query(
+          `UPDATE "ReservaExtension"
+           SET "Veces" = "Veces" + 1, "HorarioFinActual" = $1::time, "MinutosExtension" = $2,
+               "Fracciones" = $3, "PrecioFraccion" = $4, "Monto" = $5, "ActualizadaEn" = now()
+           WHERE "idReserva" = $6 RETURNING *`,
+          [nuevoFin, minutosTotal, fracciones, precioFraccion, monto, idReserva]
+        );
+        extension = upd.rows[0];
+      } else {
+        const ins = await client.query(
+          `INSERT INTO "ReservaExtension"
+             ("idReserva","Veces","HorarioFinOriginal","HorarioFinActual","MinutosExtension","Fracciones","PrecioFraccion","Monto","CreadaPor")
+           VALUES ($1,1,$2::time,$3::time,$4,$5,$6,$7,$8) RETURNING *`,
+          [idReserva, finOriginal, nuevoFin, minutosTotal, fracciones, precioFraccion, monto, creadaPor]
+        );
+        extension = ins.rows[0];
+      }
+
+      // Asegurar UNA transacción PENDIENTE para el cargo de la extensión.
+      const { rows: txExist } = await client.query(
+        'SELECT "idTransaccion" FROM "Transaccion" WHERE "idExtension" = $1 ORDER BY "idTransaccion" DESC LIMIT 1',
+        [extension.idExtension]
+      );
+      let idTransaccion;
+      if (txExist.length === 0) {
+        const insTx = await client.query(
+          `INSERT INTO "Transaccion" ("idReserva","MetodoPago","EstadoPago","TipoPago","ClasificacionPago","idExtension")
+           VALUES ($1,NULL,'Pendiente','presencial','extension',$2) RETURNING "idTransaccion"`,
+          [idReserva, extension.idExtension]
+        );
+        idTransaccion = insTx.rows[0].idTransaccion;
+      } else {
+        idTransaccion = txExist[0].idTransaccion;
+      }
+
+      await client.query("COMMIT");
+
+      const { rows: updated } = await pool.query('SELECT * FROM "Reservas" WHERE "idReserva" = $1', [idReserva]);
+      return res.status(201).json({
+        message: "Reserva extendida — el cargo queda pendiente de pago",
+        reserva: serializarHorariosReservaEnFila(updated[0]),
+        extension: {
+          idExtension: extension.idExtension,
+          veces: extension.Veces,
+          minutos: minutosTotal,
+          fracciones,
+          precioFraccion,
+          monto,
+          horarioFinOriginal: finOriginal,
+          horarioFinActual: nuevoFin,
+          pendiente: true,
+        },
+        idTransaccion,
+      });
+    } catch (err) {
+      try {
+        await client.query("ROLLBACK");
+      } catch {
+        /* */
+      }
+      throw err;
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    console.error("Error al extender reserva:", error);
+    if (error.code === "42P01" || error.code === "42703") {
+      return res.status(503).json({
+        message:
+          "El servidor aún no tiene aplicada la migración backend/database/migration_extension_reserva.sql. Ejecutala contra Postgres y reiniciá el backend.",
       });
     }
     res.status(500).json({ message: "Error interno del servidor" });
@@ -1246,9 +1602,9 @@ export const eliminarReserva = async (req, res) => {
     return res.status(400).json({ message: "ID de reserva inválido." });
   }
   try {
-    const { rows: existingRows } = await pool.query('SELECT * FROM "Reservas" WHERE "idReserva" = $1', [idReserva]);
-    if (existingRows.length === 0) return res.status(404).json({ message: "Reserva no encontrada" });
-    const ex = existingRows[0];
+    const { rows: filasExistentes } = await pool.query('SELECT * FROM "Reservas" WHERE "idReserva" = $1', [idReserva]);
+    if (filasExistentes.length === 0) return res.status(404).json({ message: "Reserva no encontrada" });
+    const ex = filasExistentes[0];
 
     if (!esStaff(req.usuario) && !esCliente(req.usuario)) {
       return res.status(403).json({ message: "No autorizado a eliminar reservas." });

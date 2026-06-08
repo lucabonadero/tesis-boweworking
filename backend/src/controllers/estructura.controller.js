@@ -1,12 +1,7 @@
 import pool from "../config/db.js";
 
-/**
- * GET /api/admin/estructura
- * Devuelve el árbol completo: Pisos → Espacios (recursivos) → Recursos (recursivos).
- *
- * Query params:
- *   ?incluirInactivos=true  → incluye también los desactivados (soft-deleted)
- */
+// Devuelve el árbol completo: Pisos → Espacios (recursivos) → Recursos (recursivos).
+// Con ?incluirInactivos=true también trae los desactivados.
 export const obtenerEstructura = async (req, res) => {
   const incluirInactivos = req.query.incluirInactivos === "true";
   const filtroPiso = incluirInactivos ? "" : 'WHERE "Activo" = true';
@@ -43,7 +38,7 @@ export const obtenerEstructura = async (req, res) => {
     const recursosPorEspacio = new Map();
     for (const r of recursos.rows) {
       const conteo = reservasPorRecurso.get(r.idRecurso) || { futuras: 0, total: 0 };
-      const enriched = {
+      const enriquecido = {
         ...r,
         reservasFuturas: conteo.futuras,
         reservasTotal: conteo.total,
@@ -51,24 +46,24 @@ export const obtenerEstructura = async (req, res) => {
       };
       if (r.idRecursoPadre != null) {
         if (!recursosPorPadre.has(r.idRecursoPadre)) recursosPorPadre.set(r.idRecursoPadre, []);
-        recursosPorPadre.get(r.idRecursoPadre).push(enriched);
+        recursosPorPadre.get(r.idRecursoPadre).push(enriquecido);
       } else {
         if (!recursosPorEspacio.has(r.idEspacio)) recursosPorEspacio.set(r.idEspacio, []);
-        recursosPorEspacio.get(r.idEspacio).push(enriched);
+        recursosPorEspacio.get(r.idEspacio).push(enriquecido);
       }
     }
     // Adjuntar sub-recursos
     for (const r of recursos.rows) {
       const hijos = recursosPorPadre.get(r.idRecurso);
       if (hijos) {
-        // Buscar el enriched correspondiente en su contenedor
-        const containers = [
+        // Buscar el recurso ya enriquecido dentro de su contenedor
+        const contenedores = [
           ...(r.idRecursoPadre != null
             ? recursosPorPadre.get(r.idRecursoPadre) || []
             : recursosPorEspacio.get(r.idEspacio) || []),
         ];
-        const self = containers.find((x) => x.idRecurso === r.idRecurso);
-        if (self) self.recursos = hijos;
+        const propio = contenedores.find((x) => x.idRecurso === r.idRecurso);
+        if (propio) propio.recursos = hijos;
       }
     }
 
@@ -76,30 +71,30 @@ export const obtenerEstructura = async (req, res) => {
     const espaciosPorPadre = new Map();
     const espaciosPorPiso = new Map();
     for (const e of espacios.rows) {
-      const enriched = {
+      const enriquecido = {
         ...e,
         recursos: recursosPorEspacio.get(e.Espacio) || [],
         espacios: [],
       };
       if (e.idEspacioPadre != null) {
         if (!espaciosPorPadre.has(e.idEspacioPadre)) espaciosPorPadre.set(e.idEspacioPadre, []);
-        espaciosPorPadre.get(e.idEspacioPadre).push(enriched);
+        espaciosPorPadre.get(e.idEspacioPadre).push(enriquecido);
       } else {
         if (!espaciosPorPiso.has(e.idPiso)) espaciosPorPiso.set(e.idPiso, []);
-        espaciosPorPiso.get(e.idPiso).push(enriched);
+        espaciosPorPiso.get(e.idPiso).push(enriquecido);
       }
     }
     // Adjuntar sub-espacios
     for (const e of espacios.rows) {
       const hijos = espaciosPorPadre.get(e.Espacio);
       if (hijos) {
-        const containers = [
+        const contenedores = [
           ...(e.idEspacioPadre != null
             ? espaciosPorPadre.get(e.idEspacioPadre) || []
             : espaciosPorPiso.get(e.idPiso) || []),
         ];
-        const self = containers.find((x) => x.Espacio === e.Espacio);
-        if (self) self.espacios = hijos;
+        const propio = contenedores.find((x) => x.Espacio === e.Espacio);
+        if (propio) propio.espacios = hijos;
       }
     }
 
@@ -115,9 +110,6 @@ export const obtenerEstructura = async (req, res) => {
   }
 };
 
-/**
- * GET /api/admin/estructura/tipos-recurso
- */
 export const obtenerTiposRecurso = async (_req, res) => {
   try {
     const { rows } = await pool.query(
@@ -130,35 +122,8 @@ export const obtenerTiposRecurso = async (_req, res) => {
   }
 };
 
-// ============================================================
-// COMMIT BATCH: aplica todos los cambios del árbol en una transacción
-// ============================================================
-/**
- * POST /api/admin/estructura/commit
- *
- * Body: {
- *   operaciones: [
- *     { tipo: 'piso.crear',     tempId: 't1', data: { Nombre, ... } },
- *     { tipo: 'piso.editar',    id: 4,   data: { Nombre, ... } },
- *     { tipo: 'piso.eliminar',  id: 4 },
- *     { tipo: 'piso.reordenar', orden: [ { id, orden }, ... ] },
- *
- *     { tipo: 'espacio.crear',     tempId: 't2', data: { idPiso|tempIdPiso, idEspacioPadre|tempIdEspacioPadre, Nombre, Tipo, ... } },
- *     { tipo: 'espacio.editar',    id, data: { ... } },
- *     { tipo: 'espacio.mover',     id, data: { idPiso?, idEspacioPadre?|null } },
- *     { tipo: 'espacio.eliminar',  id },
- *     { tipo: 'espacio.reordenar', orden: [ { id, orden }, ... ] },
- *
- *     { tipo: 'recurso.crear',     tempId: 't3', data: { idEspacio|tempIdEspacio, idRecursoPadre|tempIdRecursoPadre, Nombre, ... } },
- *     { tipo: 'recurso.editar',    id, data: { ... } },
- *     { tipo: 'recurso.mover',     id, data: { idEspacio?, idRecursoPadre?|null } },
- *     { tipo: 'recurso.eliminar',  id },
- *     { tipo: 'recurso.reordenar', orden: [ { id, orden }, ... ] }
- *   ]
- * }
- *
- * tempId permite referenciar entidades aún no creadas dentro del mismo batch.
- */
+// Aplica en una sola transacción todas las operaciones del árbol (crear/editar/mover/eliminar/reordenar
+// pisos, espacios y recursos). El tempId permite referenciar entidades aún no creadas dentro del mismo lote.
 export const commitEstructura = async (req, res) => {
   const { operaciones } = req.body;
 
@@ -211,9 +176,7 @@ export const commitEstructura = async (req, res) => {
       const ctx = `op #${i} (${op.tipo})`;
 
       switch (op.tipo) {
-        // -----------------------------------------------------
-        // PISOS
-        // -----------------------------------------------------
+        // Pisos
         case "piso.crear": {
           const d = op.data || {};
           if (!d.Nombre) throw new Error(`${ctx}: Nombre requerido`);
@@ -284,9 +247,7 @@ export const commitEstructura = async (req, res) => {
           break;
         }
 
-        // -----------------------------------------------------
-        // ESPACIOS
-        // -----------------------------------------------------
+        // Espacios
         case "espacio.crear": {
           const d = op.data || {};
           if (!d.Nombre) throw new Error(`${ctx}: Nombre requerido`);
@@ -397,9 +358,7 @@ export const commitEstructura = async (req, res) => {
           break;
         }
 
-        // -----------------------------------------------------
-        // RECURSOS
-        // -----------------------------------------------------
+        // Recursos
         case "recurso.crear": {
           const d = op.data || {};
           if (!d.Nombre) throw new Error(`${ctx}: Nombre requerido`);
@@ -552,11 +511,7 @@ export const commitEstructura = async (req, res) => {
   }
 };
 
-/**
- * GET /api/admin/estructura/recurso/:id/impacto
- * Devuelve cuántas reservas (futuras, pasadas, totales) tiene un recurso.
- * Útil antes de eliminar.
- */
+// Cuántas reservas (futuras, pasadas, totales) tiene un recurso. Se consulta antes de eliminar.
 export const obtenerImpactoRecurso = async (req, res) => {
   try {
     const { rows } = await pool.query(

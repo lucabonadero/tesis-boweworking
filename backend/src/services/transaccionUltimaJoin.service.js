@@ -1,8 +1,4 @@
-/**
- * Última transacción asociada a una reserva: fila directa en "Transaccion" o vía "TransaccionReserva".
- * @param {string} aliasReserva Alias de la tabla Reservas en el query (ej. r)
- * @param {string} aliasLateral Alias del resultado LATERAL (ej. tx)
- */
+// Última transacción asociada a una reserva: fila directa en "Transaccion" o vía "TransaccionReserva".
 export function lateralUltimaTransaccion(aliasReserva = "r", aliasLateral = "tx") {
   return `
 LEFT JOIN LATERAL (

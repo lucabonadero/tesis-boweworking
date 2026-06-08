@@ -1,10 +1,10 @@
 import pool from "../config/db.js";
-import { getDisponibilidadTurno } from "./disponibilidadTurno.service.js";
+import { obtenerDisponibilidadTurno } from "./disponibilidadTurno.service.js";
 import { permiteReservaPorTurno } from "./reservaRules.service.js";
 
-const DEFAULT_TZ = "America/Argentina/Buenos_Aires";
+const ZONA_POR_DEFECTO = "America/Argentina/Buenos_Aires";
 
-export function fechaHoyEnZona(timeZone = DEFAULT_TZ) {
+export function fechaHoyEnZona(timeZone = ZONA_POR_DEFECTO) {
   return new Intl.DateTimeFormat("en-CA", {
     timeZone,
     year: "numeric",
@@ -13,7 +13,7 @@ export function fechaHoyEnZona(timeZone = DEFAULT_TZ) {
   }).format(new Date());
 }
 
-export function sumarDiasYmd(ymd, deltaDias, timeZone = DEFAULT_TZ) {
+export function sumarDiasYmd(ymd, deltaDias, timeZone = ZONA_POR_DEFECTO) {
   const [y, m, d] = ymd.split("-").map(Number);
   const utc = Date.UTC(y, m - 1, d, 12, 0, 0);
   const next = new Date(utc + deltaDias * 86400000);
@@ -30,7 +30,7 @@ function pad2(n) {
 }
 
 /** Catálogo de recursos reservables por turno (hojas + reglas de negocio). */
-export async function buildCatalogoReservasTurno() {
+export async function armarCatalogoReservasTurno() {
   const { rows: recursos } = await pool.query(`
     SELECT r."idRecurso", r."idEspacio", r."idRecursoPadre", r."Nombre", r."Descripcion",
            r."esCompleto", r."PrecioHora",
@@ -63,12 +63,10 @@ export async function buildCatalogoReservasTurno() {
   return out;
 }
 
-/**
- * Ventana de turnos discretos reales según DB (solo ids que el modelo puede citar).
- * limitSlots evita prompts enormes.
- */
-export async function buildVentanaDisponibilidad({
-  timeZone = DEFAULT_TZ,
+// Ventana de turnos reales según la base de datos (solo ids que el modelo puede citar).
+// limitSlots evita armar prompts enormes.
+export async function armarVentanaDisponibilidad({
+  timeZone = ZONA_POR_DEFECTO,
   dias = 5,
   horaInicioDia = 9,
   horaFinDia = 21,
@@ -77,7 +75,7 @@ export async function buildVentanaDisponibilidad({
   fechaBaseYmd = null,
 } = {}) {
   const inicio = fechaBaseYmd || fechaHoyEnZona(timeZone);
-  const catalogo = await buildCatalogoReservasTurno();
+  const catalogo = await armarCatalogoReservasTurno();
   const idsPermitidos = new Set(catalogo.map((c) => c.idRecurso));
   const slots = [];
 
@@ -86,7 +84,7 @@ export async function buildVentanaDisponibilidad({
     for (let h = horaInicioDia; h + duracionSlotHoras <= horaFinDia && slots.length < limitSlots; h += duracionSlotHoras) {
       const hi = `${pad2(h)}:00`;
       const hf = `${pad2(h + duracionSlotHoras)}:00`;
-      const disp = await getDisponibilidadTurno(fecha, hi, hf);
+      const disp = await obtenerDisponibilidadTurno(fecha, hi, hf);
       const idsDisponibles = disp
         .filter((r) => !r.esGrupo && r.disponible === true && idsPermitidos.has(r.idRecurso))
         .map((r) => r.idRecurso);

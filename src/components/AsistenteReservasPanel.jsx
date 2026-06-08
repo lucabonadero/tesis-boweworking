@@ -34,7 +34,7 @@ export default function AsistenteReservasPanel({
   const [resultado, setResultado] = useState(null);
   const [confirmandoId, setConfirmandoId] = useState(null);
   const [mensajeEnviado, setMensajeEnviado] = useState(null);
-  const resultRef = useRef(null);
+  const refResultado = useRef(null);
 
   useEffect(() => {
     if (!autoPromptLogin || authLoading) return;
@@ -42,8 +42,8 @@ export default function AsistenteReservasPanel({
   }, [authLoading, isAuthenticated, openAuthModal, autoPromptLogin]);
 
   useEffect(() => {
-    if (resultado && resultRef.current) {
-      resultRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (resultado && refResultado.current) {
+      refResultado.current.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   }, [resultado]);
 
@@ -52,15 +52,15 @@ export default function AsistenteReservasPanel({
       message.warning("Escribí qué necesitás reservar.");
       return;
     }
-    const trimmed = texto.trim();
-    setMensajeEnviado(trimmed);
+    const textoLimpio = texto.trim();
+    setMensajeEnviado(textoLimpio);
     setLoading(true);
     setResultado(null);
     try {
       const res = await authFetch(`${API_URL}/api/ai/sugerir-reserva`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mensaje: trimmed, diasVentana: 5 }),
+        body: JSON.stringify({ mensaje: textoLimpio, diasVentana: 5 }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -80,38 +80,55 @@ export default function AsistenteReservasPanel({
       return;
     }
     const nombre = `${user.nombre || ""} ${user.apellido || ""}`.trim() || user.email;
-    setConfirmandoId(`${s.idRecurso}-${s.fecha}-${s.horaInicio}`);
+    const claveTurno = `${s.fecha}-${s.horaInicio}`;
+    setConfirmandoId(claveTurno);
     try {
-      const res = await authFetch(`${API_URL}/api/reservas`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          DNI: user.dni,
-          Nombre: nombre,
-          idRecurso: s.idRecurso,
-          DiaReserva: s.fecha,
-          HorarioReserva: s.horaInicio,
-          HorarioFin: s.horaFin,
-          TipoReserva: "turno",
-        }),
-      });
+      const ids = s.idsRecursos?.length > 0 ? s.idsRecursos : [s.idRecurso];
+      let res;
+      if (ids.length > 1) {
+        res = await authFetch(`${API_URL}/api/reservas/multiples`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            DNI: user.dni,
+            Nombre: nombre,
+            DiaReserva: s.fecha,
+            HorarioReserva: s.horaInicio,
+            HorarioFin: s.horaFin,
+            items: ids.map((id) => ({ idRecurso: id })),
+          }),
+        });
+      } else {
+        res = await authFetch(`${API_URL}/api/reservas`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            DNI: user.dni,
+            Nombre: nombre,
+            idRecurso: ids[0],
+            DiaReserva: s.fecha,
+            HorarioReserva: s.horaInicio,
+            HorarioFin: s.horaFin,
+            TipoReserva: "turno",
+          }),
+        });
+      }
       const data = await res.json();
       if (!res.ok) {
         throw new Error(data.message || "No se pudo confirmar (puede que otro usuario haya reservado ese horario).");
       }
-      message.success("Reserva creada. La disponibilidad fue validada en el servidor.");
+      message.success(
+        ids.length > 1
+          ? `${ids.length} reservas creadas correctamente.`
+          : "Reserva creada. La disponibilidad fue validada en el servidor."
+      );
       notifyReservasChanged();
       setResultado((prev) =>
         prev
           ? {
               ...prev,
               sugerenciasValidadas: (prev.sugerenciasValidadas || []).filter(
-                (x) =>
-                  !(
-                    x.idRecurso === s.idRecurso &&
-                    x.fecha === s.fecha &&
-                    x.horaInicio === s.horaInicio
-                  )
+                (x) => !(x.fecha === s.fecha && x.horaInicio === s.horaInicio && JSON.stringify(x.idsRecursos) === JSON.stringify(s.idsRecursos))
               ),
             }
           : prev
@@ -284,7 +301,7 @@ export default function AsistenteReservasPanel({
       )}
 
       {resultado && !loading && (
-        <div ref={resultRef} className={styles.result}>
+        <div ref={refResultado} className={styles.result}>
           <div className={styles.bubbleAssistant}>
             <span className={styles.bubbleLabel}>
               <RobotOutlined /> Asistente
@@ -307,46 +324,61 @@ export default function AsistenteReservasPanel({
                 <CalendarOutlined /> Opciones para vos
               </h2>
               <ul className={styles.list}>
-                {sugerencias.map((s, i) => (
-                  <li
-                    key={`${s.idRecurso}-${s.fecha}-${s.horaInicio}`}
-                    className={styles.suggestionLi}
-                    style={{ animationDelay: `${i * 0.06}s` }}
-                  >
-                    <div className={styles.suggestionCard}>
-                      <div className={styles.suggestionIndex}>{i + 1}</div>
-                      <div className={styles.suggestionBody}>
-                        <div className={styles.suggestionHead}>
-                          <strong>{s.etiquetaRecurso}</strong>
-                          <span className={styles.badge}>{s.espacioNombre}</span>
+                {sugerencias.map((s, i) => {
+                  const claveTurno = `${s.fecha}-${s.horaInicio}`;
+                  const ids = s.idsRecursos?.length > 0 ? s.idsRecursos : [s.idRecurso];
+                  const etiquetas = s.etiquetasRecursos?.length > 0 ? s.etiquetasRecursos : [s.etiquetaRecurso];
+                  const esMultiple = ids.length > 1;
+                  return (
+                    <li
+                      key={claveTurno}
+                      className={styles.suggestionLi}
+                      style={{ animationDelay: `${i * 0.06}s` }}
+                    >
+                      <div className={styles.suggestionCard}>
+                        <div className={styles.suggestionIndex}>{i + 1}</div>
+                        <div className={styles.suggestionBody}>
+                          <div className={styles.suggestionHead}>
+                            <strong>
+                              {esMultiple ? etiquetas.join(" · ") : etiquetas[0]}
+                            </strong>
+                            <span className={styles.badge}>{s.espacioNombre}</span>
+                          </div>
+                          {esMultiple && (
+                            <p className={styles.multiTag}>{ids.length} recursos reservados juntos</p>
+                          )}
+                          <p className={styles.slot}>
+                            <CalendarOutlined className={styles.slotIcon} />
+                            {s.fecha} · {s.horaInicio} – {s.horaFin}
+                          </p>
+                          {s.motivo && <p className={styles.motivo}>{s.motivo}</p>}
+                          {s.precioHora != null && (
+                            <p className={styles.precio}>
+                              {esMultiple
+                                ? `Total aprox. $${s.precioHora} / hora (${ids.length} recursos)`
+                                : `Referencia $${s.precioHora} / hora`}
+                            </p>
+                          )}
+                          <Button
+                            type="primary"
+                            block
+                            size="large"
+                            className={styles.confirmBtn}
+                            loading={confirmandoId === claveTurno}
+                            onClick={() => confirmar(s)}
+                            disabled={!user?.dni}
+                            icon={<CheckCircleOutlined />}
+                          >
+                            {esMultiple ? `Confirmar ${ids.length} reservas` : "Confirmar esta reserva"}
+                          </Button>
+                          {!user?.dni && (
+                            <p className={styles.hint}>Cargá tu DNI en el perfil para confirmar.</p>
+                          )}
                         </div>
-                        <p className={styles.slot}>
-                          <CalendarOutlined className={styles.slotIcon} />
-                          {s.fecha} · {s.horaInicio} – {s.horaFin}
-                        </p>
-                        {s.motivo && <p className={styles.motivo}>{s.motivo}</p>}
-                        {s.precioHora != null && (
-                          <p className={styles.precio}>Referencia ${s.precioHora} / hora</p>
-                        )}
-                        <Button
-                          type="primary"
-                          block
-                          size="large"
-                          className={styles.confirmBtn}
-                          loading={confirmandoId === `${s.idRecurso}-${s.fecha}-${s.horaInicio}`}
-                          onClick={() => confirmar(s)}
-                          disabled={!user?.dni}
-                          icon={<CheckCircleOutlined />}
-                        >
-                          Confirmar esta reserva
-                        </Button>
-                        {!user?.dni && (
-                          <p className={styles.hint}>Cargá tu DNI en el perfil para confirmar.</p>
-                        )}
                       </div>
-                    </div>
-                  </li>
-                ))}
+                    </li>
+                  );
+                })}
               </ul>
             </>
           )}

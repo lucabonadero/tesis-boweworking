@@ -189,12 +189,12 @@ export const actualizarPermisos = async (req, res) => {
 
     // Verificar que las claves sean válidas
     if (permisos.length > 0) {
-      const { rows: valid } = await client.query(
+      const { rows: validos } = await client.query(
         "SELECT clave FROM permisos WHERE clave = ANY($1)",
         [permisos]
       );
-      const validClaves = valid.map((r) => r.clave);
-      const invalidas = permisos.filter((p) => !validClaves.includes(p));
+      const clavesValidas = validos.map((r) => r.clave);
+      const invalidas = permisos.filter((p) => !clavesValidas.includes(p));
       if (invalidas.length > 0) {
         await client.query("ROLLBACK");
         return res.status(400).json({ message: `Permisos inválidos: ${invalidas.join(", ")}` });

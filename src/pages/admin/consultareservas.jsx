@@ -68,6 +68,24 @@ const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 const COWORKING_OPEN = 9;
 const COWORKING_CLOSE = 21;
 
+/** Etiqueta legible del tipo de reserva a partir de una fila/booking. */
+function getTipoReservaLabel(bk) {
+  if (!bk) return "Individual";
+  if (bk.idSerie) return "Fija (4 sem.)";
+  if (bk.TipoReserva === "semanal") return "Semanal";
+  if (bk.TipoReserva === "mensual") return "Mensual pack";
+  if (bk.idReservaGrupo) return "Múltiple (varios lugares)";
+  return "Individual";
+}
+
+/** Clave de fila usada en la tabla (debe coincidir con reservasVista). */
+function getRowKeyForBooking(bk) {
+  if (!bk) return null;
+  if (bk.idSerie) return `serie-${bk.idSerie}`;
+  if (bk.idReservaGrupo) return `grupo-${bk.idReservaGrupo}`;
+  return bk.idReserva;
+}
+
 export default function ControlReservas() {
   const queryClient = useQueryClient();
   const [tablePage, setTablePage] = useState(1);
@@ -99,10 +117,13 @@ export default function ControlReservas() {
   const dispoDebounceRef = useRef(null);
   const dniDebounceRef = useRef(null);
 
-  // Occupancy view state
+  // Estado de la vista de ocupación
   const [occupancyDate, setOccupancyDate] = useState(dayjs());
   const [showOccupancy, setShowOccupancy] = useState(false);
   const [occupancyRefresh, setOccupancyRefresh] = useState(0);
+  // Fila a resaltar en la tabla tras hacer clic en un bloque de ocupación
+  const [highlightKey, setHighlightKey] = useState(null);
+  const highlightTimerRef = useRef(null);
 
   const dateDesde = dateRange?.[0]?.format("YYYY-MM-DD") ?? "";
   const dateHasta = dateRange?.[1]?.format("YYYY-MM-DD") ?? "";
@@ -305,7 +326,7 @@ export default function ControlReservas() {
     [disponibilidad]
   );
 
-  // Auto-fetch disponibilidad cuando fecha+duración+hora estan listos.
+  // Busca disponibilidad automáticamente cuando fecha, duración y hora están listas.
   useEffect(() => {
     if (!drawerOpen) return;
     if (!formData.fecha || !formData.hora || !formData.duracion) {
@@ -392,7 +413,7 @@ export default function ControlReservas() {
     dniDebounceRef.current = setTimeout(() => lookupClienteByDni(value), 500);
   };
 
-  // Occupancy data
+  // Datos de ocupación
   useEffect(() => {
     if (!showOccupancy || loading) return;
     (async () => {
@@ -436,7 +457,77 @@ export default function ControlReservas() {
 
   const occupancyTotalRecursos = occupancyGroups.reduce((s, g) => s + g.recursos.length, 0);
 
-  // Handlers
+  /** Click en un bloque de ocupación: lleva a la reserva en la tabla y la resalta. */
+  const handleOccupancyBlockClick = (bk) => {
+    const targetKey = getRowKeyForBooking(bk);
+    if (targetKey == null) return;
+    // Encuadrar la tabla en el día de la reserva y limpiar filtros que la oculten.
+    const dia = bk.DiaReserva ? dayjs(bk.DiaReserva) : occupancyDate;
+    setSearch("");
+    setFiltroEspacio("Todos");
+    setFiltroEstado("Todos");
+    setDateRange([dia.startOf("day"), dia.startOf("day")]);
+    setTablePage(1);
+    setShowOccupancy(false);
+    setHighlightKey(targetKey);
+  };
+
+  /** Una vez visible la tabla con la reserva, hacer scroll y resaltar temporalmente. */
+  useEffect(() => {
+    if (highlightKey == null || showOccupancy || reservasFetching) return;
+    const exists = reservasVista.some((r) => String(r.key) === String(highlightKey));
+    if (!exists) return;
+    const id = requestAnimationFrame(() => {
+      const el = document.querySelector(`[data-row-key="${highlightKey}"]`);
+      if (el && typeof el.scrollIntoView === "function") {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    });
+    if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
+    highlightTimerRef.current = setTimeout(() => setHighlightKey(null), 2800);
+    return () => cancelAnimationFrame(id);
+  }, [highlightKey, showOccupancy, reservasFetching, reservasVista]);
+
+  useEffect(() => () => {
+    if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
+  }, []);
+
+  /** Contenido compacto del tooltip al pasar el cursor sobre un bloque. */
+  const renderBookingTooltip = (bk) => {
+    const cliente =
+      `${bk.cliente_nombre || ""} ${bk.cliente_apellido || ""}`.trim() || bk.Nombre || "—";
+    const estado = (bk.Estado || "activa").toLowerCase();
+    const horario = bk.HorarioReserva
+      ? `${bk.HorarioReserva}${bk.HorarioFin ? ` - ${bk.HorarioFin}` : ""}`
+      : "Todo el día";
+    const rows = [
+      { label: "Cliente", value: cliente },
+      { label: "Fecha", value: bk.DiaReserva ? dayjs(bk.DiaReserva).format("DD/MM/YYYY") : "—" },
+      { label: "Horario", value: horario },
+      { label: "Espacio", value: bk.espacio_nombre || "—" },
+      { label: "Recurso", value: bk.recurso_nombre || "—" },
+      { label: "Tipo", value: getTipoReservaLabel(bk) },
+    ];
+    return (
+      <div className={styles.occBlockTooltip}>
+        {rows.map((r) => (
+          <div key={r.label} className={styles.occBlockTooltipRow}>
+            <span className={styles.occBlockTooltipLabel}>{r.label}</span>
+            <span className={styles.occBlockTooltipValue}>{r.value}</span>
+          </div>
+        ))}
+        <div className={styles.occBlockTooltipRow}>
+          <span className={styles.occBlockTooltipLabel}>Estado</span>
+          <Tag color={RESERVA_ESTADO_COLOR[estado] || "default"} style={{ margin: 0 }}>
+            {RESERVA_ESTADO_LABEL[estado] || estado}
+          </Tag>
+        </div>
+        <div className={styles.occBlockTooltipHint}>Clic para ver en la tabla →</div>
+      </div>
+    );
+  };
+
+  // Acciones
   const handleGuardar = async () => {
     if (!formData.fecha || !formData.hora) {
       message.warning("Selecciona fecha y hora de la reserva.");
@@ -864,7 +955,7 @@ export default function ControlReservas() {
             }
           />
 
-          {/* Filters */}
+          {/* Filtros */}
           <div className={styles.filtersRow}>
             <Input placeholder="Buscar cliente, DNI..." prefix={<SearchOutlined />} allowClear value={search}
               onChange={(e) => setSearch(e.target.value)} style={{ maxWidth: 250 }} />
@@ -895,6 +986,11 @@ export default function ControlReservas() {
                 columns={columns}
                 dataSource={reservasVista}
                 loading={reservasFetching}
+                rowClassName={(record) =>
+                  highlightKey != null && String(record.key) === String(highlightKey)
+                    ? styles.occupancyHighlightRow
+                    : ""
+                }
                 pagination={{
                   current: tablePage,
                   pageSize,
@@ -958,11 +1054,15 @@ export default function ControlReservas() {
                           {rec.bookings.map((bk) => {
                             if (!bk.HorarioReserva) {
                               return (
-                                <div key={bk.idReserva} className={styles.occupancyBlock}
-                                  style={{ left: "0%", width: "100%", background: "var(--color-warning)" }}
-                                  title={`${bk.Nombre} (todo el día)`}>
-                                  <span>{bk.Nombre}</span>
-                                </div>
+                                <Tooltip key={bk.idReserva} title={renderBookingTooltip(bk)} placement="top">
+                                  <div className={styles.occupancyBlock}
+                                    role="button" tabIndex={0}
+                                    onClick={() => handleOccupancyBlockClick(bk)}
+                                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleOccupancyBlockClick(bk); } }}
+                                    style={{ left: "0%", width: "100%", background: "var(--color-warning)" }}>
+                                    <span>{bk.Nombre}</span>
+                                  </div>
+                                </Tooltip>
                               );
                             }
                             const [h1, m1] = bk.HorarioReserva.split(":").map(Number);
@@ -973,11 +1073,15 @@ export default function ControlReservas() {
                             const left = Math.max(0, (startMin / totalMins) * 100);
                             const width = Math.max(2, ((endMin - startMin) / totalMins) * 100);
                             return (
-                              <div key={bk.idReserva} className={styles.occupancyBlock}
-                                style={{ left: `${left}%`, width: `${width}%` }}
-                                title={`${bk.Nombre} ${bk.HorarioReserva}-${bk.HorarioFin}`}>
-                                <span>{bk.HorarioReserva}</span>
-                              </div>
+                              <Tooltip key={bk.idReserva} title={renderBookingTooltip(bk)} placement="top">
+                                <div className={styles.occupancyBlock}
+                                  role="button" tabIndex={0}
+                                  onClick={() => handleOccupancyBlockClick(bk)}
+                                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleOccupancyBlockClick(bk); } }}
+                                  style={{ left: `${left}%`, width: `${width}%` }}>
+                                  <span>{bk.HorarioReserva}</span>
+                                </div>
+                              </Tooltip>
                             );
                           })}
                         </div>
@@ -997,7 +1101,7 @@ export default function ControlReservas() {
           )}
         </div>
 
-        {/* Drawer for create/edit */}
+        {/* Panel lateral para crear/editar */}
         <Drawer
           title={editingId ? "Modificar Reserva" : "Nueva Reserva"}
           placement="right"
@@ -1049,7 +1153,7 @@ export default function ControlReservas() {
             ]}
           />
 
-          {/* STEP 0: Cliente */}
+          {/* Paso 0: Cliente */}
           {drawerStep === 0 && (
             <div className={styles.drawerStepBody}>
               <div className={styles.stepIntro}>
@@ -1123,7 +1227,7 @@ export default function ControlReservas() {
             </div>
           )}
 
-          {/* STEP 1: Fecha + Hora + Recurso */}
+          {/* Paso 1: Fecha + Hora + Recurso */}
           {drawerStep === 1 && (
             <div className={styles.drawerStepBody}>
               <div className={styles.stepIntro}>
@@ -1230,7 +1334,7 @@ export default function ControlReservas() {
                 })()}
               </div>
 
-              {/* Resource availability */}
+              {/* Disponibilidad de recursos */}
               <div className={styles.availabilityWrap}>
                 {loadingDispo && (
                   <div className={styles.availabilityLoading}>
@@ -1274,7 +1378,7 @@ export default function ControlReservas() {
             </div>
           )}
 
-          {/* STEP 2: Confirmar */}
+          {/* Paso 2: Confirmar */}
           {drawerStep === 2 && (
             <div className={styles.drawerStepBody}>
               <div className={styles.stepIntro}>

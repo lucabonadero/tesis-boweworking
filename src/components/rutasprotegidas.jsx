@@ -3,18 +3,10 @@ import { Navigate } from "react-router-dom";
 import { Spin } from "antd";
 import { useAuth } from "../context/AuthContext.jsx";
 
-/**
- * @param {{
- *   children: React.ReactNode,
- *   adminOnly?: boolean,
- *   requiredPermission?: string
- * }} props
- *
- * adminOnly: solo rol admin (ej. gestión financiera, gestión de usuarios).
- * requiredPermission: clave de permiso específica que el usuario debe tener.
- * Por defecto: permite acceso a cualquier personal del coworking (admin, empleado o staff).
- */
-export default function ProtectedRoute({ children, adminOnly = false, requiredPermission = null }) {
+// soloAdmin: restringe al rol admin (ej. gestión financiera, gestión de usuarios).
+// permisoRequerido: clave de permiso específica que el usuario debe tener.
+// Por defecto permite el acceso a cualquier personal del coworking (admin, empleado o staff).
+export default function ProtectedRoute({ children, soloAdmin = false, permisoRequerido = null }) {
   const { isAuthenticated, isAdmin, isStaff, loading, hasPermission } = useAuth();
 
   if (loading) {
@@ -40,13 +32,13 @@ export default function ProtectedRoute({ children, adminOnly = false, requiredPe
     return <Navigate to="/" replace state={{ openAuthLogin: true }} />;
   }
 
-  if (adminOnly) {
+  if (soloAdmin) {
     if (!isAdmin) return <Navigate to="/panel" replace />;
   } else if (!isStaff) {
     return <Navigate to="/" replace />;
   }
 
-  if (requiredPermission && !hasPermission(requiredPermission)) {
+  if (permisoRequerido && !hasPermission(permisoRequerido)) {
     return <Navigate to="/panel" replace />;
   }
 

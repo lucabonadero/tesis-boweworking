@@ -3,8 +3,8 @@ import dayjs from "dayjs";
 export const COWORKING_OPEN_H = 9;
 export const COWORKING_CLOSE_H = 21;
 
-const OPEN_MIN = COWORKING_OPEN_H * 60;
-const CLOSE_MIN = COWORKING_CLOSE_H * 60;
+const APERTURA_MIN = COWORKING_OPEN_H * 60;
+const CIERRE_MIN = COWORKING_CLOSE_H * 60;
 
 export function minutosDesdeMedianoche(hhmm) {
   if (!hhmm || typeof hhmm !== "string") return NaN;
@@ -17,15 +17,15 @@ export function validarVentanaOperativaTurno(horaInicio, horaFin) {
   const hi = minutosDesdeMedianoche(horaInicio);
   const hf = minutosDesdeMedianoche(horaFin);
   if (Number.isNaN(hi) || Number.isNaN(hf)) return "Horario inválido.";
-  if (hi < OPEN_MIN) return "El horario de apertura es a las 09:00 hs.";
-  if (hf > CLOSE_MIN) return "La reserva no puede finalizar después de las 21:00 hs.";
+  if (hi < APERTURA_MIN) return "El horario de apertura es a las 09:00 hs.";
+  if (hf > CIERRE_MIN) return "La reserva no puede finalizar después de las 21:00 hs.";
   if (hi >= hf) return "El horario de fin debe ser posterior al inicio.";
   return null;
 }
 
 export const DURACIONES_TURNO_MIN = [60, 120, 180, 240, 480];
 
-const DUR_LABEL = {
+const ETIQUETA_DURACION = {
   60: "1 h",
   120: "2 h",
   180: "3 h",
@@ -34,7 +34,7 @@ const DUR_LABEL = {
 };
 
 export function etiquetaDuracion(min) {
-  return DUR_LABEL[min] || `${min / 60} h`;
+  return ETIQUETA_DURACION[min] || `${min / 60} h`;
 }
 
 /** Inicios cada 30 min dentro de la ventana para una duración dada (día concreto para dayjs). */
@@ -42,23 +42,23 @@ export function iniciosDisponiblesParaDuracion(fecha, duracionMin, opts = {}) {
   const { excluirPasados = true } = opts;
   if (!fecha || !duracionMin) return [];
   const out = [];
-  for (let m = OPEN_MIN; m + duracionMin <= CLOSE_MIN; m += 30) {
+  for (let m = APERTURA_MIN; m + duracionMin <= CIERRE_MIN; m += 30) {
     const h = Math.floor(m / 60);
     const mm = m % 60;
     out.push(dayjs(fecha).hour(h).minute(mm).second(0).millisecond(0));
   }
   if (!excluirPasados || !fecha.isSame(dayjs(), "day")) return out;
   const n = dayjs();
-  const nowMin = n.hour() * 60 + n.minute();
-  return out.filter((s) => s.hour() * 60 + s.minute() >= nowMin);
+  const ahoraMin = n.hour() * 60 + n.minute();
+  return out.filter((s) => s.hour() * 60 + s.minute() >= ahoraMin);
 }
 
 /** Alineado con backend: fecha de reserva no anterior a hoy (calendario local del navegador). */
 export function validarDiaReservaNoEnElPasadoLocal(fechaDayjs) {
   if (!fechaDayjs || !fechaDayjs.isValid?.()) return "Seleccioná una fecha válida.";
   const dr = fechaDayjs.format("YYYY-MM-DD");
-  const today = dayjs().format("YYYY-MM-DD");
-  if (dr < today) return "No se pueden reservar fechas pasadas.";
+  const hoy = dayjs().format("YYYY-MM-DD");
+  if (dr < hoy) return "No se pueden reservar fechas pasadas.";
   return null;
 }
 
@@ -71,25 +71,25 @@ export function validarInicioTurnoNoEnElPasadoLocal(fechaDayjs, horaInicioHHmm) 
   const hi = minutosDesdeMedianoche(horaInicioHHmm);
   if (Number.isNaN(hi)) return "Horario de inicio inválido.";
   const n = dayjs();
-  const nowMin = n.hour() * 60 + n.minute();
-  if (hi < nowMin) return "El horario de inicio ya pasó. Elegí un horario posterior al actual.";
+  const ahoraMin = n.hour() * 60 + n.minute();
+  if (hi < ahoraMin) return "El horario de inicio ya pasó. Elegí un horario posterior al actual.";
   return null;
 }
 
 /** Recepción: no marcar asistencia antes del inicio del turno (mismo criterio que backend). */
 export function validarRecepcionNoAnticipadaLocal(diaYmd, horaIniHHmm) {
-  const today = dayjs().format("YYYY-MM-DD");
-  if (String(diaYmd || "").slice(0, 10) !== today) return null;
+  const hoy = dayjs().format("YYYY-MM-DD");
+  if (String(diaYmd || "").slice(0, 10) !== hoy) return null;
   const hi = minutosDesdeMedianoche(String(horaIniHHmm || "").slice(0, 5));
   if (Number.isNaN(hi)) return null;
   const n = dayjs();
-  const nowMin = n.hour() * 60 + n.minute();
-  if (nowMin < hi) {
+  const ahoraMin = n.hour() * 60 + n.minute();
+  if (ahoraMin < hi) {
     return "Todavía no comenzó el horario de esta reserva. Registrá la asistencia cuando corresponda.";
   }
   return null;
 }
 
 export function duracionesValidasParaCalendario() {
-  return DURACIONES_TURNO_MIN.filter((d) => OPEN_MIN + d <= CLOSE_MIN);
+  return DURACIONES_TURNO_MIN.filter((d) => APERTURA_MIN + d <= CIERRE_MIN);
 }

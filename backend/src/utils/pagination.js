@@ -1,8 +1,3 @@
-/**
- * Paginación offset/limit para listados admin.
- * @param {Record<string, string|undefined>} query - req.query
- * @param {{ defaultLimit?: number; maxLimit?: number }} [opts]
- */
 export function parsePagination(query, opts = {}) {
   const maxLimit = opts.maxLimit ?? 100;
   const defaultLimit = opts.defaultLimit ?? 20;
@@ -17,7 +12,6 @@ export function parsePagination(query, opts = {}) {
   return { limit, offset };
 }
 
-/** Página 1-based (UI) → offset */
 export function pageToOffset(page, limit) {
   const p = Number.isFinite(page) && page >= 1 ? Math.floor(page) : 1;
   return (p - 1) * limit;

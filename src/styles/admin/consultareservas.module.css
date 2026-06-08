@@ -375,6 +375,60 @@
   font-variant-numeric: tabular-nums;
 }
 
+.occupancyBlock:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 1px;
+}
+
+/* Tooltip enriquecido al pasar el cursor sobre un bloque */
+.occBlockTooltip {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 200px;
+  padding: 2px;
+}
+
+.occBlockTooltipRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12px;
+}
+
+.occBlockTooltipLabel {
+  color: rgba(255, 255, 255, 0.6);
+  font-weight: var(--weight-medium);
+}
+
+.occBlockTooltipValue {
+  color: #fff;
+  font-weight: var(--weight-semibold);
+  text-align: right;
+}
+
+.occBlockTooltipHint {
+  margin-top: 4px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.7);
+  font-style: italic;
+}
+
+/* Resaltado temporal de la fila al navegar desde la ocupación */
+.occupancyHighlightRow > td {
+  background: var(--color-brand-primary-soft, rgba(52, 192, 143, 0.16)) !important;
+  animation: occupancyRowFlash 2.8s ease-out;
+}
+
+@keyframes occupancyRowFlash {
+  0% { background: rgba(52, 192, 143, 0.45); }
+  30% { background: rgba(52, 192, 143, 0.28); }
+  100% { background: rgba(52, 192, 143, 0.08); }
+}
+
 .occupancyEmpty {
   text-align: center;
   padding: 48px 16px;

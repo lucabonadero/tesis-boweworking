@@ -16,14 +16,14 @@ export default function RestablecerContrasena() {
   const navigate = useNavigate();
   const { setAuthSession } = useAuth();
 
-  const [checking, setChecking] = useState(true);
+  const [verificando, setVerificando] = useState(true);
   const [valid, setValid] = useState(false);
   const [loading, setLoading] = useState(false);
   const [form] = Form.useForm();
 
   useEffect(() => {
     if (!token) {
-      setChecking(false);
+      setVerificando(false);
       setValid(false);
       return;
     }
@@ -40,7 +40,7 @@ export default function RestablecerContrasena() {
       } catch {
         if (!cancelled) setValid(false);
       } finally {
-        if (!cancelled) setChecking(false);
+        if (!cancelled) setVerificando(false);
       }
     })();
     return () => {
@@ -78,7 +78,7 @@ export default function RestablecerContrasena() {
   };
 
   let body;
-  if (checking) {
+  if (verificando) {
     body = (
       <div style={{ textAlign: "center", padding: "2rem 0" }}>
         <Spin size="large" />

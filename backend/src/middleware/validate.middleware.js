@@ -1,16 +1,16 @@
 import { ZodError } from "zod";
 import { crearReservaSchemaCliente, crearReservaSchemaStaff } from "../schemas/validation.schemas.js";
 
-function formatZodError(err) {
+function formatearErrorZod(error) {
   return {
     message: "Validación fallida",
-    errors: err.flatten(),
+    errors: error.flatten(),
   };
 }
 
-function esStaffTokenPayload(usuario) {
-  const r = usuario?.rol;
-  return r === "admin" || r === "empleado";
+function esTokenDeStaff(usuario) {
+  const rol = usuario?.rol;
+  return rol === "admin" || rol === "empleado";
 }
 
 /** Valida req.body y reemplaza por el resultado parseado (coerciones de Zod aplicadas). */
@@ -20,7 +20,7 @@ export function validateBody(schema) {
       req.body = schema.parse(req.body ?? {});
       next();
     } catch (e) {
-      if (e instanceof ZodError) return res.status(400).json(formatZodError(e));
+      if (e instanceof ZodError) return res.status(400).json(formatearErrorZod(e));
       next(e);
     }
   };
@@ -33,7 +33,7 @@ export function validateQuery(schema) {
       req.query = schema.parse(req.query ?? {});
       next();
     } catch (e) {
-      if (e instanceof ZodError) return res.status(400).json(formatZodError(e));
+      if (e instanceof ZodError) return res.status(400).json(formatearErrorZod(e));
       next(e);
     }
   };
@@ -42,11 +42,11 @@ export function validateQuery(schema) {
 /** POST /api/reservas: schema con o sin Monto según rol del token. */
 export function validateCrearReservaBody(req, res, next) {
   try {
-    const schema = esStaffTokenPayload(req.usuario) ? crearReservaSchemaStaff : crearReservaSchemaCliente;
+    const schema = esTokenDeStaff(req.usuario) ? crearReservaSchemaStaff : crearReservaSchemaCliente;
     req.body = schema.parse(req.body ?? {});
     next();
   } catch (e) {
-    if (e instanceof ZodError) return res.status(400).json(formatZodError(e));
+    if (e instanceof ZodError) return res.status(400).json(formatearErrorZod(e));
     next(e);
   }
 }

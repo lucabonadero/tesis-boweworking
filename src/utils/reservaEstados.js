@@ -1,13 +1,8 @@
-/**
- * Terminología canónica del sistema Bo WeWorking.
- *
- * Reglas de oro:
- *  - El "estado del turno" describe la reserva en sí (si el cliente asistió o no).
- *  - El "estado del cobro/pago" describe si la plata se acreditó.
- *  - Son ortogonales: una reserva puede estar Confirmada + Pendiente de pago.
- *
- * Usar SIEMPRE estos labels en UI, no improvisar copias.
- */
+// Terminología canónica del sistema Bo WeWorking.
+// - El estado del turno describe la reserva en sí (si el cliente asistió o no).
+// - El estado del cobro/pago describe si la plata se acreditó.
+// - Son ortogonales: una reserva puede estar Confirmada y Pendiente de pago a la vez.
+// Usar SIEMPRE estas etiquetas en la UI, no improvisar textos.
 
 import dayjs from "dayjs";
 
@@ -63,14 +58,10 @@ export function labelEstadoPago(estadoRaw) {
   return PAGO_ESTADO_LABEL[e] || e;
 }
 
-/**
- * Estado efectivo a mostrar en UI.
- *
- * Una reserva guardada como "en_curso" cuyo HorarioFin original ya pasó debe
- * verse como "completada" aunque la DB todavía no haya sido actualizada por el
- * sweep del backend. Sólo aplica a reservas tipo turno (los packs no tienen
- * hora fin intra-día).
- */
+// Estado efectivo a mostrar en la UI.
+// Una reserva guardada como "en_curso" cuyo HorarioFin ya pasó se ve como "completada" aunque
+// la base todavía no haya sido actualizada por el cierre automático del backend. Solo aplica a
+// reservas tipo turno (los packs no tienen hora de fin dentro del día).
 export function estadoReservaEfectivo(r, now = new Date()) {
   const estado = (r?.Estado || "activa").toLowerCase();
   if (estado !== "en_curso") return estado;

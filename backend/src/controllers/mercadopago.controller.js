@@ -4,7 +4,7 @@ import pool from "../config/db.js";
 const MP_ACCESS_TOKEN = process.env.MP_ACCESS_TOKEN;
 const MP_WEBHOOK_SECRET = process.env.MP_WEBHOOK_SECRET?.trim();
 
-let warnedMissingWebhookSecret = false;
+let avisoSecretoFaltante = false;
 
 function esStaffPago(usuario) {
   return usuario?.rol === "admin" || usuario?.rol === "empleado";
@@ -14,17 +14,14 @@ function esClientePago(usuario) {
   return usuario?.rol === "cliente" || usuario?.tipo === "cliente";
 }
 
-function baseUrl(envUrl, fallback) {
+function urlBase(envUrl, fallback) {
   const u = (envUrl || fallback || "").trim().replace(/\/+$/, "");
   return u || null;
 }
 
-/**
- * Firma de notificaciones (Mercado Pago): HMAC-SHA256 sobre la plantilla oficial
- * id:[data.id];request-id:[x-request-id];ts:[ts];
- * Ver: https://www.mercadopago.com.ar/developers/es/docs/your-integrations/notifications/webhooks
- */
-function parseXSignatureHeader(xSignature) {
+// Firma de notificaciones de Mercado Pago: HMAC-SHA256 sobre la plantilla oficial
+// id:[data.id];request-id:[x-request-id];ts:[ts];
+function parsearEncabezadoFirma(xSignature) {
   if (!xSignature || typeof xSignature !== "string") return {};
   const map = {};
   for (const part of xSignature.split(",")) {
@@ -35,13 +32,13 @@ function parseXSignatureHeader(xSignature) {
   return map;
 }
 
-function verifyMercadoPagoWebhookSignature(req) {
+function verificarFirmaWebhook(req) {
   if (!MP_WEBHOOK_SECRET) {
     if (process.env.NODE_ENV === "production") {
       return { ok: false, reason: "MP_WEBHOOK_SECRET no configurado (obligatorio en producción)" };
     }
-    if (!warnedMissingWebhookSecret) {
-      warnedMissingWebhookSecret = true;
+    if (!avisoSecretoFaltante) {
+      avisoSecretoFaltante = true;
       console.warn(
         "[MP Webhook] MP_WEBHOOK_SECRET no definido: la firma no se valida (solo desarrollo). Configurá el secreto del webhook en el panel de MP."
       );
@@ -49,7 +46,7 @@ function verifyMercadoPagoWebhookSignature(req) {
     return { ok: true, skipped: true };
   }
 
-  const sig = parseXSignatureHeader(req.headers["x-signature"]);
+  const sig = parsearEncabezadoFirma(req.headers["x-signature"]);
   const requestId = req.headers["x-request-id"];
   const ts = sig.ts;
   const v1 = sig.v1;
@@ -69,7 +66,7 @@ function verifyMercadoPagoWebhookSignature(req) {
   return { ok: true, skipped: false };
 }
 
-/** 'reserva_fija' | 'multirecurso' | null — para interpretar montos en reportes. */
+// Devuelve 'reserva_fija', 'multirecurso' o null — sirve para interpretar montos en los reportes.
 async function inferClasificacionPago(idReserva) {
   try {
     const { rows } = await pool.query(
@@ -92,7 +89,7 @@ async function inferClasificacionPago(idReserva) {
   }
 }
 
-export function mapMPStatus(mpStatus) {
+export function mapearEstadoMP(mpStatus) {
   switch (mpStatus) {
     case "approved":
       return "Pagado";
@@ -110,27 +107,25 @@ export function mapMPStatus(mpStatus) {
   }
 }
 
-/**
- * Persiste solo el estado de cobro en Transaccion. No modifica el ciclo de vida de la reserva
- * (activa / completada por asistencia / cancelada, etc.).
- */
-async function persistMercadoPagoPayment(payment, paymentId) {
+// Persiste solo el estado de cobro en Transaccion; no toca el ciclo de vida de la reserva
+// (activa / completada por asistencia / cancelada, etc.).
+async function persistirPagoMercadoPago(payment, paymentId) {
   if (!payment.external_reference) return { skipped: true };
 
   const idReserva = parseInt(payment.external_reference, 10);
   if (Number.isNaN(idReserva)) return { skipped: true };
 
-  const estadoPago = mapMPStatus(payment.status);
+  const estadoPago = mapearEstadoMP(payment.status);
   const pid = String(paymentId);
   const clasificacion = await inferClasificacionPago(idReserva);
 
-  const txExists = await pool.query(
+  const transaccionExiste = await pool.query(
     'SELECT "idTransaccion", "mp_payment_id", "EstadoPago" FROM "Transaccion" WHERE "idReserva" = $1',
     [idReserva]
   );
 
-  if (txExists.rows.length > 0) {
-    const row = txExists.rows[0];
+  if (transaccionExiste.rows.length > 0) {
+    const row = transaccionExiste.rows[0];
     if (String(row.mp_payment_id || "") === pid && row.EstadoPago === estadoPago) {
       return { idReserva, estadoPago, idempotent: true };
     }
@@ -182,7 +177,6 @@ export const crearPreferencia = async (req, res) => {
     let monto;
     let title;
     let idsTransaccionReserva = [];
-    /** @type {string | null} */
     let clasificacionPago = null;
 
     if (idSerie != null && Number.isFinite(idSerie) && idSerie > 0) {
@@ -283,15 +277,15 @@ export const crearPreferencia = async (req, res) => {
       });
     }
 
-    const existing = await pool.query(
+    const existente = await pool.query(
       'SELECT "idTransaccion", "EstadoPago" FROM "Transaccion" WHERE "idReserva" = $1',
       [idReservaPago]
     );
-    if (existing.rows.length > 0 && existing.rows[0].EstadoPago === "Pagado") {
+    if (existente.rows.length > 0 && existente.rows[0].EstadoPago === "Pagado") {
       return res.status(409).json({ message: "Esta reserva ya está pagada." });
     }
 
-    const frontend = baseUrl(process.env.FRONTEND_URL, "http://localhost:5173");
+    const frontend = urlBase(process.env.FRONTEND_URL, "http://localhost:5173");
     if (!frontend) {
       return res.status(503).json({ message: "Configure FRONTEND_URL en .env (URL del frontend, ej. http://localhost:5173)." });
     }
@@ -336,8 +330,8 @@ export const crearPreferencia = async (req, res) => {
     }
 
     let idTransaccion;
-    if (existing.rows.length > 0) {
-      idTransaccion = existing.rows[0].idTransaccion;
+    if (existente.rows.length > 0) {
+      idTransaccion = existente.rows[0].idTransaccion;
       await pool.query(
         `UPDATE "Transaccion"
          SET "mp_preference_id" = $1, "TipoPago" = 'online', "MetodoPago" = 'mercadopago', "EstadoPago" = 'Pendiente',
@@ -380,7 +374,7 @@ export const crearPreferencia = async (req, res) => {
 };
 
 export const webhook = async (req, res) => {
-  const sigResult = verifyMercadoPagoWebhookSignature(req);
+  const sigResult = verificarFirmaWebhook(req);
   if (!sigResult.ok) {
     console.warn("[MP Webhook] rechazado:", sigResult.reason);
     return res.sendStatus(401);
@@ -409,7 +403,7 @@ export const webhook = async (req, res) => {
     }
 
     const payment = await paymentRes.json();
-    const result = await persistMercadoPagoPayment(payment, paymentId);
+    const result = await persistirPagoMercadoPago(payment, paymentId);
 
     if (!result.skipped) {
       console.log(
@@ -462,7 +456,7 @@ export const verificarPago = async (req, res) => {
     }
 
     const payment = await paymentRes.json();
-    const estadoPago = mapMPStatus(payment.status);
+    const estadoPago = mapearEstadoMP(payment.status);
 
     let idReserva = null;
     if (payment.external_reference) {
@@ -470,13 +464,13 @@ export const verificarPago = async (req, res) => {
       idReserva = Number.isNaN(parsed) ? null : parsed;
     }
 
-    const authz = await assertPuedeConsultarPagoMp(req.usuario, idReserva);
-    if (!authz.ok) {
-      return res.status(authz.status).json({ message: authz.message });
+    const autorizacion = await assertPuedeConsultarPagoMp(req.usuario, idReserva);
+    if (!autorizacion.ok) {
+      return res.status(autorizacion.status).json({ message: autorizacion.message });
     }
 
     if (idReserva != null) {
-      await persistMercadoPagoPayment(payment, paymentId);
+      await persistirPagoMercadoPago(payment, paymentId);
     }
 
     res.json({ estadoPago });

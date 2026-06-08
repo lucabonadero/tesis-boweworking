@@ -91,7 +91,7 @@ function resourceStatus(r, totalDias) {
   return { key: "parcial", label: "Uso parcial", ocup };
 }
 
-/** SVG donut slice path (degrees, clockwise from top). */
+// Genera el path SVG de un segmento del donut (en grados, en sentido horario desde arriba).
 function donutSlicePath(cx, cy, rOuter, rInner, startDeg, endDeg) {
   const rad = Math.PI / 180;
   const large = endDeg - startDeg > 180 ? 1 : 0;

@@ -2,42 +2,42 @@ import pool from "../config/db.js";
 import { serializarHorariosReservaEnFilas } from "../services/horarioReserva.service.js";
 import { parsePagination } from "../utils/pagination.js";
 
-function buildPagosListFilters(query) {
-  const conditions = [];
+function armarFiltrosListaPagos(query) {
+  const condiciones = [];
   const params = [];
   let i = 1;
 
-  const qRaw = query.q ?? query.search;
-  if (qRaw != null && String(qRaw).trim() !== "") {
-    const term = `%${String(qRaw).trim()}%`;
-    conditions.push(
+  const consultaCruda = query.q ?? query.search;
+  if (consultaCruda != null && String(consultaCruda).trim() !== "") {
+    const termino = `%${String(consultaCruda).trim()}%`;
+    condiciones.push(
       `(COALESCE(r."Nombre",'') ILIKE $${i} OR r."DNI"::text ILIKE $${i} OR COALESCE(rec."Nombre",'') ILIKE $${i} OR COALESCE(e."Nombre",'') ILIKE $${i})`
     );
-    params.push(term);
+    params.push(termino);
     i++;
   }
 
   const metodo = query.metodo;
   if (metodo != null && String(metodo).trim() !== "" && String(metodo) !== "Todos") {
-    conditions.push(`t."MetodoPago" = $${i}`);
+    condiciones.push(`t."MetodoPago" = $${i}`);
     params.push(String(metodo).trim());
     i++;
   }
 
   if (query.desde) {
-    conditions.push(`r."DiaReserva" >= $${i}::date`);
+    condiciones.push(`r."DiaReserva" >= $${i}::date`);
     params.push(query.desde);
     i++;
   }
 
   if (query.hasta) {
-    conditions.push(`r."DiaReserva" <= $${i}::date`);
+    condiciones.push(`r."DiaReserva" <= $${i}::date`);
     params.push(query.hasta);
     i++;
   }
 
-  const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
-  return { where, params, nextParamIndex: i };
+  const where = condiciones.length ? `WHERE ${condiciones.join(" AND ")}` : "";
+  return { where, params, siguienteIndiceParam: i };
 }
 
 /** Lote multi-recurso o serie fija (4 semanas): un solo pago debe cubrir todas las filas. */
@@ -87,14 +87,25 @@ async function enlazarTransaccionMultireserva(client, idTransaccion, idsReserva)
   }
 }
 
-/** Monto cobrado por transacción: pack serie, suma vía TransaccionReserva, o monto de la reserva ancla. */
+/**
+ * Monto cobrado por transacción:
+ *  - extensión: su propio importe (ext."Monto"),
+ *  - pack serie (precioFinalTotal),
+ *  - lote multi-recurso (suma vía TransaccionReserva),
+ *  - turno simple (monto de la reserva ancla).
+ */
 const SQL_MONTO_TRANSACCION = `COALESCE(
+  ext."Monto",
   rs."precioFinalTotal",
   (SELECT SUM(r2."Monto")::numeric FROM "TransaccionReserva" tr2
    INNER JOIN "Reservas" r2 ON r2."idReserva" = tr2."idReserva"
    WHERE tr2."idTransaccion" = t."idTransaccion"),
   r."Monto"::numeric
 )`;
+
+/** Mensaje de migración faltante para el módulo de extensiones. */
+const MIGRACION_EXTENSION_HINT =
+  "El servidor aún no tiene aplicada la migración backend/database/migration_extension_reserva.sql. Ejecutala contra Postgres y reiniciá el backend.";
 
 export const obtenerResumenPagos = async (_req, res) => {
   try {
@@ -112,6 +123,7 @@ export const obtenerResumenPagos = async (_req, res) => {
       FROM "Transaccion" t
       LEFT JOIN "Reservas" r ON t."idReserva" = r."idReserva"
       LEFT JOIN "ReservaSerie" rs ON r."idSerie" = rs."idSerie"
+      LEFT JOIN "ReservaExtension" ext ON t."idExtension" = ext."idExtension"
     `);
 
     const { rows: pend } = await pool.query(`
@@ -136,6 +148,9 @@ export const obtenerResumenPagos = async (_req, res) => {
     });
   } catch (error) {
     console.error("Error al obtener resumen de pagos:", error);
+    if (error.code === "42P01" || error.code === "42703") {
+      return res.status(503).json({ message: MIGRACION_EXTENSION_HINT });
+    }
     res.status(500).json({ message: "Error interno del servidor" });
   }
 };
@@ -143,18 +158,19 @@ export const obtenerResumenPagos = async (_req, res) => {
 export const obtenerPagos = async (req, res) => {
   try {
     const { limit, offset } = parsePagination(req.query, { defaultLimit: 20, maxLimit: 200 });
-    const { where, params, nextParamIndex } = buildPagosListFilters(req.query);
+    const { where, params, siguienteIndiceParam } = armarFiltrosListaPagos(req.query);
 
-    const baseFrom = `
+    const desdeBase = `
       FROM "Transaccion" t
       LEFT JOIN "Reservas" r ON t."idReserva" = r."idReserva"
       LEFT JOIN "ReservaSerie" rs ON r."idSerie" = rs."idSerie"
+      LEFT JOIN "ReservaExtension" ext ON t."idExtension" = ext."idExtension"
       LEFT JOIN "Recursos" rec ON r."idRecurso" = rec."idRecurso"
       LEFT JOIN "Espacios" e ON rec."idEspacio" = e."Espacio"
     `;
 
-    const { rows: countRows } = await pool.query(`SELECT COUNT(*)::int AS c ${baseFrom} ${where}`, params);
-    const total = countRows[0]?.c ?? 0;
+    const { rows: filasConteo } = await pool.query(`SELECT COUNT(*)::int AS c ${desdeBase} ${where}`, params);
+    const total = filasConteo[0]?.c ?? 0;
 
     const { rows } = await pool.query(
       `
@@ -165,6 +181,13 @@ export const obtenerPagos = async (req, res) => {
         t."EstadoPago",
         t."TipoPago",
         t."ClasificacionPago",
+        t."idExtension",
+        ext."MinutosExtension" AS extension_minutos,
+        ext."Fracciones" AS extension_fracciones,
+        ext."Veces" AS extension_veces,
+        ext."Finalizada" AS extension_finalizada,
+        TO_CHAR(ext."HorarioFinOriginal", 'HH24:MI') AS extension_fin_anterior,
+        TO_CHAR(ext."HorarioFinActual", 'HH24:MI') AS extension_fin_nuevo,
         r."Nombre" AS reserva_nombre,
         r."DNI" AS cliente_dni,
         ${SQL_MONTO_TRANSACCION} AS "Monto",
@@ -183,10 +206,10 @@ export const obtenerPagos = async (req, res) => {
           ELSE rec."Nombre"
         END AS recurso_nombre,
         e."Nombre" AS espacio_nombre
-      ${baseFrom}
+      ${desdeBase}
       ${where}
       ORDER BY r."DiaReserva" DESC NULLS LAST, t."idTransaccion" DESC
-      LIMIT $${nextParamIndex} OFFSET $${nextParamIndex + 1}
+      LIMIT $${siguienteIndiceParam} OFFSET $${siguienteIndiceParam + 1}
     `,
       [...params, limit, offset]
     );
@@ -194,6 +217,9 @@ export const obtenerPagos = async (req, res) => {
     res.json({ items: serializarHorariosReservaEnFilas(rows), total, limit, offset });
   } catch (error) {
     console.error("Error al obtener transacciones:", error);
+    if (error.code === "42P01" || error.code === "42703") {
+      return res.status(503).json({ message: MIGRACION_EXTENSION_HINT });
+    }
     res.status(500).json({ message: "Error interno del servidor" });
   }
 };
@@ -227,8 +253,8 @@ export const registrarPago = async (req, res) => {
       return res.status(400).json({ message: "Reserva y método de pago son requeridos." });
     }
 
-    const linkedIds = await idsReservasPagoUnificado(pool, idReserva);
-    const idAncla = Math.min(...linkedIds);
+    const idsVinculados = await idsReservasPagoUnificado(pool, idReserva);
+    const idAncla = Math.min(...idsVinculados);
 
     const { rows: metaClas } = await pool.query(
       'SELECT "idSerie", "idReservaGrupo" FROM "Reservas" WHERE "idReserva" = $1',
@@ -236,9 +262,9 @@ export const registrarPago = async (req, res) => {
     );
     let clasificacionPago = null;
     if (metaClas[0]?.idSerie != null) clasificacionPago = "reserva_fija";
-    else if (linkedIds.length > 1 && metaClas[0]?.idReservaGrupo != null) clasificacionPago = "multirecurso";
+    else if (idsVinculados.length > 1 && metaClas[0]?.idReservaGrupo != null) clasificacionPago = "multirecurso";
 
-    const existing = await pool.query(
+    const existente = await pool.query(
       `SELECT t."idTransaccion", t."EstadoPago"
        FROM "Transaccion" t
        WHERE t."idReserva" = ANY($1::int[])
@@ -247,14 +273,14 @@ export const registrarPago = async (req, res) => {
           )
        ORDER BY t."idTransaccion" DESC
        LIMIT 1`,
-      [linkedIds]
+      [idsVinculados]
     );
 
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
-      if (existing.rows.length > 0) {
-        if (existing.rows[0].EstadoPago === "Pagado") {
+      if (existente.rows.length > 0) {
+        if (existente.rows[0].EstadoPago === "Pagado") {
           await client.query("ROLLBACK");
           return res.status(409).json({ message: "Esta reserva ya está pagada." });
         }
@@ -262,9 +288,9 @@ export const registrarPago = async (req, res) => {
           `UPDATE "Transaccion" SET "MetodoPago" = $1, "EstadoPago" = 'Pagado', "TipoPago" = 'presencial',
              "ClasificacionPago" = COALESCE("ClasificacionPago", $3)
            WHERE "idTransaccion" = $2 RETURNING *`,
-          [MetodoPago, existing.rows[0].idTransaccion, clasificacionPago]
+          [MetodoPago, existente.rows[0].idTransaccion, clasificacionPago]
         );
-        await enlazarTransaccionMultireserva(client, rows[0].idTransaccion, linkedIds);
+        await enlazarTransaccionMultireserva(client, rows[0].idTransaccion, idsVinculados);
         await client.query("COMMIT");
         return res.status(200).json(rows[0]);
       }
@@ -275,7 +301,7 @@ export const registrarPago = async (req, res) => {
          RETURNING *`,
         [idAncla, MetodoPago, clasificacionPago]
       );
-      await enlazarTransaccionMultireserva(client, rows[0].idTransaccion, linkedIds);
+      await enlazarTransaccionMultireserva(client, rows[0].idTransaccion, idsVinculados);
       await client.query("COMMIT");
       res.status(201).json(rows[0]);
     } catch (err) {
@@ -316,15 +342,27 @@ export const actualizarPago = async (req, res) => {
 
 export const cambiarEstadoPago = async (req, res) => {
   try {
-    const { EstadoPago } = req.body;
+    const { EstadoPago, MetodoPago } = req.body;
     if (!EstadoPago || !["Pagado", "Pendiente"].includes(EstadoPago)) {
       return res.status(400).json({ message: "EstadoPago inválido" });
     }
 
-    const result = await pool.query(
-      'UPDATE "Transaccion" SET "EstadoPago" = $1 WHERE "idTransaccion" = $2 RETURNING "idReserva"',
-      [EstadoPago, req.params.id]
-    );
+    // Al cobrar (Pendiente → Pagado) se puede registrar el método elegido.
+    // Útil para liquidar cargos de extensión que nacieron sin método.
+    let result;
+    if (EstadoPago === "Pagado" && MetodoPago != null && String(MetodoPago).trim() !== "") {
+      result = await pool.query(
+        `UPDATE "Transaccion"
+         SET "EstadoPago" = $1, "MetodoPago" = $2, "TipoPago" = COALESCE("TipoPago", 'presencial')
+         WHERE "idTransaccion" = $3 RETURNING "idReserva"`,
+        [EstadoPago, String(MetodoPago).trim(), req.params.id]
+      );
+    } else {
+      result = await pool.query(
+        'UPDATE "Transaccion" SET "EstadoPago" = $1 WHERE "idTransaccion" = $2 RETURNING "idReserva"',
+        [EstadoPago, req.params.id]
+      );
+    }
 
     if (result.rowCount === 0) {
       return res.status(404).json({ message: "Transaccion no encontrada" });
@@ -341,7 +379,7 @@ export const obtenerReservasSinPago = async (req, res) => {
   try {
     const { limit, offset } = parsePagination(req.query, { defaultLimit: 100, maxLimit: 500 });
 
-    const baseFrom = `
+    const desdeBase = `
       FROM "Reservas" r
       LEFT JOIN "Recursos" rec ON r."idRecurso" = rec."idRecurso"
       LEFT JOIN "Espacios" e ON rec."idEspacio" = e."Espacio"
@@ -355,15 +393,15 @@ export const obtenerReservasSinPago = async (req, res) => {
       )
     `;
 
-    const { rows: countRows } = await pool.query(`SELECT COUNT(*)::int AS c ${baseFrom}`);
-    const total = countRows[0]?.c ?? 0;
+    const { rows: filasConteo } = await pool.query(`SELECT COUNT(*)::int AS c ${desdeBase}`);
+    const total = filasConteo[0]?.c ?? 0;
 
     const { rows } = await pool.query(
       `
       SELECT r.*,
              rec."Nombre" AS recurso_nombre,
              e."Nombre" AS espacio_nombre
-      ${baseFrom}
+      ${desdeBase}
       ORDER BY r."DiaReserva" DESC NULLS LAST, r."idReserva" DESC
       LIMIT $1 OFFSET $2
     `,
@@ -379,11 +417,11 @@ export const obtenerReservasSinPago = async (req, res) => {
 
 export const eliminarPago = async (req, res) => {
   try {
-    const findResult = await pool.query(
+    const resultadoBusqueda = await pool.query(
       'SELECT "idReserva" FROM "Transaccion" WHERE "idTransaccion" = $1',
       [req.params.id]
     );
-    if (findResult.rows.length === 0) {
+    if (resultadoBusqueda.rows.length === 0) {
       return res.status(404).json({ message: "Transaccion no encontrada" });
     }
 

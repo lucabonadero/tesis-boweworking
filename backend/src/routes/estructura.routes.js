@@ -16,7 +16,7 @@ const router = Router();
 // Todas las rutas requieren token válido
 router.use(verificarToken);
 
-// Lectura: ver_espacios OR gestionar_estructura — quien puede modificar también puede ver.
+// Lectura: ver_espacios o gestionar_estructura — quien puede modificar también puede ver.
 const puedeVerEstructura = verificarPermisoAlguno("ver_espacios", "gestionar_estructura");
 router.get("/", puedeVerEstructura, obtenerEstructura);
 router.get("/tipos-recurso", puedeVerEstructura, obtenerTiposRecurso);

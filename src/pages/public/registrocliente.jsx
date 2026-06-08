@@ -166,6 +166,7 @@ export default function RegistroCliente() {
   const [packFechaInicio, setPackFechaInicio] = useState(null);
 
   const debounceRef = useRef(null);
+  const topRef = useRef(null);
 
   const fijoDiaSemanaIso = useMemo(() => {
     if (!fijoFechaInicio) return null;
@@ -182,6 +183,25 @@ export default function RegistroCliente() {
       openAuthModal("completar-perfil");
     }
   }, [authLoading, isAuthenticated, perfilCompleto, openAuthModal]);
+
+  // UX: cada vez que el usuario avanza/retrocede de paso o cambia el tipo de
+  // reserva, llevamos la vista a la parte superior del contenido a interactuar
+  // (descontando el header sticky). Evita quedar en una zona vacía y mejora la
+  // experiencia, sobre todo en mobile. Respeta prefers-reduced-motion.
+  useEffect(() => {
+    const prefersReduced =
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    const behavior = prefersReduced ? "auto" : "smooth";
+    const el = topRef.current;
+    if (!el) {
+      window.scrollTo({ top: 0, behavior });
+      return;
+    }
+    const headerH = document.querySelector(".header")?.offsetHeight ?? 0;
+    const top = el.getBoundingClientRect().top + window.scrollY - headerH - 12;
+    window.scrollTo({ top: Math.max(top, 0), behavior });
+  }, [step, activeTab]);
 
   useEffect(() => {
     const pagoParam = searchParams.get("pago");
@@ -229,7 +249,7 @@ export default function RegistroCliente() {
     setActiveTab(tab);
   };
 
-  // Auto-fetch availability when all turno fields are filled
+  // Busca disponibilidad automáticamente cuando se completan los campos del turno
   useEffect(() => {
     if (activeTab !== "turno" || !turnoFecha || !turnoHora || !turnoDuracion) {
       if (activeTab === "turno") {
@@ -244,7 +264,7 @@ export default function RegistroCliente() {
     return () => clearTimeout(debounceRef.current);
   }, [turnoFecha, turnoHora, turnoDuracion, activeTab]);
 
-  // Auto-fetch availability when all pack fields are filled
+  // Busca disponibilidad automáticamente cuando se completan los campos del pack
   useEffect(() => {
     if (activeTab !== "pack" || !packTipo || !packFechaInicio) {
       if (activeTab === "pack") {
@@ -396,7 +416,7 @@ export default function RegistroCliente() {
     }
   };
 
-  // Group resources by espacio
+  // Agrupa los recursos por espacio
   const recursoGroupsByEspacio = useMemo(() => {
     if (disponibilidad.length === 0) return [];
 
@@ -719,7 +739,7 @@ export default function RegistroCliente() {
     });
   };
 
-  // Resource card renderer (replaces plain chips)
+  // Tarjeta de cada recurso seleccionable
   const renderResourceCard = (r) => {
     const isGrupo = r.esGrupo;
     const available = r.disponible !== false;
@@ -814,7 +834,7 @@ export default function RegistroCliente() {
       return null;
     });
 
-  // Auth gate
+  // Pantalla de acceso (cuando no hay sesión)
   const renderAuthGate = () => (
     <div className={styles.authGate}>
       <LockOutlined className={styles.authGateIcon} />
@@ -894,10 +914,7 @@ export default function RegistroCliente() {
     );
   }
 
-  // ════════════════════════════════════════════════════
-  // STEP 0: Unified date/time + inline availability
-  // ════════════════════════════════════════════════════
-
+  // Paso 0: fecha/horario y disponibilidad en línea
   const renderStep0 = () => {
     const isTurno = activeTab === "turno";
     const isFijo = activeTab === "fijo";
@@ -1216,7 +1233,7 @@ export default function RegistroCliente() {
           </>
         )}
 
-        {/* Inline availability results */}
+        {/* Resultados de disponibilidad */}
         <div className={styles.availabilitySection}>
           {loadingDispo && (
             <div className={styles.availabilityLoading}>
@@ -1315,10 +1332,7 @@ export default function RegistroCliente() {
     );
   };
 
-  // ════════════════════════════════════════════════════
-  // STEP 1: Profile summary + confirmation
-  // ════════════════════════════════════════════════════
-
+  // Paso 1: resumen del perfil y confirmación
   const renderStep1 = () => {
     const sel =
       activeTab === "turno"
@@ -1425,10 +1439,7 @@ export default function RegistroCliente() {
     );
   };
 
-  // ════════════════════════════════════════════════════
-  // STEP 2: Confirmation + payment options
-  // ════════════════════════════════════════════════════
-
+  // Paso 2: confirmación y opciones de pago
   const renderStep2 = () => (
     <div className={styles.confirmStep}>
       <Result
@@ -1571,7 +1582,7 @@ export default function RegistroCliente() {
     </div>
   );
 
-  // Steps config (3 steps now instead of 4)
+  // Configuración de los 3 pasos del asistente de reserva
   const stepsConfig = [
     { title: "Fecha y espacio", icon: <CalendarOutlined /> },
     { title: "Confirmar", icon: <UserOutlined /> },
@@ -1584,6 +1595,7 @@ export default function RegistroCliente() {
     <div>
       <Header />
       <main className={styles.wrapper}>
+        <div ref={topRef} aria-hidden className={styles.scrollAnchor} />
         <h1 className={styles.mainHeader}>
           Reserva tu <span className={styles.textEspacio}>Espacio</span>
         </h1>

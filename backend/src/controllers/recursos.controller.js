@@ -1,5 +1,5 @@
 import pool from "../config/db.js";
-import { getDisponibilidadTurno } from "../services/disponibilidadTurno.service.js";
+import { obtenerDisponibilidadTurno } from "../services/disponibilidadTurno.service.js";
 import { horariosParaReservaTurno } from "../services/horarioReserva.service.js";
 import {
   validarVentanaOperativaTurno,
@@ -133,9 +133,7 @@ export const actualizarRecurso = async (req, res) => {
   }
 };
 
-/**
- * Soft delete: bloquea si hay reservas futuras o sub-recursos activos.
- */
+// Borrado lógico: bloquea si hay reservas futuras o sub-recursos activos.
 export const eliminarRecurso = async (req, res) => {
   const idRecurso = req.params.id;
   try {
@@ -172,30 +170,22 @@ export const eliminarRecurso = async (req, res) => {
   }
 };
 
-/**
- * GET /api/recursos/disponibilidad
- *
- * For turnos:  ?fecha=2026-04-15&horaInicio=10:00&horaFin=12:00
- * For packs:   ?tipo=semanal&fechaInicio=2026-04-15
- *              ?tipo=mensual&fechaInicio=2026-04-15
- *
- * Returns all recursos with `disponible: true/false`.
- * For pack queries, only returns recursos marked AceptaPack(Semanal|Mensual).
- */
+// Disponibilidad de recursos. Por turno: fecha + horaInicio + horaFin.
+// Por pack (semanal/mensual): fechaInicio. En packs solo devuelve recursos que aceptan ese pack.
 export const obtenerDisponibilidad = async (req, res) => {
   try {
     const { fecha, horaInicio, horaFin, tipo, fechaInicio } = req.query;
 
-    const isPack = tipo === "semanal" || tipo === "mensual";
+    const esPack = tipo === "semanal" || tipo === "mensual";
 
-    if (!isPack && (!fecha || !horaInicio || !horaFin)) {
+    if (!esPack && (!fecha || !horaInicio || !horaFin)) {
       return res.status(400).json({ message: "Parámetros requeridos: fecha, horaInicio, horaFin" });
     }
-    if (isPack && !fechaInicio) {
+    if (esPack && !fechaInicio) {
       return res.status(400).json({ message: "Parámetro requerido: fechaInicio" });
     }
 
-    if (!isPack) {
+    if (!esPack) {
       const nh = horariosParaReservaTurno(horaInicio, horaFin);
       if (nh.error) return res.status(400).json({ message: nh.error });
       const errH = validarVentanaOperativaTurno(nh.horaIni, nh.horaFin);
@@ -204,39 +194,39 @@ export const obtenerDisponibilidad = async (req, res) => {
       if (errDia) return res.status(400).json({ message: errDia });
       const errPasado = validarInicioTurnoNoEnElPasado(fecha, nh.horaIni);
       if (errPasado) return res.status(400).json({ message: errPasado });
-      const results = await getDisponibilidadTurno(fecha, nh.horaIni, nh.horaFin);
-      return res.json(results);
+      const resultados = await obtenerDisponibilidadTurno(fecha, nh.horaIni, nh.horaFin);
+      return res.json(resultados);
     }
 
-    const queryFecha = fechaInicio;
-    const errDiaPack = validarDiaReservaNoEnElPasado(queryFecha);
+    const fechaConsulta = fechaInicio;
+    const errDiaPack = validarDiaReservaNoEnElPasado(fechaConsulta);
     if (errDiaPack) return res.status(400).json({ message: errDiaPack });
     const dias = tipo === "semanal" ? 6 : 29;
     const qHoraIni = "00:00";
     const qHoraFin = "23:59";
     const qTipo = tipo;
 
-    // Filtrar por flag en lugar de nombre. AceptaPackSemanal/Mensual lo configura el admin.
-    const flagCol = tipo === "semanal" ? "AceptaPackSemanal" : "AceptaPackMensual";
+    // Filtrar por el flag que configura el admin (AceptaPackSemanal/Mensual), no por nombre.
+    const columnaAcepta = tipo === "semanal" ? "AceptaPackSemanal" : "AceptaPackMensual";
 
     const { rows: recursos } = await pool.query(`
       SELECT r.*, e."Nombre" AS espacio_nombre
       FROM "Recursos" r
       LEFT JOIN "Espacios" e ON r."idEspacio" = e."Espacio"
       WHERE r."Activo" = true
-        AND r."${flagCol}" = true
+        AND r."${columnaAcepta}" = true
       ORDER BY r."idEspacio", r."idRecursoPadre" NULLS FIRST, r."Orden", r."idRecurso"
     `);
 
-    const results = [];
+    const resultados = [];
     for (const rec of recursos) {
-      const hasChildren = recursos.some((r) => r.idRecursoPadre === rec.idRecurso);
-      if (hasChildren) {
-        results.push({ ...rec, disponible: null, esGrupo: true });
+      const tieneHijos = recursos.some((r) => r.idRecursoPadre === rec.idRecurso);
+      if (tieneHijos) {
+        resultados.push({ ...rec, disponible: null, esGrupo: true });
         continue;
       }
 
-      const { rows: conflict } = await pool.query(
+      const { rows: conflicto } = await pool.query(
         `SELECT COUNT(*) AS n FROM "Reservas" res WHERE res."idRecurso" = $1 AND (
           (COALESCE(res."TipoReserva",'turno') = 'turno' AND (
             CASE $2
@@ -254,27 +244,27 @@ export const obtenerDisponibilidad = async (req, res) => {
               ELSE res."DiaReserva" <= ($3::DATE + $6::INT) AND (res."DiaReserva"::DATE + 29) >= $3::DATE
             END))
         )`,
-        [rec.idRecurso, qTipo, queryFecha, qHoraIni, qHoraFin, dias]
+        [rec.idRecurso, qTipo, fechaConsulta, qHoraIni, qHoraFin, dias]
       );
-      results.push({ ...rec, disponible: parseInt(conflict[0].n) === 0, esGrupo: false });
+      resultados.push({ ...rec, disponible: parseInt(conflicto[0].n) === 0, esGrupo: false });
     }
 
-    for (const rec of results) {
+    for (const rec of resultados) {
       if (rec.esGrupo) continue;
       if (rec.esCompleto && rec.disponible) {
-        const siblings = results.filter(
+        const hermanos = resultados.filter(
           (r) =>
             !r.esGrupo &&
             !r.esCompleto &&
             ((rec.idRecursoPadre && r.idRecursoPadre === rec.idRecursoPadre) ||
               (!rec.idRecursoPadre && r.idEspacio === rec.idEspacio && !r.idRecursoPadre))
         );
-        if (siblings.some((s) => !s.disponible)) {
+        if (hermanos.some((s) => !s.disponible)) {
           rec.disponible = false;
         }
       }
       if (!rec.esCompleto && rec.disponible) {
-        const completoRes = results.find(
+        const recursoCompleto = resultados.find(
           (r) =>
             r.esCompleto &&
             !r.esGrupo &&
@@ -282,13 +272,13 @@ export const obtenerDisponibilidad = async (req, res) => {
             ((rec.idRecursoPadre && r.idRecursoPadre === rec.idRecursoPadre) ||
               (!rec.idRecursoPadre && r.idEspacio === rec.idEspacio && !r.idRecursoPadre))
         );
-        if (completoRes && completoRes.disponible === false) {
+        if (recursoCompleto && recursoCompleto.disponible === false) {
           rec.disponible = false;
         }
       }
     }
 
-    res.json(results);
+    res.json(resultados);
   } catch (error) {
     console.error("Error al obtener disponibilidad:", error);
     res.status(500).json({ message: "Error interno del servidor" });

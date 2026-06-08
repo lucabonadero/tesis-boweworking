@@ -22,7 +22,7 @@ export default function PagoConfirmacion() {
   const [tx, setTx] = useState(null);
   const [error, setError] = useState(null);
 
-  const fetchEstado = useCallback(async () => {
+  const obtenerEstado = useCallback(async () => {
     if (!Number.isFinite(idReserva) || idReserva <= 0) return;
     setLoadingTx(true);
     setError(null);
@@ -49,20 +49,20 @@ export default function PagoConfirmacion() {
       openAuthModal("login");
       return;
     }
-    if (Number.isFinite(idReserva) && idReserva > 0) fetchEstado();
-  }, [authLoading, isAuthenticated, openAuthModal, idReserva, fetchEstado]);
+    if (Number.isFinite(idReserva) && idReserva > 0) obtenerEstado();
+  }, [authLoading, isAuthenticated, openAuthModal, idReserva, obtenerEstado]);
 
   useEffect(() => {
     if (!tx || tx.EstadoPago !== "Pendiente") return;
-    const t = setTimeout(() => fetchEstado(), 3500);
+    const t = setTimeout(() => obtenerEstado(), 3500);
     return () => clearTimeout(t);
-  }, [tx, fetchEstado]);
+  }, [tx, obtenerEstado]);
 
   const invalidId = !Number.isFinite(idReserva) || idReserva <= 0;
 
-  let headline = "Estado de tu pago";
-  if (resultadoMp === "error") headline = "El pago no se completó";
-  else if (resultadoMp === "pendiente") headline = "Pago pendiente de confirmación";
+  let titulo = "Estado de tu pago";
+  if (resultadoMp === "error") titulo = "El pago no se completó";
+  else if (resultadoMp === "pendiente") titulo = "Pago pendiente de confirmación";
 
   return (
     <div className={styles.page}>
@@ -102,7 +102,7 @@ export default function PagoConfirmacion() {
             />
           ) : (
             <>
-              <Title level={3}>{headline}</Title>
+              <Title level={3}>{titulo}</Title>
               <Paragraph type="secondary">
                 Reserva <Text strong>#{idReserva}</Text>
                 {resultadoMp ? (
@@ -126,7 +126,7 @@ export default function PagoConfirmacion() {
                   title="No pudimos cargar el estado"
                   subTitle={error}
                   extra={
-                    <Button type="primary" onClick={fetchEstado} loading={loadingTx}>
+                    <Button type="primary" onClick={obtenerEstado} loading={loadingTx}>
                       Reintentar
                     </Button>
                   }
@@ -159,7 +159,7 @@ export default function PagoConfirmacion() {
                     </div>
                   ) : null}
                   <Space wrap>
-                    <Button onClick={fetchEstado} loading={loadingTx}>
+                    <Button onClick={obtenerEstado} loading={loadingTx}>
                       Actualizar estado
                     </Button>
                     <Link to="/perfil">

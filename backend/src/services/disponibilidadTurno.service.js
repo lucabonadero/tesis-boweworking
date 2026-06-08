@@ -1,12 +1,10 @@
 import pool from "../config/db.js";
 import { mensajeTurnoNoDisponibleParaFila } from "./reservaRules.service.js";
 
-/**
- * Disponibilidad por turno (fecha + rango horario), misma lógica que GET /api/recursos/disponibilidad.
- * Centralizado para reutilizar en IA y evitar duplicar reglas de conflicto.
- */
-export async function getDisponibilidadTurno(fecha, horaInicio, horaFin) {
-  const queryFecha = fecha;
+// Disponibilidad por turno (fecha + rango horario), misma lógica que GET /api/recursos/disponibilidad.
+// Centralizado para reutilizarlo en la IA y no duplicar las reglas de conflicto.
+export async function obtenerDisponibilidadTurno(fecha, horaInicio, horaFin) {
+  const fechaConsulta = fecha;
   const dias = 0;
   const qHoraIni = horaInicio;
   const qHoraFin = horaFin;
@@ -21,15 +19,15 @@ export async function getDisponibilidadTurno(fecha, horaInicio, horaFin) {
     ORDER BY r."idEspacio", r."idRecursoPadre" NULLS FIRST, r."Orden", r."idRecurso"
   `);
 
-  const results = [];
+  const resultados = [];
   for (const rec of recursos) {
-    const hasChildren = recursos.some((r) => r.idRecursoPadre === rec.idRecurso);
-    if (hasChildren) {
-      results.push({ ...rec, disponible: null, esGrupo: true });
+    const tieneHijos = recursos.some((r) => r.idRecursoPadre === rec.idRecurso);
+    if (tieneHijos) {
+      resultados.push({ ...rec, disponible: null, esGrupo: true });
       continue;
     }
 
-    const { rows: conflict } = await pool.query(
+    const { rows: conflicto } = await pool.query(
       `SELECT COUNT(*) AS n FROM "Reservas" res WHERE res."idRecurso" = $1 AND (
         (COALESCE(res."TipoReserva",'turno') = 'turno' AND (
           CASE $2
@@ -47,27 +45,27 @@ export async function getDisponibilidadTurno(fecha, horaInicio, horaFin) {
             ELSE res."DiaReserva" <= ($3::DATE + $6::INT) AND (res."DiaReserva"::DATE + 29) >= $3::DATE
           END))
       )`,
-      [rec.idRecurso, qTipo, queryFecha, qHoraIni, qHoraFin, dias]
+      [rec.idRecurso, qTipo, fechaConsulta, qHoraIni, qHoraFin, dias]
     );
-    results.push({ ...rec, disponible: parseInt(conflict[0].n) === 0, esGrupo: false });
+    resultados.push({ ...rec, disponible: parseInt(conflicto[0].n) === 0, esGrupo: false });
   }
 
-  for (const rec of results) {
+  for (const rec of resultados) {
     if (rec.esGrupo) continue;
     if (rec.esCompleto && rec.disponible) {
-      const siblings = results.filter(
+      const hermanos = resultados.filter(
         (r) =>
           !r.esGrupo &&
           !r.esCompleto &&
           ((rec.idRecursoPadre && r.idRecursoPadre === rec.idRecursoPadre) ||
             (!rec.idRecursoPadre && r.idEspacio === rec.idEspacio && !r.idRecursoPadre))
       );
-      if (siblings.some((s) => !s.disponible)) {
+      if (hermanos.some((s) => !s.disponible)) {
         rec.disponible = false;
       }
     }
     if (!rec.esCompleto && rec.disponible) {
-      const completoRes = results.find(
+      const recursoCompleto = resultados.find(
         (r) =>
           r.esCompleto &&
           !r.esGrupo &&
@@ -75,13 +73,13 @@ export async function getDisponibilidadTurno(fecha, horaInicio, horaFin) {
           ((rec.idRecursoPadre && r.idRecursoPadre === rec.idRecursoPadre) ||
             (!rec.idRecursoPadre && r.idEspacio === rec.idEspacio && !r.idRecursoPadre))
       );
-      if (completoRes && completoRes.disponible === false) {
+      if (recursoCompleto && recursoCompleto.disponible === false) {
         rec.disponible = false;
       }
     }
   }
 
-  return results.filter((r) => {
+  return resultados.filter((r) => {
     if (r.esGrupo) {
       return r.EsReservablePorTurno !== false;
     }
@@ -91,7 +89,7 @@ export async function getDisponibilidadTurno(fecha, horaInicio, horaFin) {
 
 /** Devuelve true si el recurso está libre en ese turno (y es hoja reservable). */
 export async function recursoDisponibleEnTurno(idRecurso, fecha, horaInicio, horaFin) {
-  const rows = await getDisponibilidadTurno(fecha, horaInicio, horaFin);
+  const rows = await obtenerDisponibilidadTurno(fecha, horaInicio, horaFin);
   const r = rows.find((x) => x.idRecurso === idRecurso);
   return Boolean(r && !r.esGrupo && r.disponible === true);
 }

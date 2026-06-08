@@ -106,11 +106,8 @@ export const actualizarEspacio = async (req, res) => {
   }
 };
 
-/**
- * Soft delete: marca Activo=false en vez de borrar.
- * Bloquea si tiene sub-espacios o recursos activos.
- * Preserva integridad de reservas históricas.
- */
+// Borrado lógico: marca Activo=false en vez de borrar, para no romper reservas históricas.
+// Bloquea si todavía tiene sub-espacios o recursos activos.
 export const eliminarEspacio = async (req, res) => {
   const idEspacio = req.params.id;
   try {

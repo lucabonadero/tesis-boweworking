@@ -1,9 +1,9 @@
 import React from "react";
 import { Link } from "react-router-dom";
 
-export default function Footer() {
+export default function Footer({ className = "" }) {
   return (
-    <footer className="footer" id="footer">
+    <footer className={`footer ${className}`} id="footer">
       <div className="footer__top">
         <div className="footer__info">
           <div className="footer__bo">
@@ -20,7 +20,7 @@ export default function Footer() {
               <a className="fa fa-image" href="https://boweworking.pixieset.com/boweworking/" target="_blank" rel="noopener noreferrer" aria-label="Galeria"></a>
             </div>
             <div className="footer__links">
-              <Link to="/">Home</Link>
+              <Link to="/">Inicio</Link>
               <Link to="/registro">Reservar</Link>
               <Link to="/espacios">Espacios</Link>
             </div>

@@ -7,19 +7,16 @@ export function esOficinaCompletaSoloPack(recursoRow) {
   return n.includes("oficina");
 }
 
-/**
- * Reglas de exclusión del flujo por hora (turno), alineadas con crearReserva.
- * @param {Record<string, unknown>} row con Nombre, esCompleto, idRecursoPadre, parent_name (join opcional)
- * @returns {string | null} mensaje de error o null si el recurso admite turno por hora
- */
+// Reglas de exclusión del flujo por hora (turno), alineadas con crearReserva.
+// Devuelve el mensaje de error, o null si el recurso admite turno por hora.
 export function mensajeTurnoNoDisponibleParaFila(row) {
   if (!row) return null;
   if (esOficinaCompletaSoloPack(row)) {
     return "La oficina completa no está disponible por franjas horarias. Usá packs semanal o mensual u otro espacio.";
   }
-  const name = String(row.Nombre || "").toLowerCase();
-  const parentName = String(row.parent_name ?? "").toLowerCase();
-  if (name.includes("escritorio") || (row.idRecursoPadre != null && parentName.includes("oficina"))) {
+  const nombre = String(row.Nombre || "").toLowerCase();
+  const nombrePadre = String(row.parent_name ?? "").toLowerCase();
+  if (nombre.includes("escritorio") || (row.idRecursoPadre != null && nombrePadre.includes("oficina"))) {
     return "Los escritorios de oficina privada solo pueden reservarse con pack semanal o mensual.";
   }
   return null;

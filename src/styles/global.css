@@ -365,10 +365,53 @@ body {
    ═══════════════════════════════════════════════════════════════ */
 
 .footer {
-    background: linear-gradient(135deg, var(--color-neutral-900) 0%, #16213e 100%);
+    background: linear-gradient(
+        125deg,
+        var(--color-brand-primary-dark) 0%,
+        var(--color-brand-primary) 45%,
+        var(--color-brand-secondary) 100%
+    );
     color: var(--color-text-inverse);
     padding: 60px 40px 32px;
     font-family: var(--font-family);
+    position: relative;
+    overflow: hidden;
+}
+
+/* Cuando el footer está dentro del wrapper de la home (ctaFooterWrap),
+   hereda el gradiente del padre — sin corte visual */
+.footer--transparent {
+    background: transparent;
+    padding-top: 0;
+}
+
+.footer--transparent::before,
+.footer--transparent::after {
+    display: none;
+}
+
+.footer::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(
+        ellipse at 0% 0%,
+        rgba(255, 255, 255, 0.18) 0%,
+        transparent 55%
+    );
+    pointer-events: none;
+}
+
+.footer::after {
+    content: "";
+    position: absolute;
+    right: -120px;
+    bottom: -120px;
+    width: 360px;
+    height: 360px;
+    border-radius: 50%;
+    background: radial-gradient(circle, var(--color-brand-secondary-glow) 0%, transparent 70%);
+    pointer-events: none;
 }
 
 .footer__top {
@@ -377,6 +420,8 @@ body {
     gap: 40px;
     max-width: 1200px;
     margin: 0 auto;
+    position: relative;
+    z-index: 1;
 }
 
 .footer__info {
@@ -393,7 +438,7 @@ body {
     font-size: 22px;
     font-weight: var(--weight-bold);
     margin-bottom: 12px;
-    color: var(--color-brand-primary);
+    color: #ffffff;
 }
 
 .footer__bo p {
@@ -414,14 +459,14 @@ body {
     margin-right: 10px;
     font-size: 1.1rem;
     color: var(--color-text-inverse);
-    background: var(--color-brand-primary-mid);
+    background: rgba(255, 255, 255, 0.18);
     border-radius: 50%;
     padding: 10px;
     transition: background var(--transition-normal), transform var(--transition-normal);
 }
 
 .footer__social a:hover {
-    background: var(--color-brand-primary);
+    background: rgba(255, 255, 255, 0.32);
     transform: translateY(-2px);
 }
 
@@ -468,7 +513,7 @@ body {
 
 .footer__card h4 {
     margin-bottom: 8px;
-    color: var(--color-brand-primary);
+    color: #ffffff;
     font-size: 16px;
     font-weight: var(--weight-bold);
 }
@@ -477,7 +522,7 @@ body {
     margin-top: auto;
     text-decoration: none;
     font-weight: var(--weight-semibold);
-    color: var(--color-brand-primary);
+    color: rgba(255, 255, 255, 0.95);
     font-size: 14px;
     transition: opacity var(--transition-fast);
 }
@@ -505,10 +550,12 @@ body {
     max-width: 1200px;
     margin: 32px auto 0;
     padding-top: 24px;
-    border-top: 1px solid rgba(255, 255, 255, 0.10);
+    border-top: 1px solid rgba(255, 255, 255, 0.20);
     text-align: center;
     font-size: 13px;
-    color: rgba(255, 255, 255, 0.40);
+    color: rgba(255, 255, 255, 0.70);
+    position: relative;
+    z-index: 1;
 }
 
 @media (max-width: 768px) {

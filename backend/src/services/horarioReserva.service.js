@@ -1,12 +1,6 @@
-/**
- * Normalización de horas de turno para persistencia y comparaciones en PostgreSQL.
- * Columnas "HorarioReserva" / "HorarioFin": tipo TIME; el contrato JSON con el front sigue siendo HH:MM (24 h).
- */
+// Normalización de horas de turno para persistir y comparar en PostgreSQL.
+// Las columnas "HorarioReserva" / "HorarioFin" son tipo TIME; el contrato JSON con el front sigue siendo HH:MM (24 h).
 
-/**
- * @param {unknown} raw
- * @returns {{ value: string } | { error: string }}
- */
 export function normalizarHoraTurnoInput(raw) {
   if (raw == null) return { value: "" };
   const s = String(raw).trim();
@@ -21,11 +15,6 @@ export function normalizarHoraTurnoInput(raw) {
   return { value: `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}` };
 }
 
-/**
- * @param {unknown} horaIni
- * @param {unknown} horaFin
- * @returns {{ horaIni: string; horaFin: string } | { error: string }}
- */
 export function horariosParaReservaTurno(horaIni, horaFin) {
   const a = normalizarHoraTurnoInput(horaIni);
   if (a.error) return a;
@@ -35,12 +24,8 @@ export function horariosParaReservaTurno(horaIni, horaFin) {
   return { horaIni: a.value, horaFin: b.value };
 }
 
-/**
- * Tras leer TIME desde PostgreSQL (node-pg suele devolver "HH:MM:SS" o en raros casos Date),
- * expone HH:MM como espera el front durante y después de la migración desde VARCHAR.
- * @param {unknown} raw
- * @returns {string | null}
- */
+// Tras leer un TIME desde PostgreSQL (node-pg suele devolver "HH:MM:SS" o, en casos raros, un Date),
+// expone HH:MM como espera el front durante y después de la migración desde VARCHAR.
 export function formatearHoraParaApi(raw) {
   if (raw == null || raw === "") return null;
   if (raw instanceof Date) {
@@ -56,30 +41,21 @@ export function formatearHoraParaApi(raw) {
   return `${String(hh).padStart(2, "0")}:${m[2]}`;
 }
 
-/**
- * @param {Record<string, unknown> | null | undefined} row
- * @returns {Record<string, unknown> | null | undefined}
- */
 export function serializarHorariosReservaEnFila(row) {
   if (row == null || typeof row !== "object") return row;
   const out = { ...row };
   if ("HorarioReserva" in out) out.HorarioReserva = formatearHoraParaApi(out.HorarioReserva);
   if ("HorarioFin" in out) out.HorarioFin = formatearHoraParaApi(out.HorarioFin);
+  if ("HorarioFinOriginal" in out) out.HorarioFinOriginal = formatearHoraParaApi(out.HorarioFinOriginal);
   return out;
 }
 
-/**
- * @param {Record<string, unknown>[]} rows
- */
 export function serializarHorariosReservaEnFilas(rows) {
   if (!Array.isArray(rows)) return rows;
   return rows.map((r) => serializarHorariosReservaEnFila(r));
 }
 
-/**
- * Disponibilidad por rango: json_agg con detalle de reservas anidadas.
- * @param {Record<string, unknown>[]} rows
- */
+// Disponibilidad por rango: json_agg con el detalle de reservas anidadas.
 export function normalizarHorariosEnDisponibilidadRango(rows) {
   if (!Array.isArray(rows)) return;
   for (const row of rows) {
