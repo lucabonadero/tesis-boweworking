@@ -109,7 +109,7 @@ export default function Header() {
                 onClick={(e) => {
                   e.preventDefault();
                   const footer = document.getElementById("footer");
-                  if (footer) footer.scrollIntoView({ behavior: "smooth" });
+                  if (footer) footer.scrollIntoView({ behavior: "smooth", block: "end" });
                 }}
                 className={claseEnlace("/acerca")}
               >
@@ -199,7 +199,7 @@ export default function Header() {
                   e.preventDefault();
                   setMenuAbierto(false);
                   const footer = document.getElementById("footer");
-                  if (footer) footer.scrollIntoView({ behavior: "smooth" });
+                  if (footer) footer.scrollIntoView({ behavior: "smooth", block: "end" });
                 }}
               >
                 <span className="header__drawer-icon"><InfoCircleOutlined /></span>
