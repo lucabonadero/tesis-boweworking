@@ -111,7 +111,7 @@ export const registro = async (req, res) => {
   }
 };
 
-// ── POST /login (unificado: busca en las tablas de admin/empleado y de cliente) ──
+// ── POST /login (unificado: busca en las tablas de admin/staff y de cliente) ──
 
 export const login = async (req, res) => {
   try {
@@ -264,7 +264,7 @@ export const googleAuth = async (req, res) => {
 
 export const me = async (req, res) => {
   try {
-    if (req.usuario.rol === "admin" || req.usuario.rol === "empleado" || req.usuario.rol === "staff") {
+    if (req.usuario.rol === "admin" || req.usuario.rol === "staff") {
       const { rows } = await pool.query(
         "SELECT id, email, rol FROM usuarios WHERE id = $1",
         [req.usuario.id]

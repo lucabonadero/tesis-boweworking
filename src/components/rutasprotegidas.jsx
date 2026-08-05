@@ -5,7 +5,7 @@ import { useAuth } from "../context/AuthContext.jsx";
 
 // soloAdmin: restringe al rol admin (ej. gestión financiera, gestión de usuarios).
 // permisoRequerido: clave de permiso específica que el usuario debe tener.
-// Por defecto permite el acceso a cualquier personal del coworking (admin, empleado o staff).
+// Por defecto permite el acceso a cualquier personal del coworking (admin o staff).
 export default function ProtectedRoute({ children, soloAdmin = false, permisoRequerido = null }) {
   const { isAuthenticated, isAdmin, isStaff, loading, hasPermission } = useAuth();
 

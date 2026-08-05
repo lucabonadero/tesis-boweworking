@@ -126,7 +126,7 @@ export function AuthProvider({ children }) {
   };
 
   const isAdmin = user?.rol === "admin";
-  const isStaff = user?.rol === "admin" || user?.rol === "empleado" || user?.rol === "staff";
+  const isStaff = user?.rol === "admin" || user?.rol === "staff";
   const permissions = useMemo(() => user?.permisos || [], [user]);
 
   const hasPermission = useCallback(

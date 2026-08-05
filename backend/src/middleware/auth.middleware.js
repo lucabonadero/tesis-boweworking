@@ -27,7 +27,7 @@ export const verificarAdmin = (req, res, next) => {
 
 export const verificarStaff = (req, res, next) => {
   const r = req.usuario?.rol;
-  if (r !== "admin" && r !== "empleado" && r !== "staff") {
+  if (r !== "admin" && r !== "staff") {
     return res.status(403).json({ message: "Acceso restringido al personal del coworking" });
   }
   next();

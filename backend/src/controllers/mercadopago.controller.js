@@ -7,7 +7,7 @@ const MP_WEBHOOK_SECRET = process.env.MP_WEBHOOK_SECRET?.trim();
 let avisoSecretoFaltante = false;
 
 function esStaffPago(usuario) {
-  return usuario?.rol === "admin" || usuario?.rol === "empleado";
+  return usuario?.rol === "admin" || usuario?.rol === "staff";
 }
 
 function esClientePago(usuario) {
@@ -488,7 +488,7 @@ export const obtenerEstadoPago = async (req, res) => {
     }
 
     const u = req.usuario;
-    const staff = u?.rol === "admin" || u?.rol === "empleado";
+    const staff = u?.rol === "admin" || u?.rol === "staff";
     const cliente = u?.rol === "cliente" || u?.tipo === "cliente";
 
     if (!staff && !cliente) {

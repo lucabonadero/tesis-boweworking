@@ -14,15 +14,15 @@ function rolEnToken(token) {
   }
 }
 
-/** Token del panel: admin o empleado (tabla usuarios), mismo JWT que AuthContext. */
+/** Token del panel: admin o staff (tabla usuarios), mismo JWT que AuthContext. */
 export function isStaffTokenValid() {
   const token = getAdminToken();
   if (!token) return false;
   const rol = rolEnToken(token);
-  return rol === "admin" || rol === "empleado";
+  return rol === "admin" || rol === "staff";
 }
 
-// Obsoleto: usar isStaffTokenValid; el panel admite admin y empleado.
+// Obsoleto: usar isStaffTokenValid; el panel admite admin y staff.
 export function isAdminTokenValid() {
   return isStaffTokenValid();
 }

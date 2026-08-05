@@ -10,7 +10,7 @@ function formatearErrorZod(error) {
 
 function esTokenDeStaff(usuario) {
   const rol = usuario?.rol;
-  return rol === "admin" || rol === "empleado";
+  return rol === "admin" || rol === "staff";
 }
 
 /** Valida req.body y reemplaza por el resultado parseado (coerciones de Zod aplicadas). */

@@ -3,12 +3,6 @@ import pool from "../config/db.js";
 
 // Permisos predeterminados por rol (excluyendo admin que tiene todos implícitamente)
 const PERMISOS_DEFECTO = {
-  empleado: [
-    "ver_reservas", "crear_reservas", "modificar_reservas", "eliminar_reservas",
-    "ver_clientes", "gestionar_clientes",
-    "ver_espacios", "gestionar_espacios",
-    "ver_calendario", "altas_clientes",
-  ],
   staff: [
     "ver_reservas", "crear_reservas", "modificar_reservas", "eliminar_reservas",
     "ver_clientes", "gestionar_clientes",
@@ -62,8 +56,8 @@ export const crearUsuario = async (req, res) => {
   if (!email || !password || !rol) {
     return res.status(400).json({ message: "Email, contraseña y rol son obligatorios" });
   }
-  if (!["admin", "empleado", "staff"].includes(rol)) {
-    return res.status(400).json({ message: "Rol inválido. Valores permitidos: admin, empleado, staff" });
+  if (!["admin", "staff"].includes(rol)) {
+    return res.status(400).json({ message: "Rol inválido. Valores permitidos: admin, staff" });
   }
   if (password.length < 6) {
     return res.status(400).json({ message: "La contraseña debe tener al menos 6 caracteres" });
@@ -135,7 +129,7 @@ export const actualizarUsuario = async (req, res) => {
 
     if (email) { updates.push(`email = $${i++}`); values.push(email); }
     if (rol) {
-      if (!["admin", "empleado", "staff"].includes(rol)) {
+      if (!["admin", "staff"].includes(rol)) {
         return res.status(400).json({ message: "Rol inválido" });
       }
       updates.push(`rol = $${i++}`);

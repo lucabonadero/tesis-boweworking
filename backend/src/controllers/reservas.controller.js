@@ -42,7 +42,7 @@ import {
 } from "../services/reservaSerieMensual.service.js";
 
 function esStaff(usuario) {
-  return usuario?.rol === "admin" || usuario?.rol === "empleado";
+  return usuario?.rol === "admin" || usuario?.rol === "staff";
 }
 
 function esCliente(usuario) {

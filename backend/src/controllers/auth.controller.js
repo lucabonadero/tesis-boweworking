@@ -2,7 +2,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import pool from "../config/db.js";
 
-// Login legado (tabla usuarios). El frontend usa POST /api/auth/cliente/login, que unifica admin, empleado y cliente.
+// Login legado (tabla usuarios). El frontend usa POST /api/auth/cliente/login, que unifica admin, staff y cliente.
 export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -57,10 +57,10 @@ export const registrarAdmin = async (req, res) => {
 
     const { rows } = await pool.query(
       'INSERT INTO usuarios (email, password, rol) VALUES ($1, $2, $3) RETURNING *',
-      [email, passwordHash, rol || "empleado"]
+      [email, passwordHash, rol || "staff"]
     );
 
-    res.status(201).json({ id: rows[0].id, email, rol: rol || "empleado" });
+    res.status(201).json({ id: rows[0].id, email, rol: rol || "staff" });
   } catch (error) {
     console.error("Error al registrar admin:", error);
     res.status(500).json({ message: "Error interno del servidor" });

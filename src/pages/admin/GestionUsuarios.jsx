@@ -36,19 +36,13 @@ const MODULO_COLORS = {
   usuarios: "magenta",
 };
 
-const ROL_COLORS = { admin: "red", empleado: "blue", staff: "green" };
-const ROL_LABELS = { admin: "Administrador", empleado: "Empleado", staff: "Staff" };
+const ROL_COLORS = { admin: "red", staff: "green" };
+const ROL_LABELS = { admin: "Administrador", staff: "Staff" };
 
 // Permisos predeterminados al seleccionar un rol en el formulario de creación
 const PERMISOS_DEFECTO_ROL = {
   admin: {},
   staff: {
-    ver_reservas: true, crear_reservas: true, modificar_reservas: true, eliminar_reservas: true,
-    ver_clientes: true, gestionar_clientes: true,
-    ver_espacios: true, gestionar_espacios: true,
-    ver_calendario: true, altas_clientes: true,
-  },
-  empleado: {
     ver_reservas: true, crear_reservas: true, modificar_reservas: true, eliminar_reservas: true,
     ver_clientes: true, gestionar_clientes: true,
     ver_espacios: true, gestionar_espacios: true,
@@ -327,7 +321,7 @@ export default function GestionUsuarios() {
           eyebrow="Administración"
           icon={<TeamOutlined />}
           title="Gestión de Usuarios"
-          description="Creá y administrá los usuarios del panel administrativo (admin, staff y empleados)."
+          description="Creá y administrá los usuarios del panel administrativo (admin y staff)."
           actions={
             <Button
               type="primary"
@@ -426,7 +420,6 @@ export default function GestionUsuarios() {
                 onChange={handleRolChange}
                 options={[
                   { value: "staff", label: "Staff — sin acceso a módulo financiero" },
-                  { value: "empleado", label: "Empleado — sin acceso a módulo financiero" },
                   { value: "admin", label: "Administrador — acceso completo al sistema" },
                 ]}
               />

@@ -27,7 +27,7 @@ export default function AuthModal() {
 
   const view = authModalView;
 
-  const isStaffRol = (rol) => rol === "admin" || rol === "empleado" || rol === "staff";
+  const isStaffRol = (rol) => rol === "admin" || rol === "staff";
 
   const handleLogin = async (values) => {
     setLoading(true);
