@@ -22,7 +22,7 @@ export default function PanelAdmin() {
     return [
       {
         key: "reservas",
-        titulo: "Gestionar Reservas",
+        titulo: "Control de Reservas",
         desc: "Administrá reservas activas, historial y estados.",
         icon: <CalendarOutlined />,
         ruta: "/control",
@@ -52,7 +52,7 @@ export default function PanelAdmin() {
       },
       {
         key: "estructura",
-        titulo: "Modificar Espacios",
+        titulo: "Gestion de Estructura",
         desc: "Administrá estructura, pisos y recursos del coworking.",
         icon: <BuildOutlined />,
         ruta: "/admin-estructura",
