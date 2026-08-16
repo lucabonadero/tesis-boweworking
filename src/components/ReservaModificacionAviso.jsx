@@ -22,8 +22,8 @@ export default function ReservaModificacionAviso({ className, style }) {
             WhatsApp
           </a>{" "}
           o al <strong>+54 9 351 852-2482</strong>. Desde &quot;Mi perfil&quot; solo podés ver el detalle de tus
-          reservas y, si corresponde, <strong>completar el pago</strong>. Recomendamos avisar con{" "}
-          <strong>24 horas de anticipación</strong> cuando puedas.
+          reservas y, si corresponde, <strong>completar el pago</strong>. Avisar con{" "}
+          <strong>24 horas de anticipación</strong>.
         </span>
       }
     />
