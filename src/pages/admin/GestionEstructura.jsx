@@ -2,17 +2,19 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import {
   Layout, Tree, Button, Form, Input, InputNumber, Select, Switch, Modal,
   Space, Tag, message, Popconfirm, Tooltip, Typography, Card, Empty, Spin,
-  Badge, Divider, Alert,
+  Badge, Alert,
 } from "antd";
 import {
-  PlusOutlined, EditOutlined, DeleteOutlined, SaveOutlined, UndoOutlined,
+  PlusOutlined, DeleteOutlined, SaveOutlined, UndoOutlined,
   AppstoreOutlined, HomeOutlined, GroupOutlined, BlockOutlined,
   WarningOutlined, ReloadOutlined, DragOutlined,
+  DollarOutlined, ThunderboltOutlined, InfoCircleOutlined,
 } from "@ant-design/icons";
 import { useAuth } from "../../context/AuthContext.jsx";
 import Header from "../../components/header.jsx";
 import AdminPageHeader from "../../components/AdminPageHeader.jsx";
 import adminLayout from "../../styles/admin/adminLayout.module.css";
+import styles from "../../styles/admin/gestionEstructura.module.css";
 
 const { Text } = Typography;
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
@@ -966,11 +968,22 @@ export default function GestionEstructura() {
             }}
             title={
               seleccion ? (
-                <Space>
-                  {seleccion.tipo === NODO_PISO && <HomeOutlined />}
-                  {seleccion.tipo === NODO_ESPACIO && <GroupOutlined />}
-                  {seleccion.tipo === NODO_RECURSO && <BlockOutlined />}
-                  Detalle — {seleccion.nodo.Nombre}
+                <Space size={8}>
+                  <span
+                    className={`${styles.typeChip} ${
+                      seleccion.tipo === NODO_PISO
+                        ? styles.chipPiso
+                        : seleccion.tipo === NODO_ESPACIO
+                        ? styles.chipEspacio
+                        : styles.chipRecurso
+                    }`}
+                  >
+                    {seleccion.tipo === NODO_PISO && <HomeOutlined />}
+                    {seleccion.tipo === NODO_ESPACIO && <GroupOutlined />}
+                    {seleccion.tipo === NODO_RECURSO && <BlockOutlined />}
+                    {seleccion.tipo}
+                  </span>
+                  <span>{seleccion.nodo.Nombre}</span>
                 </Space>
               ) : (
                 "Detalle"
@@ -1022,6 +1035,55 @@ export default function GestionEstructura() {
 // ============================================================
 // Formulario de edición (panel derecho)
 // ============================================================
+function Seccion({ icon, titulo, hint, children }) {
+  return (
+    <section className={styles.section}>
+      <div className={styles.sectionHead}>
+        <span className={styles.sectionIcon}>{icon}</span>
+        <span className={styles.sectionTitle}>{titulo}</span>
+        {hint && <span className={styles.sectionHint}>{hint}</span>}
+      </div>
+      <div className={styles.sectionBody}>{children}</div>
+    </section>
+  );
+}
+
+function ToggleCard({ label, descripcion, checked, onChange }) {
+  return (
+    <div
+      role="switch"
+      tabIndex={0}
+      aria-checked={checked}
+      className={`${styles.toggleCard} ${checked ? styles.toggleCardOn : ""}`}
+      onClick={() => onChange(!checked)}
+      onKeyDown={(e) => {
+        if (e.key === " " || e.key === "Enter") {
+          e.preventDefault();
+          onChange(!checked);
+        }
+      }}
+    >
+      <div className={styles.toggleTexts}>
+        <span className={styles.toggleLabel}>{label}</span>
+        {descripcion && <span className={styles.toggleDesc}>{descripcion}</span>}
+      </div>
+      <Switch size="small" checked={checked} onChange={onChange} />
+    </div>
+  );
+}
+
+// Igual que ToggleCard pero con la firma que inyecta Form.Item (checked/onChange)
+function SwitchTarjeta({ label, descripcion, checked, onChange }) {
+  return (
+    <ToggleCard
+      label={label}
+      descripcion={descripcion}
+      checked={!!checked}
+      onChange={(v) => onChange?.(v)}
+    />
+  );
+}
+
 function FormularioEdicion({
   seleccion, tiposRecurso, onChange,
   onAddEspacioEnPiso, onAddSubEspacio, onAddRecurso, onAddSubRecurso, onEliminar,
@@ -1030,19 +1092,27 @@ function FormularioEdicion({
 
   if (tipo === NODO_PISO) {
     return (
-      <div>
-        <Alert
-          type="info"
-          showIcon
-          style={{ marginBottom: 16 }}
-          message="Estructura interna"
-          description="Los campos de este panel afectan únicamente la lógica de reservas (espacios y recursos reservables). La página informativa 'Espacios' tiene su propio contenido y no se modifica desde acá."
-        />
-        <Form layout="vertical" initialValues={nodo}>
+      <Form layout="vertical" className={styles.panel}>
+        <div className={styles.note}>
+          <InfoCircleOutlined className={styles.noteIcon} />
+          <span>
+            Este panel afecta únicamente la lógica de reservas. La página informativa
+            «Espacios» tiene su propio contenido y no se modifica desde acá.
+          </span>
+        </div>
+
+        <Seccion icon={<HomeOutlined />} titulo="Identidad">
           <Form.Item label="Nombre" required>
-            <Input value={nodo.Nombre} onChange={(e) => onChange({ Nombre: e.target.value })} />
+            <Input
+              value={nodo.Nombre}
+              onChange={(e) => onChange({ Nombre: e.target.value })}
+              placeholder="Ej. Planta baja"
+            />
           </Form.Item>
-          <Form.Item label="Descripción interna" tooltip="Solo visible para el staff; no aparece en la web pública.">
+          <Form.Item
+            label="Descripción interna"
+            tooltip="Solo visible para el staff; no aparece en la web pública."
+          >
             <Input.TextArea
               value={nodo.Descripcion || ""}
               onChange={(e) => onChange({ Descripcion: e.target.value })}
@@ -1050,12 +1120,13 @@ function FormularioEdicion({
               placeholder="Notas internas sobre el piso"
             />
           </Form.Item>
-        </Form>
-        <Divider />
-        <Space wrap>
-          <Button icon={<PlusOutlined />} onClick={onAddEspacioEnPiso}>
+        </Seccion>
+
+        <div className={styles.footer}>
+          <Button type="primary" ghost icon={<PlusOutlined />} onClick={onAddEspacioEnPiso}>
             Agregar espacio
           </Button>
+          <span className={styles.footerSpacer} />
           <Popconfirm
             title="¿Eliminar este piso?"
             description="Solo se puede eliminar si no tiene espacios activos."
@@ -1066,53 +1137,67 @@ function FormularioEdicion({
           >
             <Button danger icon={<DeleteOutlined />}>Eliminar piso</Button>
           </Popconfirm>
-        </Space>
-      </div>
+        </div>
+      </Form>
     );
   }
 
   if (tipo === NODO_ESPACIO) {
     return (
-      <div>
-        <Form layout="vertical">
+      <Form layout="vertical" className={styles.panel}>
+        <Seccion icon={<GroupOutlined />} titulo="Identidad">
           <Form.Item label="Nombre" required>
-            <Input value={nodo.Nombre} onChange={(e) => onChange({ Nombre: e.target.value })} />
-          </Form.Item>
-          <Form.Item label="Tipo">
-            <Select
-              value={nodo.Tipo || "espacio"}
-              onChange={(v) => onChange({ Tipo: v })}
-              options={TIPO_ESPACIO_OPCIONES}
+            <Input
+              value={nodo.Nombre}
+              onChange={(e) => onChange({ Nombre: e.target.value })}
+              placeholder="Ej. Sala de reuniones"
             />
           </Form.Item>
-          <Form.Item label="Capacidad">
-            <InputNumber
-              min={0}
-              value={nodo.Capacidad}
-              onChange={(v) => onChange({ Capacidad: v })}
-              style={{ width: "100%" }}
-            />
-          </Form.Item>
-          <Form.Item label="Disponible">
-            <Switch
-              checked={nodo.Disponible !== false}
-              onChange={(v) => onChange({ Disponible: v })}
-            />
-          </Form.Item>
+          <div className={styles.grid2}>
+            <Form.Item label="Tipo">
+              <Select
+                value={nodo.Tipo || "espacio"}
+                onChange={(v) => onChange({ Tipo: v })}
+                options={TIPO_ESPACIO_OPCIONES}
+              />
+            </Form.Item>
+            <Form.Item label="Capacidad">
+              <InputNumber
+                min={0}
+                value={nodo.Capacidad}
+                onChange={(v) => onChange({ Capacidad: v })}
+                style={{ width: "100%" }}
+                placeholder="Personas"
+              />
+            </Form.Item>
+          </div>
           <Form.Item label="Descripción">
             <Input.TextArea
               value={nodo.Descripcion || ""}
               onChange={(e) => onChange({ Descripcion: e.target.value })}
               rows={2}
+              placeholder="Para qué se usa este espacio"
             />
           </Form.Item>
-        </Form>
-        <Divider />
-        <Space wrap>
+        </Seccion>
+
+        <Seccion icon={<ThunderboltOutlined />} titulo="Disponibilidad">
+          <div className={styles.toggleGrid}>
+            <ToggleCard
+              label="Disponible"
+              descripcion="Se puede reservar desde la web"
+              checked={nodo.Disponible !== false}
+              onChange={(v) => onChange({ Disponible: v })}
+            />
+          </div>
+        </Seccion>
+
+        <div className={styles.footer}>
           <Button icon={<PlusOutlined />} onClick={onAddSubEspacio}>Sub-espacio</Button>
           <Button icon={<PlusOutlined />} type="primary" ghost onClick={onAddRecurso}>
             Recurso
           </Button>
+          <span className={styles.footerSpacer} />
           <Popconfirm
             title="¿Eliminar este espacio?"
             description="Solo se puede eliminar si no tiene sub-espacios ni recursos activos."
@@ -1123,17 +1208,21 @@ function FormularioEdicion({
           >
             <Button danger icon={<DeleteOutlined />}>Eliminar</Button>
           </Popconfirm>
-        </Space>
-      </div>
+        </div>
+      </Form>
     );
   }
 
   // RECURSO
   return (
-    <div>
-      <Form layout="vertical">
+    <Form layout="vertical" className={styles.panel}>
+      <Seccion icon={<BlockOutlined />} titulo="Identidad">
         <Form.Item label="Nombre" required>
-          <Input value={nodo.Nombre} onChange={(e) => onChange({ Nombre: e.target.value })} />
+          <Input
+            value={nodo.Nombre}
+            onChange={(e) => onChange({ Nombre: e.target.value })}
+            placeholder="Ej. Banco 2"
+          />
         </Form.Item>
         <Form.Item label="Tipo de recurso">
           <Select
@@ -1149,46 +1238,78 @@ function FormularioEdicion({
             value={nodo.Descripcion || ""}
             onChange={(e) => onChange({ Descripcion: e.target.value })}
             rows={2}
+            placeholder="Cómo es y para qué sirve este recurso"
           />
         </Form.Item>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
-          <Form.Item label="Precio hora">
-            <InputNumber min={0} style={{ width: "100%" }}
+      </Seccion>
+
+      <Seccion icon={<DollarOutlined />} titulo="Precios" hint="Dejá vacío si no aplica">
+        <div className={styles.grid3}>
+          <Form.Item label="Por hora">
+            <InputNumber
+              min={0}
+              style={{ width: "100%" }}
+              prefix="$"
+              placeholder="0"
               value={nodo.PrecioHora}
-              onChange={(v) => onChange({ PrecioHora: v })} />
-          </Form.Item>
-          <Form.Item label="Precio semanal">
-            <InputNumber min={0} style={{ width: "100%" }}
-              value={nodo.PrecioSemanal}
-              onChange={(v) => onChange({ PrecioSemanal: v })} />
-          </Form.Item>
-          <Form.Item label="Precio mensual">
-            <InputNumber min={0} style={{ width: "100%" }}
-              value={nodo.PrecioMensual}
-              onChange={(v) => onChange({ PrecioMensual: v })} />
-          </Form.Item>
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-          <Form.Item label="Es completo (contenedor)">
-            <Switch checked={!!nodo.esCompleto} onChange={(v) => onChange({ esCompleto: v })} />
-          </Form.Item>
-          <Form.Item label="Reservable por turno">
-            <Switch
-              checked={nodo.EsReservablePorTurno !== false}
-              onChange={(v) => onChange({ EsReservablePorTurno: v })}
+              onChange={(v) => onChange({ PrecioHora: v })}
             />
           </Form.Item>
-          <Form.Item label="Acepta pack semanal">
-            <Switch checked={!!nodo.AceptaPackSemanal} onChange={(v) => onChange({ AceptaPackSemanal: v })} />
+          <Form.Item label="Semanal">
+            <InputNumber
+              min={0}
+              style={{ width: "100%" }}
+              prefix="$"
+              placeholder="0"
+              value={nodo.PrecioSemanal}
+              onChange={(v) => onChange({ PrecioSemanal: v })}
+            />
           </Form.Item>
-          <Form.Item label="Acepta pack mensual">
-            <Switch checked={!!nodo.AceptaPackMensual} onChange={(v) => onChange({ AceptaPackMensual: v })} />
+          <Form.Item label="Mensual">
+            <InputNumber
+              min={0}
+              style={{ width: "100%" }}
+              prefix="$"
+              placeholder="0"
+              value={nodo.PrecioMensual}
+              onChange={(v) => onChange({ PrecioMensual: v })}
+            />
           </Form.Item>
         </div>
-      </Form>
-      <Divider />
-      <Space wrap>
+      </Seccion>
+
+      <Seccion icon={<ThunderboltOutlined />} titulo="Modalidad de reserva">
+        <div className={styles.toggleGrid}>
+          <ToggleCard
+            label="Es completo"
+            descripcion="Contenedor de sub-recursos"
+            checked={!!nodo.esCompleto}
+            onChange={(v) => onChange({ esCompleto: v })}
+          />
+          <ToggleCard
+            label="Reservable por turno"
+            descripcion="Se reserva por bloques horarios"
+            checked={nodo.EsReservablePorTurno !== false}
+            onChange={(v) => onChange({ EsReservablePorTurno: v })}
+          />
+          <ToggleCard
+            label="Pack semanal"
+            descripcion="Acepta abonos por semana"
+            checked={!!nodo.AceptaPackSemanal}
+            onChange={(v) => onChange({ AceptaPackSemanal: v })}
+          />
+          <ToggleCard
+            label="Pack mensual"
+            descripcion="Acepta abonos por mes"
+            checked={!!nodo.AceptaPackMensual}
+            onChange={(v) => onChange({ AceptaPackMensual: v })}
+          />
+        </div>
+      </Seccion>
+
+      <div className={styles.footer}>
         <Button icon={<PlusOutlined />} onClick={onAddSubRecurso}>Sub-recurso</Button>
+        <span className={styles.footerSpacer} />
         <Popconfirm
           title="¿Eliminar este recurso?"
           description="No se puede eliminar si tiene reservas futuras o sub-recursos activos."
@@ -1199,8 +1320,8 @@ function FormularioEdicion({
         >
           <Button danger icon={<DeleteOutlined />}>Eliminar</Button>
         </Popconfirm>
-      </Space>
-    </div>
+      </div>
+    </Form>
   );
 }
 
@@ -1232,21 +1353,26 @@ function ModalCrear({ modal, form, tiposRecurso, onCancel, onSubmit }) {
           message={`Dentro de: ${padreNombre}`}
         />
       )}
-      <Form form={form} layout="vertical" onFinish={onSubmit}>
+      <Form form={form} layout="vertical" onFinish={onSubmit} className={styles.panel}>
         <Form.Item name="Nombre" label="Nombre" rules={[{ required: true, message: "Nombre requerido" }]}>
-          <Input autoFocus />
+          <Input autoFocus placeholder="Nombre visible en el árbol" />
         </Form.Item>
 
         {tipo === NODO_ESPACIO && (
           <>
-            <Form.Item name="Tipo" label="Tipo" initialValue="espacio">
-              <Select options={TIPO_ESPACIO_OPCIONES} />
-            </Form.Item>
-            <Form.Item name="Capacidad" label="Capacidad">
-              <InputNumber min={0} style={{ width: "100%" }} />
-            </Form.Item>
-            <Form.Item name="Disponible" label="Disponible" valuePropName="checked" initialValue={true}>
-              <Switch />
+            <div className={styles.grid2}>
+              <Form.Item name="Tipo" label="Tipo" initialValue="espacio">
+                <Select options={TIPO_ESPACIO_OPCIONES} />
+              </Form.Item>
+              <Form.Item name="Capacidad" label="Capacidad">
+                <InputNumber min={0} style={{ width: "100%" }} placeholder="Personas" />
+              </Form.Item>
+            </div>
+            <Form.Item name="Disponible" valuePropName="checked" initialValue={true} noStyle>
+              <SwitchTarjeta
+                label="Disponible"
+                descripcion="Se puede reservar desde la web"
+              />
             </Form.Item>
           </>
         )}
@@ -1260,36 +1386,40 @@ function ModalCrear({ modal, form, tiposRecurso, onCancel, onSubmit }) {
                 options={tiposRecurso.map((t) => ({ value: t.clave, label: t.label }))}
               />
             </Form.Item>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
-              <Form.Item name="PrecioHora" label="Precio hora">
-                <InputNumber min={0} style={{ width: "100%" }} />
-              </Form.Item>
-              <Form.Item name="PrecioSemanal" label="Precio semanal">
-                <InputNumber min={0} style={{ width: "100%" }} />
-              </Form.Item>
-              <Form.Item name="PrecioMensual" label="Precio mensual">
-                <InputNumber min={0} style={{ width: "100%" }} />
-              </Form.Item>
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-              <Form.Item name="esCompleto" label="Es contenedor" valuePropName="checked" initialValue={false}>
-                <Switch />
-              </Form.Item>
-              <Form.Item name="EsReservablePorTurno" label="Reservable por turno" valuePropName="checked" initialValue={true}>
-                <Switch />
-              </Form.Item>
-              <Form.Item name="AceptaPackSemanal" label="Pack semanal" valuePropName="checked" initialValue={false}>
-                <Switch />
-              </Form.Item>
-              <Form.Item name="AceptaPackMensual" label="Pack mensual" valuePropName="checked" initialValue={false}>
-                <Switch />
-              </Form.Item>
-            </div>
+            <Seccion icon={<DollarOutlined />} titulo="Precios" hint="Dejá vacío si no aplica">
+              <div className={styles.grid3}>
+                <Form.Item name="PrecioHora" label="Por hora">
+                  <InputNumber min={0} style={{ width: "100%" }} prefix="$" placeholder="0" />
+                </Form.Item>
+                <Form.Item name="PrecioSemanal" label="Semanal">
+                  <InputNumber min={0} style={{ width: "100%" }} prefix="$" placeholder="0" />
+                </Form.Item>
+                <Form.Item name="PrecioMensual" label="Mensual">
+                  <InputNumber min={0} style={{ width: "100%" }} prefix="$" placeholder="0" />
+                </Form.Item>
+              </div>
+            </Seccion>
+            <Seccion icon={<ThunderboltOutlined />} titulo="Modalidad de reserva">
+              <div className={styles.toggleGrid}>
+                <Form.Item name="esCompleto" valuePropName="checked" initialValue={false} noStyle>
+                  <SwitchTarjeta label="Es completo" descripcion="Contenedor de sub-recursos" />
+                </Form.Item>
+                <Form.Item name="EsReservablePorTurno" valuePropName="checked" initialValue={true} noStyle>
+                  <SwitchTarjeta label="Reservable por turno" descripcion="Se reserva por bloques horarios" />
+                </Form.Item>
+                <Form.Item name="AceptaPackSemanal" valuePropName="checked" initialValue={false} noStyle>
+                  <SwitchTarjeta label="Pack semanal" descripcion="Acepta abonos por semana" />
+                </Form.Item>
+                <Form.Item name="AceptaPackMensual" valuePropName="checked" initialValue={false} noStyle>
+                  <SwitchTarjeta label="Pack mensual" descripcion="Acepta abonos por mes" />
+                </Form.Item>
+              </div>
+            </Seccion>
           </>
         )}
 
         <Form.Item name="Descripcion" label="Descripción">
-          <Input.TextArea rows={2} />
+          <Input.TextArea rows={2} placeholder="Opcional" />
         </Form.Item>
       </Form>
     </Modal>
