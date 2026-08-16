@@ -447,6 +447,7 @@
 :global(.ant-btn-primary) {
   background: var(--color-brand-primary) !important;
   border-color: var(--color-brand-primary) !important;
+  color: #fff !important;
   border-radius: var(--radius-md) !important;
   font-family: var(--font-family) !important;
   font-weight: var(--weight-semibold) !important;
