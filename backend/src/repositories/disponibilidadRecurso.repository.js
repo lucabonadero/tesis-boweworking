@@ -26,6 +26,27 @@ export async function obtenerCadenaRecursos(db, idRecurso) {
   return rows;
 }
 
+/**
+ * Padre directo de cada recurso en `idsRecurso`, para todo el árbol (recursiva).
+ * Devuelve filas { idRecurso, idRecursoPadre } cubriendo cada id pedido y todos sus ancestros,
+ * para poder resolver en memoria "un bloqueo en el padre alcanza al hijo" sin 1 query por recurso.
+ */
+export async function obtenerCadenasRecursos(db, idsRecurso) {
+  if (!idsRecurso.length) return [];
+  const { rows } = await db.query(
+    `WITH RECURSIVE cadena AS (
+       SELECT r."idRecurso" AS "idOrigen", r."idRecurso", r."idRecursoPadre"
+       FROM "Recursos" r WHERE r."idRecurso" = ANY($1::int[])
+       UNION ALL
+       SELECT c."idOrigen", p."idRecurso", p."idRecursoPadre"
+       FROM "Recursos" p JOIN cadena c ON p."idRecurso" = c."idRecursoPadre"
+     )
+     SELECT "idOrigen", "idRecurso" FROM cadena`,
+    [idsRecurso]
+  );
+  return rows;
+}
+
 export async function obtenerBloqueosSolapados(db, idsRecurso, inicio, fin) {
   if (!idsRecurso.length) return [];
   const { rows } = await db.query(
@@ -52,6 +73,18 @@ export async function obtenerFranjas(db, idRecurso) {
 }
 
 /** Reemplaza el set completo de franjas. El caller abre la transacción. */
+export async function obtenerFranjasDeRecursos(db, idsRecurso) {
+  if (!idsRecurso.length) return [];
+  const { rows } = await db.query(
+    `SELECT "idDisponibilidad", "idRecurso", "DiaSemana", "HoraInicio", "HoraFin"
+     FROM "DisponibilidadRecurso"
+     WHERE "idRecurso" = ANY($1::int[])
+     ORDER BY "DiaSemana", "HoraInicio"`,
+    [idsRecurso]
+  );
+  return rows;
+}
+
 export async function reemplazarFranjas(db, idRecurso, franjas) {
   await db.query(`DELETE FROM "DisponibilidadRecurso" WHERE "idRecurso" = $1`, [idRecurso]);
   for (const f of franjas) {

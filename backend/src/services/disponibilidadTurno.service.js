@@ -1,5 +1,11 @@
 import pool from "../config/db.js";
 import { mensajeTurnoNoDisponibleParaFila } from "./reservaRules.service.js";
+import {
+  obtenerCadenasRecursos,
+  obtenerBloqueosSolapados,
+  obtenerFranjasDeRecursos,
+} from "../repositories/disponibilidadRecurso.repository.js";
+import { diaSemanaDeYmd, turnoEntraEnFranjas } from "./disponibilidadRecurso.rules.js";
 
 // Disponibilidad por turno (fecha + rango horario), misma lógica que GET /api/recursos/disponibilidad.
 // Centralizado para reutilizarlo en la IA y no duplicar las reglas de conflicto.
@@ -18,6 +24,25 @@ export async function obtenerDisponibilidadTurno(fecha, horaInicio, horaFin) {
     WHERE r."Activo" = true
     ORDER BY r."idEspacio", r."idRecursoPadre" NULLS FIRST, r."Orden", r."idRecurso"
   `);
+
+  // Hojas (no-grupo): las que necesitan resolución de bloqueos/franjas.
+  const idsHojas = recursos
+    .filter((rec) => !recursos.some((r) => r.idRecursoPadre === rec.idRecurso))
+    .map((r) => r.idRecurso);
+
+  // Batch: una sola query para la cadena de ancestros de todas las hojas, una para
+  // bloqueos solapados de todo ese conjunto (recurso + ancestros), una para franjas.
+  const cadenas = await obtenerCadenasRecursos(pool, idsHojas);
+  const idsCadena = [...new Set(cadenas.map((c) => c.idRecurso))];
+  const inicioRango = `${fechaConsulta}T${String(qHoraIni).slice(0, 5)}:00`;
+  const finRango = `${fechaConsulta}T${String(qHoraFin).slice(0, 5)}:00`;
+  const [bloqueos, franjasTodas] = await Promise.all([
+    obtenerBloqueosSolapados(pool, idsCadena, inicioRango, finRango),
+    obtenerFranjasDeRecursos(pool, idsHojas),
+  ]);
+
+  const diaSemana = diaSemanaDeYmd(fechaConsulta);
+  const nombreDeId = new Map(recursos.map((r) => [r.idRecurso, r.Nombre]));
 
   const resultados = [];
   for (const rec of recursos) {
@@ -47,7 +72,40 @@ export async function obtenerDisponibilidadTurno(fecha, horaInicio, horaFin) {
       )`,
       [rec.idRecurso, qTipo, fechaConsulta, qHoraIni, qHoraFin, dias]
     );
-    resultados.push({ ...rec, disponible: parseInt(conflicto[0].n) === 0, esGrupo: false });
+
+    let disponible = parseInt(conflicto[0].n) === 0;
+    let motivoNoDisponible = null;
+
+    if (disponible) {
+      // 1. Bloqueos: contra el propio recurso y toda su cadena de ancestros.
+      const idsPropios = cadenas.filter((c) => c.idOrigen === rec.idRecurso).map((c) => c.idRecurso);
+      const bloqueo = bloqueos.find((b) => idsPropios.includes(b.idRecurso));
+      if (bloqueo) {
+        disponible = false;
+        const nombreBloqueado = nombreDeId.get(bloqueo.idRecurso) ?? rec.Nombre;
+        motivoNoDisponible =
+          bloqueo.idRecurso === rec.idRecurso
+            ? "Bloqueado por el administrador."
+            : `Bloqueado por el administrador (${nombreBloqueado}).`;
+      }
+    }
+
+    if (disponible) {
+      // 2. Disponibilidad configurada. Sin franjas propias, vale la ventana global.
+      const franjasDelRecurso = franjasTodas.filter((f) => f.idRecurso === rec.idRecurso);
+      if (franjasDelRecurso.length > 0) {
+        const delDia = franjasDelRecurso.filter((f) => f.DiaSemana === diaSemana);
+        if (delDia.length === 0) {
+          disponible = false;
+          motivoNoDisponible = "No disponible ese día según su horario configurado.";
+        } else if (!turnoEntraEnFranjas(qHoraIni, qHoraFin, delDia)) {
+          disponible = false;
+          motivoNoDisponible = "Fuera del horario disponible configurado.";
+        }
+      }
+    }
+
+    resultados.push({ ...rec, disponible, esGrupo: false, motivoNoDisponible });
   }
 
   for (const rec of resultados) {
