@@ -31,6 +31,12 @@ import {
   minutosAHora,
 } from "../services/extensionReserva.service.js";
 import { lateralUltimaTransaccion } from "../services/transaccionUltimaJoin.service.js";
+import { evaluarDescuentoReserva } from "../services/creditos.service.js";
+import {
+  obtenerPesosPorCredito,
+  bloquearSaldo,
+  aplicarMovimiento,
+} from "../repositories/creditos.repository.js";
 import {
   descuentoSerieMensualDefault,
   fechasSerieMensualRodante,
@@ -111,6 +117,39 @@ async function resolverTitularReserva(req, res) {
   }
   const nombre = `${row.nombre || ""} ${row.apellido || ""}`.trim() || "Cliente";
   return { dni: dniDb, nombre };
+}
+
+/**
+ * Bloquea el saldo del cliente y decide si alcanza para la reserva (RF07).
+ *
+ * Devuelve null para el staff: una reserva cargada por mostrador se cobra por
+ * el circuito de caja, no con créditos del cliente.
+ *
+ * DEBE llamarse dentro de la transacción y DESPUÉS de bloquearEspaciosDeRecursos:
+ * el orden de adquisición de locks es único en todo el sistema para no generar
+ * deadlocks.
+ */
+async function evaluarPagoConCreditos(client, usuario, montoTotal) {
+  if (usuario?.tipo !== "cliente") return null;
+
+  const pesosPorCredito = await obtenerPesosPorCredito(client);
+  const saldoActual = await bloquearSaldo(client, usuario.id);
+
+  return {
+    ...evaluarDescuentoReserva({ saldoActual, montoEnPesos: montoTotal, pesosPorCredito }),
+    saldoActual,
+  };
+}
+
+/** Cuerpo del 409 cuando no alcanza el saldo: la interfaz abre la compra con esto. */
+function respuestaSaldoInsuficiente(decision) {
+  return {
+    message: decision.mensaje,
+    codigo: decision.codigo,
+    creditosNecesarios: decision.creditosNecesarios,
+    creditosFaltantes: decision.creditosFaltantes,
+    saldoActual: decision.saldoActual,
+  };
 }
 
 async function esGrupo(db, idRecurso) {
@@ -850,6 +889,13 @@ export const crearReserva = async (req, res) => {
         montoFinal = await calcularMonto(idRecurso, tipo, horaIniStore || undefined, horaFinStore || undefined);
       }
 
+      // Se decide antes de insertar: sin saldo, la reserva no llega a existir.
+      const decisionCreditos = await evaluarPagoConCreditos(client, req.usuario, montoFinal);
+      if (decisionCreditos && !decisionCreditos.ok) {
+        await client.query("ROLLBACK");
+        return res.status(409).json(respuestaSaldoInsuficiente(decisionCreditos));
+      }
+
       const { rows } = await client.query(
         `INSERT INTO "Reservas" ("DNI","Nombre","idRecurso","HorarioReserva","HorarioFin","Monto","DiaReserva","TipoReserva","Estado")
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'activa')
@@ -866,9 +912,30 @@ export const crearReserva = async (req, res) => {
         ]
       );
 
+      // Después del INSERT para poder referenciar la reserva. Comparten
+      // transacción: o van los dos, o no va ninguno.
+      if (decisionCreditos?.requiereMovimiento) {
+        await aplicarMovimiento(client, {
+          clienteUsuarioId: req.usuario.id,
+          tipo: "descuento_reserva",
+          cantidad: -decisionCreditos.creditosNecesarios,
+          saldoPosterior: decisionCreditos.saldoPosterior,
+          motivo: `Reserva #${rows[0].idReserva}`,
+          idReserva: rows[0].idReserva,
+        });
+      }
+
       await client.query("COMMIT");
       enviarConfirmacionReservaEnBackground(pool, [rows[0].idReserva]);
-      res.status(201).json(serializarHorariosReservaEnFila(rows[0]));
+
+      const cuerpo = serializarHorariosReservaEnFila(rows[0]);
+      if (decisionCreditos) {
+        cuerpo.creditos = {
+          descontados: decisionCreditos.creditosNecesarios,
+          saldo: decisionCreditos.saldoPosterior,
+        };
+      }
+      res.status(201).json(cuerpo);
     } catch (err) {
       try {
         await client.query("ROLLBACK");
@@ -924,6 +991,7 @@ export const crearReservasMultiples = async (req, res) => {
     await client.query("BEGIN");
     await bloquearEspaciosDeRecursos(client, ids);
     const creadas = [];
+    let montoTotal = 0;
 
     for (const idRecurso of ids) {
       const msgTurno = await mensajeTurnoNoDisponibleParaRecurso(idRecurso);
@@ -946,6 +1014,7 @@ export const crearReservasMultiples = async (req, res) => {
       }
 
       const montoFila = await calcularMonto(idRecurso, "turno", nh.horaIni, nh.horaFin);
+      montoTotal += montoFila;
 
       const ins = await client.query(
         `INSERT INTO "Reservas" ("DNI","Nombre","idRecurso","HorarioReserva","HorarioFin","Monto","DiaReserva","TipoReserva","Estado")
@@ -954,6 +1023,14 @@ export const crearReservasMultiples = async (req, res) => {
         [titular.dni, titular.nombre, idRecurso, nh.horaIni, nh.horaFin, montoFila, DiaReserva]
       );
       creadas.push(ins.rows[0]);
+    }
+
+    // Se cotiza el total una sola vez: redondear renglón por renglón le
+    // cobraría de más al cliente.
+    const decisionCreditos = await evaluarPagoConCreditos(client, req.usuario, montoTotal);
+    if (decisionCreditos && !decisionCreditos.ok) {
+      await client.query("ROLLBACK");
+      return res.status(409).json(respuestaSaldoInsuficiente(decisionCreditos));
     }
 
     const idsCreadas = creadas.map((r) => r.idReserva);
@@ -974,16 +1051,36 @@ export const crearReservasMultiples = async (req, res) => {
       throw err;
     }
 
+    // Un solo movimiento por el grupo, anclado a la reserva de menor id.
+    if (decisionCreditos?.requiereMovimiento) {
+      await aplicarMovimiento(client, {
+        clienteUsuarioId: req.usuario.id,
+        tipo: "descuento_reserva",
+        cantidad: -decisionCreditos.creditosNecesarios,
+        saldoPosterior: decisionCreditos.saldoPosterior,
+        motivo: `Reserva múltiple #${idReservaGrupo} (${creadas.length} lugares)`,
+        idReserva: idReservaGrupo,
+      });
+    }
+
     await client.query("COMMIT");
     enviarConfirmacionReservaEnBackground(
       pool,
       creadas.map((r) => r.idReserva)
     );
-    res.status(201).json({
+
+    const cuerpo = {
       reservas: serializarHorariosReservaEnFilas(creadas),
       count: creadas.length,
       idReservaGrupo,
-    });
+    };
+    if (decisionCreditos) {
+      cuerpo.creditos = {
+        descontados: decisionCreditos.creditosNecesarios,
+        saldo: decisionCreditos.saldoPosterior,
+      };
+    }
+    res.status(201).json(cuerpo);
   } catch (error) {
     try {
       await client.query("ROLLBACK");
