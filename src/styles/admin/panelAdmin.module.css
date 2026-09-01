@@ -56,8 +56,9 @@
   content: "";
   position: absolute;
   inset: 0 0 auto 0;
-  height: 6px;
+  height: 3px;
   background: var(--card-accent, var(--color-brand-primary));
+  opacity: 0.7;
 }
 
 .card:hover {

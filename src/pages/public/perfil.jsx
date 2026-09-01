@@ -3,6 +3,8 @@ import dayjs from "dayjs";
 import Header from "../../components/header.jsx";
 import Footer from "../../components/footer.jsx";
 import HistorialCreditos from "../../components/HistorialCreditos.jsx";
+import CancelarReservaModal from "../../components/CancelarReservaModal.jsx";
+import { useCancelacionReserva } from "../../hooks/useCancelacionReserva.js";
 import { useAuth } from "../../context/AuthContext.jsx";
 import "../../styles/global.css";
 import styles from "../../styles/public/perfil.module.css";
@@ -41,6 +43,7 @@ import {
   LockOutlined,
   ReadOutlined,
   UploadOutlined,
+  StopOutlined,
 } from "@ant-design/icons";
 
 const VERIFICACION_ESTUDIANTE_LABEL = {
@@ -107,6 +110,13 @@ export default function Perfil() {
   useEffect(() => {
     loadReservas();
   }, [loadReservas]);
+
+  const cancelacion = useCancelacionReserva(authFetch, {
+    onCancelada: (data) => {
+      message.success(data.message);
+      loadReservas();
+    },
+  });
 
   const loadEstadoEstudiante = useCallback(async () => {
     if (!token) return;
@@ -199,6 +209,8 @@ export default function Perfil() {
           Monto: monto,
           recurso_nombre: recs.join(", "),
           recursos_detalle,
+          // El lote se cancela entero si algún turno todavía está a futuro.
+          puedeCancelar: sorted.some((x) => x.puedeCancelar),
         });
         continue;
       }
@@ -219,6 +231,7 @@ export default function Perfil() {
           Monto: monto,
           recurso_nombre: sorted.map((x) => x.recurso_nombre).filter(Boolean).join(", "),
           recursos_detalle,
+          puedeCancelar: sorted.some((x) => x.puedeCancelar),
         });
         continue;
       }
@@ -350,6 +363,23 @@ export default function Perfil() {
           </Tag>
         );
       },
+    },
+    {
+      title: "",
+      key: "acciones",
+      width: 110,
+      fixed: "right",
+      render: (_, r) =>
+        r.puedeCancelar ? (
+          <Button
+            size="small"
+            danger
+            icon={<StopOutlined />}
+            onClick={() => cancelacion.abrir(r)}
+          >
+            Cancelar
+          </Button>
+        ) : null,
     },
     {
       title: "Estado del pago",
@@ -627,6 +657,17 @@ export default function Perfil() {
           </Card>
         </div>
       </main>
+
+      <CancelarReservaModal
+        abierto={Boolean(cancelacion.reserva)}
+        reserva={cancelacion.reserva}
+        preview={cancelacion.preview}
+        cargandoPreview={cancelacion.cargandoPreview}
+        confirmando={cancelacion.cancelando}
+        error={cancelacion.error}
+        onConfirmar={cancelacion.confirmar}
+        onCerrar={cancelacion.cerrar}
+      />
       <Footer />
     </div>
   );

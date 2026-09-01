@@ -4,8 +4,11 @@ import {
   Tabs, Table, Button, Modal, Form, Input, InputNumber, Switch,
   Space, Tag, Typography, message, Select, Statistic, Empty, Alert,
 } from "antd";
-import { PlusOutlined, EditOutlined, DeleteOutlined, WalletOutlined } from "@ant-design/icons";
+import { PlusOutlined, EditOutlined, DeleteOutlined } from "@ant-design/icons";
 import AdminPageHeader from "../../components/AdminPageHeader.jsx";
+import Header from "../../components/header.jsx";
+import CoinIcon from "../../components/CoinIcon.jsx";
+import adminLayout from "../../styles/admin/adminLayout.module.css";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { useUsuariosFinales } from "../../hooks/useAdminUsuarios.js";
 import {
@@ -310,7 +313,7 @@ function PanelAjustes({ token }) {
           <Statistic
             title={`Saldo de ${data.usuario.nombre} ${data.usuario.apellido}`}
             value={data.saldo}
-            prefix={<WalletOutlined />}
+            prefix={<CoinIcon color="var(--color-warning)" />}
             suffix={data.saldo === 1 ? "crédito" : "créditos"}
             valueStyle={{ color: data.saldo < 0 ? "#cf1322" : undefined }}
           />
@@ -367,14 +370,15 @@ export default function GestionCreditos() {
   const auth = useAuth();
 
   return (
-    <>
-      <AdminPageHeader
-        eyebrow="Administración"
-        icon={<WalletOutlined />}
-        title="Gestión de créditos"
-        description="Configurá los paquetes de créditos y ajustá el saldo de un usuario puntual."
-      />
-      <div style={{ padding: 24 }}>
+    <div className={adminLayout.layout}>
+      <Header />
+      <div className={adminLayout.contentWide}>
+        <AdminPageHeader
+          eyebrow="Administración"
+          icon={<CoinIcon size={20} color="var(--color-warning)" />}
+          title="Gestión de créditos"
+          description="Configurá los paquetes de créditos y ajustá el saldo de un usuario puntual."
+        />
         <Tabs
           items={[
             { key: "paquetes", label: "Paquetes", children: <PanelPaquetes token={auth.token} /> },
@@ -382,6 +386,6 @@ export default function GestionCreditos() {
           ]}
         />
       </div>
-    </>
+    </div>
   );
 }

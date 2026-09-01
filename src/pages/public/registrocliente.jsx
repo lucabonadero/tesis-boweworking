@@ -115,28 +115,6 @@ function getResourceColor(name) {
   return { bg: "#f5f7f9", border: "#e2e6ea", text: "#444" };
 }
 
-function formatPrecio(n) {
-  if (!n || n <= 0) return null;
-  return `$ ${Math.round(n).toLocaleString("es-AR")}`;
-}
-
-function getPrecioUnitario(recurso, tab, packTipo) {
-  if (!recurso) return { valor: 0, etiqueta: "" };
-  if (tab === "turno" || tab === "fijo") {
-    const v = parseFloat(recurso.PrecioHora) || 0;
-    return { valor: v, etiqueta: v > 0 ? `${formatPrecio(v)}/h` : "" };
-  }
-  if (packTipo === "semanal") {
-    const v = parseFloat(recurso.PrecioSemanal) || 0;
-    return { valor: v, etiqueta: v > 0 ? `${formatPrecio(v)}/sem` : "" };
-  }
-  if (packTipo === "mensual") {
-    const v = parseFloat(recurso.PrecioMensual) || 0;
-    return { valor: v, etiqueta: v > 0 ? `${formatPrecio(v)}/mes` : "" };
-  }
-  return { valor: 0, etiqueta: "" };
-}
-
 export default function RegistroCliente() {
   const { isAuthenticated, perfilCompleto, user, token, openAuthModal, loading: authLoading, authFetch } = useAuth();
   const navigate = useNavigate();
@@ -442,23 +420,6 @@ export default function RegistroCliente() {
     () => disponibilidad.filter((r) => r.disponible === true).length,
     [disponibilidad]
   );
-
-  const montoTotal = useMemo(() => {
-    if (activeTab === "turno") {
-      if (!turnoDuracion || selectedRecursosTurno.length === 0) return 0;
-      return selectedRecursosTurno.reduce((acc, r) => {
-        const ph = parseFloat(r.PrecioHora) || 0;
-        return acc + ph * (turnoDuracion / 60);
-      }, 0);
-    }
-    if (activeTab === "fijo") {
-      return fijoCotizacion?.precioFinalTotal != null ? parseFloat(fijoCotizacion.precioFinalTotal) || 0 : 0;
-    }
-    if (!selectedRecursoPack) return 0;
-    if (packTipo === "semanal") return parseFloat(selectedRecursoPack.PrecioSemanal) || 0;
-    if (packTipo === "mensual") return parseFloat(selectedRecursoPack.PrecioMensual) || 0;
-    return 0;
-  }, [selectedRecursosTurno, selectedRecursoPack, activeTab, turnoDuracion, packTipo, fijoCotizacion]);
 
   useSaldoCreditos(token);
   const cotizar = useCotizarReserva(token);
@@ -790,8 +751,6 @@ export default function RegistroCliente() {
           ? selectedRecursoFijo?.idRecurso === r.idRecurso
           : selectedRecursoPack?.idRecurso === r.idRecurso;
 
-    const precio = getPrecioUnitario(r, activeTab, packTipo);
-
     const onPick = () => {
       if (disabled) return;
       if (activeTab === "turno") {
@@ -820,15 +779,17 @@ export default function RegistroCliente() {
         ].filter(Boolean).join(" ")}
         style={!selected && !disabled ? { background: color.bg, borderColor: color.border } : undefined}
         onClick={onPick}
+        title={!available && !isGrupo ? r.motivoNoDisponible || "No disponible en este horario" : undefined}
       >
         <span className={styles.resourceCardIcon} style={!selected ? { color: color.text } : undefined}>
           {r.esCompleto ? <ExpandAltOutlined /> : icon}
         </span>
         <span className={styles.resourceCardName}>{r.Nombre}</span>
-        {!isGrupo && precio.etiqueta && (
-          <span className={styles.resourceCardPrice}>{precio.etiqueta}</span>
+        {!available && !isGrupo && (
+          <span className={styles.resourceCardBadge}>
+            {r.motivoNoDisponible ? r.motivoNoDisponible : "Ocupado"}
+          </span>
         )}
-        {!available && !isGrupo && <span className={styles.resourceCardBadge}>Ocupado</span>}
         {available && !isGrupo && <span className={styles.resourceCardAvail}>Disponible</span>}
       </button>
     );
@@ -1173,13 +1134,6 @@ export default function RegistroCliente() {
                 <div className={styles.fieldHintBox} style={{ marginTop: 8 }}>
                   <p className={styles.fieldHint}>
                     {fijoCotizacion.nOcurrencias} turno{fijoCotizacion.nOcurrencias !== 1 ? "s" : ""} (4 semanas)
-                    {fijoCotizacion.precioListaTotal != null && fijoCotizacion.precioFinalTotal != null ? (
-                      <>
-                        {" "}
-                        · Lista {formatPrecio(fijoCotizacion.precioListaTotal)} → con descuento{" "}
-                        <strong>{formatPrecio(fijoCotizacion.precioFinalTotal)}</strong>
-                      </>
-                    ) : null}
                   </p>
                 </div>
               )}
@@ -1314,9 +1268,6 @@ export default function RegistroCliente() {
                   Seleccionaste: <strong>{selectedRecursoPack.Nombre}</strong>
                 </>
               )}
-              {montoTotal > 0 && (
-                <span className={styles.selectedBarPrice}>{formatPrecio(montoTotal)}</span>
-              )}
               {cotizacion && (
                 <div className={styles.fieldHint}>
                   Costo: <strong>{etiquetaCreditos(cotizacion.creditosNecesarios)}</strong>
@@ -1344,7 +1295,14 @@ export default function RegistroCliente() {
             <Button
               type="primary"
               className={`${styles.btnPrimary} ${styles.btnContinuar}`}
-              onClick={() => setStep(1)}
+              onClick={() => {
+                if (cotizacion && !cotizacion.alcanza) {
+                  setCreditosFaltantes(cotizacion.creditosFaltantes);
+                  setCompraAbierta(true);
+                  return;
+                }
+                setStep(1);
+              }}
               size="large"
             >
               <span className={styles.btnLabelInline}>
@@ -1408,14 +1366,6 @@ export default function RegistroCliente() {
               </span>
             </>
           )}
-          {montoTotal > 0 && (
-            <>
-              <span className={styles.resumenSep}>&#183;</span>
-              <span className={styles.resumenTag} style={{ background: "#e8f5e9", color: "#2e7d32" }}>
-                {formatPrecio(montoTotal)}
-              </span>
-            </>
-          )}
         </div>
 
         <div className={styles.formulario}>
@@ -1437,14 +1387,6 @@ export default function RegistroCliente() {
               <span className={styles.resumenLabel}>Telefono</span>
               <span className={styles.resumenValue}>{user.telefono}</span>
             </div>
-            {montoTotal > 0 && (
-              <div className={styles.resumenItem} style={{ gridColumn: "1 / -1" }}>
-                <span className={styles.resumenLabel}>Total a pagar</span>
-                <span className={styles.resumenValue} style={{ fontSize: 20, fontWeight: 700, color: "#2e7d32" }}>
-                  {formatPrecio(montoTotal)}
-                </span>
-              </div>
-            )}
           </div>
 
           {cotizacion && (
@@ -1569,14 +1511,6 @@ export default function RegistroCliente() {
               <span className={styles.resumenLabel}>Email</span>
               <span className={styles.resumenValue}>{reservaCreada.email}</span>
             </div>
-            {reservaCreada.monto > 0 && (
-              <div className={styles.resumenItem} style={{ gridColumn: "1 / -1" }}>
-                <span className={styles.resumenLabel}>Total</span>
-                <span className={styles.resumenValue} style={{ fontSize: 20, fontWeight: 700, color: "#2e7d32" }}>
-                  {formatPrecio(reservaCreada.monto)}
-                </span>
-              </div>
-            )}
           </div>
 
           <div className={styles.pagoSection}>

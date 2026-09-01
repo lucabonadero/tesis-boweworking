@@ -263,6 +263,29 @@ body {
     box-shadow: var(--focus-ring);
 }
 
+.header__credits-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-right: 16px;
+    padding: 6px 14px;
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+    font-family: var(--font-family);
+    color: var(--color-warning-text);
+    background: var(--color-warning-soft);
+    border: 1.5px solid rgba(232, 168, 48, 0.35);
+    border-radius: var(--radius-full);
+    cursor: pointer;
+    transition: background var(--transition-fast), border-color var(--transition-fast);
+    white-space: nowrap;
+}
+
+.header__credits-btn:hover {
+    background: rgba(232, 168, 48, 0.22);
+    border-color: var(--color-warning);
+}
+
 .header__user-btn {
     display: flex;
     align-items: center;

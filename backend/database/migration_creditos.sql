@@ -5,12 +5,14 @@ BEGIN;
 
 CREATE TABLE IF NOT EXISTS creditos_config (
   id                INTEGER       PRIMARY KEY CHECK (id = 1),
-  pesos_por_credito NUMERIC(10,2) NOT NULL DEFAULT 100.00
+  pesos_por_credito NUMERIC(10,2) NOT NULL DEFAULT 1.00
                     CHECK (pesos_por_credito > 0)
 );
 
+-- Tasa 1:1 — los campos de precio de Recursos (PrecioHora/Semanal/Mensual)
+-- se cargan directamente en créditos, no en pesos.
 INSERT INTO creditos_config (id, pesos_por_credito)
-VALUES (1, 100.00)
+VALUES (1, 1.00)
 ON CONFLICT (id) DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS creditos_paquete (

@@ -220,3 +220,25 @@ export async function obtenerCompra(db, compraId) {
   const { rows } = await db.query("SELECT * FROM creditos_compra WHERE id = $1", [compraId]);
   return conPrecioNumerico(rows[0] ?? null);
 }
+
+/**
+ * Créditos netos que la reserva todavía tiene consumidos (RF11 - RF13).
+ *
+ * Suma los descuentos y resta los reintegros ya emitidos, para que una segunda
+ * cancelación no vuelva a devolver lo mismo. El movimiento del grupo se ancla a
+ * una sola reserva, así que se consultan todos los ids del grupo.
+ */
+export async function creditosConsumidosPorReserva(db, idsReserva) {
+  const ids = Array.isArray(idsReserva) ? idsReserva : [idsReserva];
+  const { rows } = await db.query(
+    `SELECT
+       COALESCE(SUM(CASE WHEN tipo = 'descuento_reserva' THEN -cantidad ELSE 0 END), 0) AS descontados,
+       COALESCE(SUM(CASE WHEN tipo = 'reintegro_cancelacion' THEN cantidad ELSE 0 END), 0) AS reintegrados
+     FROM creditos_movimiento
+     WHERE id_reserva = ANY($1::int[])`,
+    [ids]
+  );
+  const descontados = Number(rows[0]?.descontados ?? 0);
+  const reintegrados = Number(rows[0]?.reintegrados ?? 0);
+  return { descontados, reintegrados, disponibles: Math.max(0, descontados - reintegrados) };
+}

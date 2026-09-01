@@ -1,10 +1,10 @@
 import React, { useState } from "react";
 import dayjs from "dayjs";
 import { Card, Table, Tag, Statistic, Empty, Typography, Alert, Button } from "antd";
-import { WalletOutlined } from "@ant-design/icons";
 import { useAuth } from "../context/AuthContext.jsx";
 import { useSaldoCreditos, useMovimientosCreditos } from "../hooks/useCreditos.js";
 import ComprarCreditosModal from "./ComprarCreditosModal.jsx";
+import CoinIcon from "./CoinIcon.jsx";
 import {
   MOVIMIENTO_LABEL,
   MOVIMIENTO_COLOR,
@@ -71,7 +71,7 @@ export default function HistorialCreditos() {
       <Statistic
         title="Saldo disponible"
         value={saldoData?.saldo ?? 0}
-        prefix={<WalletOutlined />}
+        prefix={<CoinIcon color="var(--color-warning)" />}
         suffix={saldoData?.saldo === 1 ? "crédito" : "créditos"}
         valueStyle={{ color: (saldoData?.saldo ?? 0) < 0 ? "#cf1322" : undefined }}
         style={{ marginBottom: 24 }}

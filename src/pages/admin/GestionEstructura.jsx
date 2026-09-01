@@ -8,7 +8,7 @@ import {
   PlusOutlined, DeleteOutlined, SaveOutlined, UndoOutlined,
   AppstoreOutlined, HomeOutlined, GroupOutlined, BlockOutlined,
   WarningOutlined, ReloadOutlined, DragOutlined,
-  DollarOutlined, ThunderboltOutlined, InfoCircleOutlined,
+  ThunderboltOutlined, InfoCircleOutlined, GoldOutlined,
 } from "@ant-design/icons";
 import { useAuth } from "../../context/AuthContext.jsx";
 import Header from "../../components/header.jsx";
@@ -1243,13 +1243,14 @@ function FormularioEdicion({
         </Form.Item>
       </Seccion>
 
-      <Seccion icon={<DollarOutlined />} titulo="Precios" hint="Dejá vacío si no aplica">
+      <Seccion icon={<GoldOutlined />} titulo="Créditos" hint="Dejá vacío si no aplica">
         <div className={styles.grid3}>
           <Form.Item label="Por hora">
             <InputNumber
               min={0}
+              step={1}
+              precision={0}
               style={{ width: "100%" }}
-              prefix="$"
               placeholder="0"
               value={nodo.PrecioHora}
               onChange={(v) => onChange({ PrecioHora: v })}
@@ -1258,8 +1259,9 @@ function FormularioEdicion({
           <Form.Item label="Semanal">
             <InputNumber
               min={0}
+              step={1}
+              precision={0}
               style={{ width: "100%" }}
-              prefix="$"
               placeholder="0"
               value={nodo.PrecioSemanal}
               onChange={(v) => onChange({ PrecioSemanal: v })}
@@ -1268,8 +1270,9 @@ function FormularioEdicion({
           <Form.Item label="Mensual">
             <InputNumber
               min={0}
+              step={1}
+              precision={0}
               style={{ width: "100%" }}
-              prefix="$"
               placeholder="0"
               value={nodo.PrecioMensual}
               onChange={(v) => onChange({ PrecioMensual: v })}
@@ -1386,16 +1389,16 @@ function ModalCrear({ modal, form, tiposRecurso, onCancel, onSubmit }) {
                 options={tiposRecurso.map((t) => ({ value: t.clave, label: t.label }))}
               />
             </Form.Item>
-            <Seccion icon={<DollarOutlined />} titulo="Precios" hint="Dejá vacío si no aplica">
+            <Seccion icon={<GoldOutlined />} titulo="Créditos" hint="Dejá vacío si no aplica">
               <div className={styles.grid3}>
                 <Form.Item name="PrecioHora" label="Por hora">
-                  <InputNumber min={0} style={{ width: "100%" }} prefix="$" placeholder="0" />
+                  <InputNumber min={0} step={1} precision={0} style={{ width: "100%" }} placeholder="0" />
                 </Form.Item>
                 <Form.Item name="PrecioSemanal" label="Semanal">
-                  <InputNumber min={0} style={{ width: "100%" }} prefix="$" placeholder="0" />
+                  <InputNumber min={0} step={1} precision={0} style={{ width: "100%" }} placeholder="0" />
                 </Form.Item>
                 <Form.Item name="PrecioMensual" label="Mensual">
-                  <InputNumber min={0} style={{ width: "100%" }} prefix="$" placeholder="0" />
+                  <InputNumber min={0} step={1} precision={0} style={{ width: "100%" }} placeholder="0" />
                 </Form.Item>
               </div>
             </Seccion>

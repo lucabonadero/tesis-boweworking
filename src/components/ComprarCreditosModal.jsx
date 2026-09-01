@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Modal, Card, Button, Space, Typography, Empty, Alert, Spin, Tag } from "antd";
-import { WalletOutlined, CreditCardOutlined } from "@ant-design/icons";
+import { CreditCardOutlined } from "@ant-design/icons";
 import { useAuth } from "../context/AuthContext.jsx";
 import {
   useSaldoCreditos,
@@ -8,6 +8,7 @@ import {
   useComprarCreditos,
 } from "../hooks/useCreditos.js";
 import { formatearPrecio, etiquetaCreditos } from "../utils/creditosFormato.js";
+import CoinIcon from "./CoinIcon.jsx";
 
 const { Text, Paragraph } = Typography;
 
@@ -52,7 +53,7 @@ export default function ComprarCreditosModal({ abierto, onCerrar, creditosFaltan
     >
       <Space direction="vertical" size="middle" style={{ width: "100%" }}>
         <Text>
-          <WalletOutlined /> Tu saldo: <strong>{etiquetaCreditos(saldoData?.saldo ?? 0)}</strong>
+          <CoinIcon color="var(--color-warning)" /> Tu saldo: <strong>{etiquetaCreditos(saldoData?.saldo ?? 0)}</strong>
         </Text>
 
         {creditosFaltantes > 0 && (

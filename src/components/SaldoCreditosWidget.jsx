@@ -1,10 +1,10 @@
 import React, { useState } from "react";
 import { Tooltip, Skeleton } from "antd";
-import { WalletOutlined } from "@ant-design/icons";
 import { useAuth } from "../context/AuthContext.jsx";
 import { useSaldoCreditos } from "../hooks/useCreditos.js";
 import ComprarCreditosModal from "./ComprarCreditosModal.jsx";
 import { etiquetaCreditos } from "../utils/creditosFormato.js";
+import CoinIcon from "./CoinIcon.jsx";
 
 /** Saldo siempre a la vista, junto al perfil (RF10). Abre la compra al clic. */
 export default function SaldoCreditosWidget() {
@@ -25,12 +25,12 @@ export default function SaldoCreditosWidget() {
       <Tooltip title="Comprar créditos">
         <button
           type="button"
-          className="header__user-btn"
+          className="header__credits-btn"
           onClick={() => setComprando(true)}
           aria-label={`Tenés ${etiquetaCreditos(data.saldo)}. Comprar más.`}
         >
-          <WalletOutlined />
-          <span className="header__user-name">{etiquetaCreditos(data.saldo)}</span>
+          <CoinIcon size={15} color="var(--color-warning)" />
+          <span className="header__credits-count">{data.saldo}</span>
         </button>
       </Tooltip>
 

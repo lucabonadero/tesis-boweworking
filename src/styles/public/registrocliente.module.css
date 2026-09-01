@@ -224,7 +224,8 @@
   font-family: var(--font-family) !important;
   height: 40px;
   padding: 0 24px;
-  transition: background var(--transition-fast) !important, border-color var(--transition-fast) !important;
+  transition: background var(--transition-fast) !important; 
+  border-color: var(--transition-fast) !important;
 }
 
 .btnPrimary:hover {
