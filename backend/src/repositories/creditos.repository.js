@@ -10,6 +10,12 @@ const COLUMNAS_PAQUETE = `
   id, nombre, creditos, precio, descripcion, activo, created_at, actualizado_at
 `;
 
+/** pg devuelve NUMERIC como string: se normaliza para que el precio viaje como número. */
+function conPrecioNumerico(fila) {
+  if (!fila) return fila;
+  return { ...fila, precio: Number.parseFloat(fila.precio) };
+}
+
 export async function obtenerPesosPorCredito(db) {
   const { rows } = await db.query(
     "SELECT pesos_por_credito FROM creditos_config WHERE id = 1"
@@ -113,7 +119,7 @@ export async function listarPaquetes(db, { soloActivos = false } = {}) {
      ${filtro}
      ORDER BY creditos ASC, id ASC`
   );
-  return rows;
+  return rows.map(conPrecioNumerico);
 }
 
 export async function obtenerPaquete(db, id) {
@@ -121,7 +127,7 @@ export async function obtenerPaquete(db, id) {
     `SELECT ${COLUMNAS_PAQUETE} FROM creditos_paquete WHERE id = $1`,
     [id]
   );
-  return rows[0] ?? null;
+  return conPrecioNumerico(rows[0] ?? null);
 }
 
 export async function crearPaquete(db, { nombre, creditos, precio, descripcion }) {
@@ -131,7 +137,7 @@ export async function crearPaquete(db, { nombre, creditos, precio, descripcion }
      RETURNING ${COLUMNAS_PAQUETE}`,
     [nombre, creditos, precio, descripcion]
   );
-  return rows[0];
+  return conPrecioNumerico(rows[0]);
 }
 
 /** `activo` permite reactivar un paquete dado de baja. Null si el id no existe. */
@@ -144,7 +150,7 @@ export async function actualizarPaquete(db, id, { nombre, creditos, precio, desc
      RETURNING ${COLUMNAS_PAQUETE}`,
     [id, nombre, creditos, precio, descripcion, activo ?? null]
   );
-  return rows[0] ?? null;
+  return conPrecioNumerico(rows[0] ?? null);
 }
 
 /**
@@ -159,7 +165,7 @@ export async function desactivarPaquete(db, id) {
      RETURNING ${COLUMNAS_PAQUETE}`,
     [id]
   );
-  return rows[0] ?? null;
+  return conPrecioNumerico(rows[0] ?? null);
 }
 
 /**
@@ -173,7 +179,7 @@ export async function crearCompra(db, { clienteUsuarioId, paqueteId, creditos, p
      RETURNING *`,
     [clienteUsuarioId, paqueteId, creditos, precio]
   );
-  return rows[0];
+  return conPrecioNumerico(rows[0]);
 }
 
 export async function guardarPreferenciaCompra(db, compraId, mpPreferenceId) {
@@ -189,7 +195,7 @@ export async function bloquearCompra(db, compraId) {
     "SELECT * FROM creditos_compra WHERE id = $1 FOR UPDATE",
     [compraId]
   );
-  return rows[0] ?? null;
+  return conPrecioNumerico(rows[0] ?? null);
 }
 
 export async function marcarCompraAcreditada(db, compraId, mpPaymentId) {
@@ -212,5 +218,5 @@ export async function marcarCompraRechazada(db, compraId, mpPaymentId) {
 
 export async function obtenerCompra(db, compraId) {
   const { rows } = await db.query("SELECT * FROM creditos_compra WHERE id = $1", [compraId]);
-  return rows[0] ?? null;
+  return conPrecioNumerico(rows[0] ?? null);
 }
