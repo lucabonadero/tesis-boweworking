@@ -7,6 +7,7 @@ import {
   BuildOutlined,
   DollarOutlined,
   TeamOutlined,
+  WalletOutlined,
   ArrowRightOutlined,
 } from "@ant-design/icons";
 import { useAuth } from "../../context/AuthContext.jsx";
@@ -79,6 +80,16 @@ export default function PanelAdmin() {
         visible: hasPermission("gestionar_usuarios"),
         accent: "#dc2626",
         accentSoft: "rgba(220, 38, 38, 0.10)",
+      },
+      {
+        key: "creditos",
+        titulo: "Gestión de Créditos",
+        desc: "Paquetes de créditos y ajustes de saldo.",
+        icon: <WalletOutlined />,
+        ruta: "/admin-creditos",
+        visible: hasPermission("gestionar_creditos"),
+        accent: "#ca8a04",
+        accentSoft: "rgba(202, 138, 4, 0.10)",
       },
     ].filter((m) => m.visible);
   }, [hasPermission]);

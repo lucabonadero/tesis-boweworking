@@ -12,6 +12,7 @@ import AltaClientes from "./pages/admin/altas.jsx";
 import EspaciosDashboard from "./pages/admin/espaciosdashboard.jsx";
 import GestionUsuarios from "./pages/admin/GestionUsuarios.jsx";
 import GestionEstructura from "./pages/admin/GestionEstructura.jsx";
+import GestionCreditos from "./pages/admin/GestionCreditos.jsx";
 import PanelAdmin from "./pages/admin/PanelAdmin.jsx";
 import ProtectedRoute from "./components/rutasprotegidas.jsx";
 import AuthModal from "./components/AuthModal.jsx";
@@ -60,6 +61,9 @@ function App() {
             } />
             <Route path="/admin-estructura" element={
               <ProtectedRoute permisoRequerido="gestionar_estructura"><GestionEstructura /></ProtectedRoute>
+            } />
+            <Route path="/admin-creditos" element={
+              <ProtectedRoute permisoRequerido="gestionar_creditos"><GestionCreditos /></ProtectedRoute>
             } />
             <Route path="*" element={<h1>404 - Página no encontrada</h1>} />
           </Routes>
