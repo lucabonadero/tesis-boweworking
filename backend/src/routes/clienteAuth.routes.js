@@ -10,6 +10,8 @@ import {
   validarTokenRecuperacion,
   restablecerPassword,
   cambiarPassword,
+  solicitarRolEstudiante,
+  obtenerEstadoEstudiante,
 } from "../controllers/clienteAuth.controller.js";
 import { verificarToken } from "../middleware/auth.middleware.js";
 import { validateBody, validateQuery } from "../middleware/validate.middleware.js";
@@ -29,6 +31,7 @@ import {
   clienteValidarTokenRecuperacionQuerySchema,
   clienteRestablecerPasswordSchema,
   clienteCambiarPasswordSchema,
+  clienteSolicitarEstudianteSchema,
 } from "../schemas/validation.schemas.js";
 
 const router = Router();
@@ -68,5 +71,14 @@ router.put(
   validateBody(clienteCambiarPasswordSchema),
   cambiarPassword
 );
+
+// RF04: solicitud de cambio al rol Estudiante y consulta de su estado.
+router.post(
+  "/solicitar-estudiante",
+  verificarToken,
+  validateBody(clienteSolicitarEstudianteSchema),
+  solicitarRolEstudiante
+);
+router.get("/estado-estudiante", verificarToken, obtenerEstadoEstudiante);
 
 export default router;

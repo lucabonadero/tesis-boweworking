@@ -4,6 +4,10 @@ import jwt from "jsonwebtoken";
 import { OAuth2Client } from "google-auth-library";
 import pool from "../config/db.js";
 import { sendMail } from "../services/mailer.service.js";
+import {
+  beneficiosParaRol,
+  evaluarSolicitudEstudiante,
+} from "../services/rolClienteUsuario.service.js";
 
 function obtenerClienteOAuthGoogle() {
   const id = process.env.GOOGLE_CLIENT_ID?.trim();
@@ -15,7 +19,17 @@ const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "8h";
 
 function firmarTokenCliente(user) {
   return jwt.sign(
-    { id: user.id, email: user.email, dni: user.dni || null, tipo: "cliente", rol: "cliente", perfil_completo: user.perfil_completo },
+    {
+      id: user.id,
+      email: user.email,
+      dni: user.dni || null,
+      tipo: "cliente",
+      // Rol real del usuario final (RF03/RF05). Antes iba fijo en "cliente".
+      rol: user.rol || "usuario",
+      estado_cuenta: user.estado_cuenta || "activo",
+      estado_verificacion_estudiante: user.estado_verificacion_estudiante || "no_solicitado",
+      perfil_completo: user.perfil_completo,
+    },
     process.env.JWT_SECRET,
     { expiresIn: JWT_EXPIRES_IN }
   );
@@ -48,24 +62,52 @@ function nombreDeRol(rol) {
 }
 
 function usuarioSeguro(row) {
-  const { password, ...rest } = row;
-  return rest;
+  // Se excluye el comprobante: puede pesar mucho y no hace falta en cada respuesta.
+  const { password, comprobante_estudiante, ...rest } = row;
+  return { ...rest, tiene_comprobante_estudiante: Boolean(comprobante_estudiante) };
 }
 
+/**
+ * Refleja los datos de la cuenta en la tabla `Cliente`, que usan las reservas.
+ *
+ * La version anterior buscaba por DNI y sobrescribia el Email sin avisar: si
+ * dos cuentas compartian DNI, la segunda pisaba el Email de la primera y
+ * dejaba la ficha del cliente apuntando a otra persona. Ahora, si el DNI ya
+ * pertenece a un Cliente con otro email, no se toca la fila: se registra el
+ * conflicto para que un administrador lo resuelva.
+ */
 async function sincronizarCliente(user) {
   if (!user.perfil_completo || !user.dni) return;
-  const { rows } = await pool.query('SELECT "DNI" FROM "Cliente" WHERE "DNI" = $1', [user.dni]);
+
+  const { rows } = await pool.query(
+    'SELECT "DNI", "Email" FROM "Cliente" WHERE "DNI" = $1',
+    [user.dni]
+  );
+
   if (rows.length === 0) {
     await pool.query(
-      'INSERT INTO "Cliente" ("DNI","Nombre","Apellido","Email") VALUES ($1,$2,$3,$4)',
+      'INSERT INTO "Cliente" ("DNI","Nombre","Apellido","Email") VALUES ($1,$2,$3,$4) ON CONFLICT ("DNI") DO NOTHING',
       [user.dni, user.nombre, user.apellido, user.email]
     );
-  } else {
-    await pool.query(
-      'UPDATE "Cliente" SET "Nombre"=$1,"Apellido"=$2,"Email"=$3 WHERE "DNI"=$4',
-      [user.nombre, user.apellido, user.email, user.dni]
-    );
+    return;
   }
+
+  const emailExistente = String(rows[0].Email ?? "").trim().toLowerCase();
+  const emailCuenta = String(user.email ?? "").trim().toLowerCase();
+
+  // El DNI ya esta tomado por un Cliente con otro email: no sobrescribir.
+  if (emailExistente && emailExistente !== emailCuenta) {
+    console.warn(
+      `[sincronizarCliente] DNI ${user.dni} ya asociado a ${emailExistente}; ` +
+      `no se sobrescribe con ${emailCuenta}. Revisar con reparacion_permisos_rol.sql (consulta 1.g).`
+    );
+    return;
+  }
+
+  await pool.query(
+    'UPDATE "Cliente" SET "Nombre"=$1,"Apellido"=$2,"Email"=$3 WHERE "DNI"=$4',
+    [user.nombre, user.apellido, user.email, user.dni]
+  );
 }
 
 // ── POST /registro ─────────────────────────────────────────
@@ -100,7 +142,7 @@ export const registro = async (req, res) => {
     const token = firmarTokenCliente(user);
     res.status(201).json({
       token,
-      usuario: { ...usuarioSeguro(user), rol: "cliente", tiene_password: true },
+      usuario: { ...usuarioSeguro(user), rol: user.rol || "usuario", tipo: "cliente", tiene_password: true },
     });
   } catch (error) {
     console.error("Error en registro cliente:", error);
@@ -162,10 +204,19 @@ export const login = async (req, res) => {
       return res.status(401).json({ message: "Credenciales incorrectas." });
     }
 
+    // RF01: una cuenta bloqueada por un administrador no puede iniciar sesion.
+    // Se verifica despues de la contrasena para no revelar que la cuenta existe.
+    if (user.estado_cuenta === "bloqueado") {
+      return res.status(403).json({
+        message: "Tu cuenta está bloqueada. Contactate con el coworking.",
+        codigo: "CUENTA_BLOQUEADA",
+      });
+    }
+
     const token = firmarTokenCliente(user);
     res.json({
       token,
-      usuario: { ...usuarioSeguro(user), rol: "cliente", tiene_password: Boolean(user.password) },
+      usuario: { ...usuarioSeguro(user), rol: user.rol || "usuario", tipo: "cliente", tiene_password: Boolean(user.password) },
     });
   } catch (error) {
     console.error("Error en login:", error);
@@ -235,10 +286,19 @@ export const googleAuth = async (req, res) => {
     }
 
     const user = rows[0];
+
+    // RF01: el bloqueo tambien alcanza al ingreso con Google.
+    if (user.estado_cuenta === "bloqueado") {
+      return res.status(403).json({
+        message: "Tu cuenta está bloqueada. Contactate con el coworking.",
+        codigo: "CUENTA_BLOQUEADA",
+      });
+    }
+
     const token = firmarTokenCliente(user);
     res.json({
       token,
-      usuario: { ...usuarioSeguro(user), rol: "cliente", tiene_password: Boolean(user.password) },
+      usuario: { ...usuarioSeguro(user), rol: user.rol || "usuario", tipo: "cliente", tiene_password: Boolean(user.password) },
     });
   } catch (error) {
     console.error("Error en Google auth:", error);
@@ -299,7 +359,9 @@ export const me = async (req, res) => {
     const row = rows[0];
     res.json({
       ...usuarioSeguro(row),
-      rol: "cliente",
+      rol: row.rol || "usuario",
+      tipo: "cliente",
+      beneficios: beneficiosParaRol(row.rol),
       tiene_password: Boolean(row.password),
     });
   } catch (error) {
@@ -337,7 +399,7 @@ export const actualizarPerfil = async (req, res) => {
     const token = firmarTokenCliente(user);
     res.json({
       token,
-      usuario: { ...usuarioSeguro(user), rol: "cliente", tiene_password: Boolean(user.password) },
+      usuario: { ...usuarioSeguro(user), rol: user.rol || "usuario", tipo: "cliente", tiene_password: Boolean(user.password) },
     });
   } catch (error) {
     console.error("Error al actualizar perfil:", error);
@@ -378,7 +440,7 @@ export const completarPerfil = async (req, res) => {
     const token = firmarTokenCliente(user);
     res.json({
       token,
-      usuario: { ...usuarioSeguro(user), rol: "cliente", tiene_password: Boolean(user.password) },
+      usuario: { ...usuarioSeguro(user), rol: user.rol || "usuario", tipo: "cliente", tiene_password: Boolean(user.password) },
     });
   } catch (error) {
     console.error("Error en completar perfil:", error);
@@ -513,7 +575,7 @@ export const restablecerPassword = async (req, res) => {
     res.json({
       message: "Contraseña actualizada. Ya podés iniciar sesión.",
       token: jwtToken,
-      usuario: { ...usuarioSeguro(user), rol: "cliente", tiene_password: true },
+      usuario: { ...usuarioSeguro(user), rol: user.rol || "usuario", tipo: "cliente", tiene_password: true },
     });
   } catch (error) {
     console.error("Error en restablecer contraseña:", error);
@@ -563,10 +625,104 @@ export const cambiarPassword = async (req, res) => {
     res.json({
       message: "Contraseña actualizada.",
       token: jwtToken,
-      usuario: { ...usuarioSeguro(fresh), rol: "cliente", tiene_password: true },
+      usuario: { ...usuarioSeguro(fresh), rol: fresh.rol || "usuario", tipo: "cliente", tiene_password: true },
     });
   } catch (error) {
     console.error("Error al cambiar contraseña:", error);
+    res.status(500).json({ message: "Error interno del servidor" });
+  }
+};
+
+// ── RF04: solicitud de cambio al rol Estudiante ────────────
+
+/**
+ * POST /api/auth/cliente/solicitar-estudiante
+ *
+ * Todo usuario se registra como "usuario" y puede pedir el cambio a
+ * "estudiante". La cuenta queda en estado "pendiente" hasta que un
+ * administrador la apruebe o la rechace: el rol NO cambia todavia.
+ */
+export const solicitarRolEstudiante = async (req, res) => {
+  const { institucion, comprobante } = req.body;
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    const { rows } = await client.query(
+      `SELECT id, email, rol, estado_cuenta, estado_verificacion_estudiante
+       FROM "ClienteUsuario" WHERE id = $1 FOR UPDATE`,
+      [req.usuario.id]
+    );
+    if (rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ message: "Usuario no encontrado" });
+    }
+
+    const decision = evaluarSolicitudEstudiante(rows[0]);
+    if (!decision.ok) {
+      await client.query("ROLLBACK");
+      const estado = decision.codigo === "CUENTA_BLOQUEADA" ? 403 : 409;
+      return res.status(estado).json({
+        message: decision.mensaje,
+        codigo: decision.codigo,
+      });
+    }
+
+    const { rows: actualizado } = await client.query(
+      `UPDATE "ClienteUsuario"
+       SET estado_verificacion_estudiante = $1,
+           institucion_estudiante = $2,
+           comprobante_estudiante = $3,
+           solicitud_estudiante_at = NOW(),
+           resolucion_estudiante_at = NULL,
+           motivo_rechazo_estudiante = NULL,
+           resuelto_por_usuario_id = NULL
+       WHERE id = $4
+       RETURNING id, email, rol, estado_cuenta, estado_verificacion_estudiante,
+                 institucion_estudiante, solicitud_estudiante_at`,
+      [decision.estadoDestino, institucion, comprobante ?? null, req.usuario.id]
+    );
+
+    await client.query("COMMIT");
+    res.json({
+      ...actualizado[0],
+      message: "Solicitud enviada. Un administrador la va a revisar.",
+    });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error("Error solicitar rol estudiante:", err);
+    res.status(500).json({ message: "Error interno del servidor" });
+  } finally {
+    client.release();
+  }
+};
+
+/**
+ * GET /api/auth/cliente/estado-estudiante
+ * Estado de la solicitud, para que el usuario lo vea en su perfil.
+ */
+export const obtenerEstadoEstudiante = async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT rol, estado_verificacion_estudiante, institucion_estudiante,
+              solicitud_estudiante_at, resolucion_estudiante_at,
+              motivo_rechazo_estudiante, estado_cuenta
+       FROM "ClienteUsuario" WHERE id = $1`,
+      [req.usuario.id]
+    );
+    if (rows.length === 0) {
+      return res.status(404).json({ message: "Usuario no encontrado" });
+    }
+
+    const fila = rows[0];
+    res.json({
+      ...fila,
+      beneficios: beneficiosParaRol(fila.rol),
+      puede_solicitar: evaluarSolicitudEstudiante(fila).ok,
+    });
+  } catch (err) {
+    console.error("Error obtener estado de estudiante:", err);
     res.status(500).json({ message: "Error interno del servidor" });
   }
 };

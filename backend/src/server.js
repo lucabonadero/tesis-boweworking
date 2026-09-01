@@ -19,6 +19,7 @@ import pagosRoutes from "./routes/pagos.routes.js";
 import espaciosDashboardRoutes from "./routes/espaciosDashboard.routes.js";
 import aiReservaRoutes from "./routes/aiReserva.routes.js";
 import adminUsuariosRoutes from "./routes/adminUsuarios.routes.js";
+import adminClientesRoutes from "./routes/adminClientes.routes.js";
 import estructuraRoutes from "./routes/estructura.routes.js";
 import pisosPublicoRoutes from "./routes/pisosPublico.routes.js";
 
@@ -46,7 +47,8 @@ const corsOptions = {
 
 app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
 app.use(cors(corsOptions));
-app.use(express.json());
+// 3mb: comprobante de estudiante viaja en base64.
+app.use(express.json({ limit: "3mb" }));
 
 // Rutas
 app.use("/api/auth", authRoutes);
@@ -61,6 +63,7 @@ app.use("/api/ai", aiReservaRoutes);
 // /api/admin/estructura debe ir ANTES que /api/admin para que el middleware
 // global de adminUsuariosRoutes no intercepte los requests de estructura.
 app.use("/api/admin/estructura", estructuraRoutes);
+app.use("/api/admin/clientes-usuarios", adminClientesRoutes);
 app.use("/api/admin", adminUsuariosRoutes);
 app.use("/api/pisos/publicos", pisosPublicoRoutes);
 

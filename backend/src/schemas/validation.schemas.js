@@ -111,3 +111,98 @@ export const serieMensualCrearBodySchema = serieMensualCotizarQuerySchema.extend
   DNI: z.union([z.string(), z.number()]).optional(),
   Nombre: z.string().max(300).optional(),
 });
+
+// ============================================================
+// Gestion de usuarios del panel (tabla `usuarios`)
+// ============================================================
+
+/** Roles asignables desde la interfaz de Gestion de Usuarios. */
+const rolStaffSchema = z.enum(["admin", "staff"]);
+
+/** Clave de permiso del catalogo. */
+const permisoClaveSchema = z.string().min(1).max(50).trim();
+
+/** POST /api/admin/usuarios */
+export const adminCrearUsuarioSchema = z.object({
+  email: z.string().email().max(255).trim().toLowerCase(),
+  password: z.string().min(6).max(128),
+  rol: rolStaffSchema,
+  permisos: z.array(permisoClaveSchema).max(50).optional(),
+});
+
+/**
+ * PUT /api/admin/usuarios/:id
+ * No acepta `rol`: el cambio de rol tiene su endpoint dedicado para que
+ * recalcule los permisos en la misma transaccion.
+ */
+export const adminActualizarUsuarioSchema = z
+  .object({
+    email: z.string().email().max(255).trim().toLowerCase().optional(),
+    password: z.string().min(6).max(128).optional(),
+  })
+  .refine((b) => b.email !== undefined || b.password !== undefined, {
+    message: "No hay datos para actualizar",
+  });
+
+/** PUT /api/admin/usuarios/:id/rol */
+export const adminCambiarRolUsuarioSchema = z.object({
+  rol: rolStaffSchema,
+  permisos: z.array(permisoClaveSchema).max(50).optional(),
+});
+
+/** PUT /api/admin/usuarios/:id/permisos */
+export const adminActualizarPermisosSchema = z.object({
+  permisos: z.array(permisoClaveSchema).max(50),
+});
+
+/** Parametro :id de las rutas de administracion. */
+export const adminIdParamSchema = z.object({
+  id: z.coerce.number().int().positive(),
+});
+
+// ============================================================
+// Gestion de usuarios finales (tabla `ClienteUsuario`)
+// ============================================================
+
+/** Roles del usuario final (RF03). */
+const rolClienteSchema = z.enum(["usuario", "estudiante"]);
+
+/** GET /api/admin/clientes-usuarios - filtros del panel (RF02). */
+export const adminListarClientesUsuariosQuerySchema = z.object({
+  rol: rolClienteSchema.optional(),
+  estado_cuenta: z.enum(["activo", "bloqueado"]).optional(),
+  estado_verificacion_estudiante: z
+    .enum(["no_solicitado", "pendiente", "aprobado", "rechazado"])
+    .optional(),
+  q: z.string().max(160).trim().optional(),
+  limit: z.coerce.number().int().min(1).max(200).optional(),
+  offset: z.coerce.number().int().min(0).optional(),
+});
+
+/** PUT /api/admin/clientes-usuarios/:id/estado - bloquear o habilitar (RF01). */
+export const adminCambiarEstadoCuentaSchema = z
+  .object({
+    accion: z.enum(["bloquear", "habilitar"]),
+    motivo: z.string().max(500).trim().optional(),
+  })
+  .refine((b) => b.accion !== "bloquear" || (b.motivo && b.motivo.length > 0), {
+    message: "Indica el motivo del bloqueo",
+    path: ["motivo"],
+  });
+
+/** PUT /api/admin/clientes-usuarios/:id/verificacion-estudiante (RF04). */
+export const adminResolverEstudianteSchema = z
+  .object({
+    decision: z.enum(["aprobar", "rechazar"]),
+    motivo: z.string().max(500).trim().optional(),
+  })
+  .refine((b) => b.decision !== "rechazar" || (b.motivo && b.motivo.length > 0), {
+    message: "Indica el motivo del rechazo",
+    path: ["motivo"],
+  });
+
+/** POST /api/auth/cliente/solicitar-estudiante (RF04). */
+export const clienteSolicitarEstudianteSchema = z.object({
+  institucion: z.string().min(2).max(160).trim(),
+  comprobante: z.string().max(2_000_000).optional(),
+});

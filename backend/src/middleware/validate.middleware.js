@@ -50,3 +50,16 @@ export function validateCrearReservaBody(req, res, next) {
     next(e);
   }
 }
+
+/** Valida req.params y reemplaza por el resultado parseado (coerciones aplicadas). */
+export function validateParams(schema) {
+  return (req, res, next) => {
+    try {
+      req.params = schema.parse(req.params ?? {});
+      next();
+    } catch (e) {
+      if (e instanceof ZodError) return res.status(400).json(formatearErrorZod(e));
+      next(e);
+    }
+  };
+}

@@ -16,7 +16,11 @@ import {
   Spin,
   Empty,
   Tooltip,
+  Upload,
+  Typography,
 } from "antd";
+
+const { Text } = Typography;
 import ReservaModificacionAviso from "../../components/ReservaModificacionAviso.jsx";
 import {
   RESERVA_ESTADO_LABEL,
@@ -35,7 +39,33 @@ import {
   ClockCircleOutlined,
   CreditCardOutlined,
   LockOutlined,
+  ReadOutlined,
+  UploadOutlined,
 } from "@ant-design/icons";
+
+const VERIFICACION_ESTUDIANTE_LABEL = {
+  no_solicitado: "Sin solicitar",
+  pendiente: "Pendiente de revisión",
+  aprobado: "Aprobado",
+  rechazado: "Rechazado",
+};
+const VERIFICACION_ESTUDIANTE_COLOR = {
+  no_solicitado: "default",
+  pendiente: "gold",
+  aprobado: "green",
+  rechazado: "red",
+};
+
+const COMPROBANTE_MAX_BYTES = 1.4 * 1024 * 1024;
+
+function archivoABase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 
@@ -49,6 +79,11 @@ export default function Perfil() {
   const [mpLoadingId, setMpLoadingId] = useState(null);
   const [form] = Form.useForm();
   const [passwordForm] = Form.useForm();
+  const [estudianteForm] = Form.useForm();
+  const [estadoEstudiante, setEstadoEstudiante] = useState(null);
+  const [loadingEstudiante, setLoadingEstudiante] = useState(true);
+  const [enviandoEstudiante, setEnviandoEstudiante] = useState(false);
+  const [comprobanteFile, setComprobanteFile] = useState(null);
 
   const loadReservas = useCallback(async () => {
     if (!token) return;
@@ -73,6 +108,58 @@ export default function Perfil() {
   useEffect(() => {
     loadReservas();
   }, [loadReservas]);
+
+  const loadEstadoEstudiante = useCallback(async () => {
+    if (!token) return;
+    setLoadingEstudiante(true);
+    try {
+      const r = await authFetch(`${API_URL}/api/auth/cliente/estado-estudiante`);
+      const texto = await r.text();
+      const data = texto ? JSON.parse(texto) : null;
+      setEstadoEstudiante(r.ok ? data : null);
+    } catch {
+      setEstadoEstudiante(null);
+    } finally {
+      setLoadingEstudiante(false);
+    }
+  }, [token, authFetch]);
+
+  useEffect(() => {
+    loadEstadoEstudiante();
+  }, [loadEstadoEstudiante]);
+
+  const onSolicitarEstudiante = async (values) => {
+    setEnviandoEstudiante(true);
+    try {
+      let comprobante;
+      if (comprobanteFile) {
+        comprobante = await archivoABase64(comprobanteFile);
+      }
+      const res = await authFetch(`${API_URL}/api/auth/cliente/solicitar-estudiante`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ institucion: values.institucion, comprobante }),
+      });
+      // 413 y errores de proxy vuelven en HTML, no JSON.
+      const texto = await res.text();
+      let data = null;
+      try { data = texto ? JSON.parse(texto) : null; } catch { data = null; }
+      if (!res.ok) {
+        if (res.status === 413) {
+          throw new Error("La imagen es demasiado grande. Probá con una más liviana.");
+        }
+        throw new Error(data?.message || "Error al enviar la solicitud");
+      }
+      message.success("Solicitud enviada. Un administrador la va a revisar.");
+      estudianteForm.resetFields();
+      setComprobanteFile(null);
+      await loadEstadoEstudiante();
+    } catch (err) {
+      message.error(err.message);
+    } finally {
+      setEnviandoEstudiante(false);
+    }
+  };
 
   const reservasVista = useMemo(() => {
     const list = reservas || [];
@@ -470,6 +557,103 @@ export default function Perfil() {
               </p>
             </Card>
           )}
+
+          <Card
+            className={styles.profileCard}
+            title={
+              <span>
+                <ReadOutlined style={{ marginRight: 8 }} />
+                Verificación de Estudiante
+              </span>
+            }
+          >
+            {loadingEstudiante ? (
+              <div style={{ textAlign: "center", padding: "1rem" }}><Spin /></div>
+            ) : !estadoEstudiante ? (
+              <Text type="secondary">No se pudo cargar el estado de la solicitud.</Text>
+            ) : (
+              <>
+                <div style={{ marginBottom: 16 }}>
+                  <Tag color={VERIFICACION_ESTUDIANTE_COLOR[estadoEstudiante.estado_verificacion_estudiante] || "default"}>
+                    {VERIFICACION_ESTUDIANTE_LABEL[estadoEstudiante.estado_verificacion_estudiante] || estadoEstudiante.estado_verificacion_estudiante}
+                  </Tag>
+                  {estadoEstudiante.rol === "estudiante" && (
+                    <Tag color="purple" style={{ marginLeft: 8 }}>Rol actual: Estudiante</Tag>
+                  )}
+                </div>
+
+                {estadoEstudiante.estado_verificacion_estudiante === "rechazado" && estadoEstudiante.motivo_rechazo_estudiante && (
+                  <p style={{ fontSize: 13, color: "#cf1322", marginBottom: 16 }}>
+                    Motivo del rechazo: {estadoEstudiante.motivo_rechazo_estudiante}
+                  </p>
+                )}
+
+                {estadoEstudiante.estado_verificacion_estudiante === "pendiente" && (
+                  <p style={{ fontSize: 13, color: "#666", marginBottom: 0 }}>
+                    Tu solicitud está en revisión. Institución informada: {estadoEstudiante.institucion_estudiante || "—"}.
+                  </p>
+                )}
+
+                {estadoEstudiante.estado_verificacion_estudiante === "aprobado" && (
+                  <p style={{ fontSize: 13, color: "#389e0d", marginBottom: 0 }}>
+                    Ya tenés el rol Estudiante y accedés a los beneficios diferenciados.
+                  </p>
+                )}
+
+                {estadoEstudiante.puede_solicitar && (
+                  <Form
+                    form={estudianteForm}
+                    layout="vertical"
+                    onFinish={onSolicitarEstudiante}
+                    style={{ marginTop: 16 }}
+                  >
+                    <Form.Item
+                      name="institucion"
+                      label="Institución educativa"
+                      rules={[{ required: true, message: "Requerido" }]}
+                    >
+                      <Input placeholder="Ej: Universidad de Buenos Aires" />
+                    </Form.Item>
+                    <Form.Item
+                      label="Certificado de alumno regular"
+                      required
+                      tooltip="Imagen (JPG o PNG), hasta 1.4 MB"
+                    >
+                      <Upload
+                        accept="image/png,image/jpeg"
+                        maxCount={1}
+                        beforeUpload={(file) => {
+                          const esImagen = file.type === "image/png" || file.type === "image/jpeg";
+                          if (!esImagen) {
+                            message.error("Solo se aceptan imágenes JPG o PNG");
+                            return Upload.LIST_IGNORE;
+                          }
+                          if (file.size > COMPROBANTE_MAX_BYTES) {
+                            message.error("La imagen no puede superar 1.4 MB");
+                            return Upload.LIST_IGNORE;
+                          }
+                          setComprobanteFile(file);
+                          return false;
+                        }}
+                        onRemove={() => setComprobanteFile(null)}
+                      >
+                        <Button icon={<UploadOutlined />}>Elegir imagen</Button>
+                      </Upload>
+                    </Form.Item>
+                    <Button
+                      type="primary"
+                      htmlType="submit"
+                      loading={enviandoEstudiante}
+                      disabled={!comprobanteFile}
+                      style={{ background: "#34c08f", borderColor: "#34c08f" }}
+                    >
+                      Enviar solicitud
+                    </Button>
+                  </Form>
+                )}
+              </>
+            )}
+          </Card>
           </div>
 
           <Card className={`${styles.reservasCard} ${styles.reservasCardTable}`} title="Mis Reservas">
