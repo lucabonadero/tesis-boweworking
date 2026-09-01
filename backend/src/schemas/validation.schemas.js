@@ -234,6 +234,16 @@ export const creditosComprarSchema = z.object({
 });
 
 /**
+ * `z.coerce.boolean()` convierte cualquier texto no vacio en `true`, incluido
+ * "false". Estos flags autorizan operaciones sensibles: se leen de forma
+ * explicita.
+ */
+const flagBooleano = z.union([
+  z.boolean(),
+  z.enum(["true", "false"]).transform((v) => v === "true"),
+]);
+
+/**
  * Ajuste manual (RF08). `permitirNegativo` es la autorización explícita para
  * dejar el saldo bajo cero.
  */
@@ -243,7 +253,7 @@ export const adminAjusteCreditosSchema = z.object({
     .int({ message: "Los créditos son enteros" })
     .refine((n) => n !== 0, { message: "La cantidad no puede ser cero" }),
   motivo: z.string().trim().min(3).max(500),
-  permitirNegativo: z.coerce.boolean().default(false),
+  permitirNegativo: flagBooleano.default(false),
 });
 
 export const adminCrearPaqueteSchema = z.object({
@@ -254,5 +264,5 @@ export const adminCrearPaqueteSchema = z.object({
 });
 
 export const adminActualizarPaqueteSchema = adminCrearPaqueteSchema.extend({
-  activo: z.coerce.boolean().optional(),
+  activo: flagBooleano.optional(),
 });
