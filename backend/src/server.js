@@ -23,6 +23,7 @@ import adminClientesRoutes from "./routes/adminClientes.routes.js";
 import estructuraRoutes from "./routes/estructura.routes.js";
 import pisosPublicoRoutes from "./routes/pisosPublico.routes.js";
 import creditosRoutes from "./routes/creditos.routes.js";
+import adminCreditosRoutes from "./routes/adminCreditos.routes.js";
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -62,9 +63,10 @@ app.use("/api/pagos", pagosRoutes);
 app.use("/api/creditos", creditosRoutes);
 app.use("/api/dashboard/espacios", espaciosDashboardRoutes);
 app.use("/api/ai", aiReservaRoutes);
-// /api/admin/estructura debe ir ANTES que /api/admin para que el middleware
-// global de adminUsuariosRoutes no intercepte los requests de estructura.
+// /api/admin/estructura y /api/admin/creditos deben ir ANTES que /api/admin
+// para que el middleware global de adminUsuariosRoutes no las intercepte.
 app.use("/api/admin/estructura", estructuraRoutes);
+app.use("/api/admin/creditos", adminCreditosRoutes);
 app.use("/api/admin/clientes-usuarios", adminClientesRoutes);
 app.use("/api/admin", adminUsuariosRoutes);
 app.use("/api/pisos/publicos", pisosPublicoRoutes);
