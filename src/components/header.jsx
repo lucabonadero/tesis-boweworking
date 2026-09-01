@@ -14,6 +14,7 @@ import {
   RobotOutlined,
   DashboardOutlined,
 } from "@ant-design/icons";
+import SaldoCreditosWidget from "./SaldoCreditosWidget.jsx";
 
 export default function Header() {
   const location = useLocation();
@@ -139,12 +140,15 @@ export default function Header() {
               </Dropdown>
             </>
           ) : auth.isAuthenticated ? (
-            <Dropdown menu={menuUsuario} placement="bottomRight" trigger={["click"]}>
-              <button type="button" className="header__user-btn">
-                <UserOutlined />
-                <span className="header__user-name">{auth.user?.nombre}</span>
-              </button>
-            </Dropdown>
+            <>
+              <SaldoCreditosWidget />
+              <Dropdown menu={menuUsuario} placement="bottomRight" trigger={["click"]}>
+                <button type="button" className="header__user-btn">
+                  <UserOutlined />
+                  <span className="header__user-name">{auth.user?.nombre}</span>
+                </button>
+              </Dropdown>
+            </>
           ) : (
             <div className="header__auth-buttons">
               <button
