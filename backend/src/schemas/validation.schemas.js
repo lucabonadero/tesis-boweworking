@@ -206,3 +206,53 @@ export const clienteSolicitarEstudianteSchema = z.object({
   institucion: z.string().min(2).max(160).trim(),
   comprobante: z.string().max(2_000_000).optional(),
 });
+
+// Sistema de créditos (RF06 - RF10).
+
+export const creditosMovimientosQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  offset: z.coerce.number().int().min(0).default(0),
+});
+
+/** Id en la ruta: usuario o paquete. */
+export const creditosIdParamSchema = z.object({
+  id: z.coerce.number().int().positive(),
+});
+
+/** Cotización previa: cuántos créditos cuesta la selección actual. */
+export const creditosCotizarSchema = z.object({
+  items: z.array(z.object({ idRecurso: z.coerce.number().int().positive() })).min(1).max(24),
+  DiaReserva: z.string().min(1).max(32),
+  HorarioReserva: z.string().max(16).optional().nullable(),
+  HorarioFin: z.string().max(16).optional().nullable(),
+  TipoReserva: z.enum(["turno", "semanal", "mensual"]).default("turno"),
+});
+
+/** El cliente elige un paquete; el precio lo pone el servidor. */
+export const creditosComprarSchema = z.object({
+  paqueteId: z.coerce.number().int().positive(),
+});
+
+/**
+ * Ajuste manual (RF08). `permitirNegativo` es la autorización explícita para
+ * dejar el saldo bajo cero.
+ */
+export const adminAjusteCreditosSchema = z.object({
+  cantidad: z.coerce
+    .number()
+    .int({ message: "Los créditos son enteros" })
+    .refine((n) => n !== 0, { message: "La cantidad no puede ser cero" }),
+  motivo: z.string().trim().min(3).max(500),
+  permitirNegativo: z.coerce.boolean().default(false),
+});
+
+export const adminCrearPaqueteSchema = z.object({
+  nombre: z.string().trim().min(1).max(120),
+  creditos: z.coerce.number().int().positive(),
+  precio: z.coerce.number().nonnegative(),
+  descripcion: z.string().trim().max(1000).optional().nullable(),
+});
+
+export const adminActualizarPaqueteSchema = adminCrearPaqueteSchema.extend({
+  activo: z.coerce.boolean().optional(),
+});
