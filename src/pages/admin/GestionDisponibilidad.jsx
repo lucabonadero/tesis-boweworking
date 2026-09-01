@@ -37,6 +37,7 @@ export default function GestionDisponibilidad() {
   const [nodoSeleccionado, setNodoSeleccionado] = useState(null);
   const [idRecurso, setIdRecurso] = useState(null);
   const [franjas, setFranjas] = useState([]);
+  const [franjasTocadas, setFranjasTocadas] = useState(false);
   const [rango, setRango] = useState(null);
   const [motivo, setMotivo] = useState("");
 
@@ -71,10 +72,12 @@ export default function GestionDisponibilidad() {
   const elegirRecurso = (rec) => {
     setIdRecurso(rec.idRecurso);
     setFranjas([]);
+    setFranjasTocadas(false);
   };
 
   // Al llegar del servidor, se normaliza { DiaSemana, HoraInicio, HoraFin } al shape de la grilla.
-  const franjasVigentes = franjas.length
+  // `franjasTocadas` (no franjas.length) distingue "sin editar" de "editado a vacío" (ej. Limpiar).
+  const franjasVigentes = franjasTocadas
     ? franjas
     : (franjasGuardadas || []).map((f) => ({
         diaSemana: f.DiaSemana,
@@ -89,6 +92,7 @@ export default function GestionDisponibilidad() {
         onSuccess: () => {
           message.success("Disponibilidad guardada.");
           setFranjas([]);
+          setFranjasTocadas(false);
         },
         onError: (e) => message.error(e.message),
       }
@@ -140,6 +144,7 @@ export default function GestionDisponibilidad() {
                 setNodoSeleccionado(selectedOptions?.[selectedOptions.length - 1] ?? null);
                 setIdRecurso(null);
                 setFranjas([]);
+                setFranjasTocadas(false);
               }}
               changeOnSelect
               placeholder="Piso / Espacio"
@@ -171,7 +176,14 @@ export default function GestionDisponibilidad() {
                     label: "Horarios",
                     children: (
                       <>
-                        <GrillaDisponibilidad value={franjasVigentes} onChange={setFranjas} bloqueos={bloqueos} />
+                        <GrillaDisponibilidad
+                          value={franjasVigentes}
+                          onChange={(f) => {
+                            setFranjas(f);
+                            setFranjasTocadas(true);
+                          }}
+                          bloqueos={bloqueos}
+                        />
                         <Button type="primary" loading={guardar.isPending} onClick={onGuardar} style={{ marginTop: 16 }}>
                           Guardar horarios
                         </Button>
