@@ -86,17 +86,6 @@ export const crearReservasMultiplesSchema = z.object({
   Nombre: z.string().max(300).optional(),
 });
 
-export const crearPreferenciaSchema = z
-  .object({
-    idReserva: z.coerce.number().int().positive().optional(),
-    idSerie: z.coerce.number().int().positive().optional(),
-    idReservaGrupo: z.coerce.number().int().positive().optional(),
-  })
-  .refine(
-    (b) => [b.idReserva != null, b.idSerie != null, b.idReservaGrupo != null].filter(Boolean).length === 1,
-    { message: "Enviá exactamente uno: idReserva, idSerie o idReservaGrupo." }
-  );
-
 /** GET /api/reservas/serie-mensual/cotizar */
 export const serieMensualCotizarQuerySchema = z.object({
   fechaInicio: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),

@@ -968,24 +968,6 @@
   margin-bottom: 14px;
 }
 
-.btnMercadoPago {
-  width: 100%;
-  background: #009ee3 !important;
-  border-color: #009ee3 !important;
-  color: #fff !important;
-  border-radius: 8px;
-  font-weight: 600;
-  height: 48px;
-  font-size: 15px;
-}
-
-.btnMercadoPago:disabled {
-  background: #b8dff3 !important;
-  border-color: #b8dff3 !important;
-  color: #fff !important;
-  opacity: 0.8;
-}
-
 /* ══════════════════════════════════════════════
    Auth gate overlay
    ══════════════════════════════════════════════ */

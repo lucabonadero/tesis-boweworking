@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { Card, Spin, Button, Typography, Space, Tag, Result } from "antd";
 import Header from "../../components/header.jsx";
@@ -26,14 +26,18 @@ export default function PagoConfirmacion() {
 
   const { isAuthenticated, loading: authLoading, openAuthModal, authFetch } = useAuth();
   const invalidarCreditos = useInvalidarCreditos();
+  const [verificacion, setVerificacion] = useState(null);
 
   useEffect(() => {
     if (!paymentId) return;
 
     // Se verifica sin esperar al webhook, que puede demorar unos segundos.
     authFetch(`${API_URL}/api/pagos/verificar/${paymentId}`)
-      .then((res) => res.json())
-      .then(() => invalidarCreditos())
+      .then((res) => (res.ok ? res.json() : Promise.reject()))
+      .then((data) => {
+        setVerificacion(data);
+        if (data.estado === "acreditada") invalidarCreditos();
+      })
       .catch(() => {
         /* el webhook acreditará igual: no hay nada que hacer acá */
       });
@@ -41,11 +45,22 @@ export default function PagoConfirmacion() {
 
   const invalidCompra = !compraId;
 
-  let titulo = "Estado de tu compra";
-  if (resultado === "error") titulo = "El pago no se completó";
-  else if (resultado === "pendiente") titulo = "Pago pendiente de confirmación";
+  // Un resultado explícito en la URL (falla o pendiente del checkout) siempre gana;
+  // si no hay uno, se refleja lo que verificarPago realmente confirmó.
+  const estadoEfectivo =
+    resultado === "error" || resultado === "pendiente"
+      ? resultado
+      : verificacion?.estado === "acreditada"
+      ? "ok"
+      : verificacion?.estado === "rechazada"
+      ? "error"
+      : "pendiente";
 
-  const mensaje = MENSAJE_POR_RESULTADO[resultado] || MENSAJE_DEFAULT;
+  let titulo = "Estado de tu compra";
+  if (estadoEfectivo === "error") titulo = "El pago no se completó";
+  else if (estadoEfectivo === "pendiente") titulo = "Pago pendiente de confirmación";
+
+  const mensaje = MENSAJE_POR_RESULTADO[estadoEfectivo] || MENSAJE_DEFAULT;
 
   return (
     <div className={styles.page}>
@@ -97,7 +112,7 @@ export default function PagoConfirmacion() {
               </Paragraph>
 
               <Result
-                status={resultado === "error" ? "error" : resultado === "pendiente" ? "info" : "success"}
+                status={estadoEfectivo === "error" ? "error" : estadoEfectivo === "pendiente" ? "info" : "success"}
                 title={mensaje}
                 extra={
                   <Link to="/perfil">
