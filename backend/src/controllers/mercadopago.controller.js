@@ -7,6 +7,7 @@ import {
   aplicarMovimiento,
   marcarCompraAcreditada,
   marcarCompraRechazada,
+  obtenerCompra,
 } from "../repositories/creditos.repository.js";
 
 const MP_ACCESS_TOKEN = process.env.MP_ACCESS_TOKEN;
@@ -61,24 +62,6 @@ function verificarFirmaWebhook(req) {
   return { ok: true, skipped: false };
 }
 
-export function mapearEstadoMP(mpStatus) {
-  switch (mpStatus) {
-    case "approved":
-      return "Pagado";
-    case "pending":
-    case "in_process":
-    case "authorized":
-      return "Pendiente";
-    case "rejected":
-    case "cancelled":
-    case "refunded":
-    case "charged_back":
-      return "Rechazado";
-    default:
-      return "Pendiente";
-  }
-}
-
 /**
  * Acredita una compra de créditos a partir del pago de Mercado Pago.
  *
@@ -131,6 +114,11 @@ async function acreditarCompraCreditos(compraId, payment, paymentId) {
       await client.query("ROLLBACK");
     } catch {
       /* la transacción ya estaba cerrada */
+    }
+    // mp_payment_id es UNIQUE: si dos compras resuelven al mismo pago, sin este
+    // atajo el webhook devolvería 500 y Mercado Pago reintentaría para siempre.
+    if (error.code === "23505") {
+      return { compraId, estado: "duplicada", idempotent: true };
     }
     throw error;
   } finally {
@@ -225,6 +213,17 @@ export const verificarPago = async (req, res) => {
     const compraId = parsearReferenciaCompra(payment.external_reference);
     if (compraId == null) {
       return res.status(404).json({ message: "El pago no corresponde a una compra de créditos" });
+    }
+
+    const compra = await obtenerCompra(pool, compraId);
+    if (!compra) {
+      return res.status(404).json({ message: "El pago no corresponde a una compra de créditos" });
+    }
+    if (req.usuario?.tipo !== "cliente" || compra.cliente_usuario_id !== req.usuario.id) {
+      return res.status(403).json({
+        message: "No podés consultar el pago de otra cuenta.",
+        codigo: "COMPRA_AJENA",
+      });
     }
 
     const result = await acreditarCompraCreditos(compraId, payment, paymentId);

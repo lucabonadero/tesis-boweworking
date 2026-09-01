@@ -3,7 +3,7 @@ import Header from "../../components/header.jsx";
 import Footer from "../../components/footer.jsx";
 import "../../styles/global.css";
 import React, { useState, useMemo, useCallback, useEffect, useRef } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import dayjs from "dayjs";
 import { useAuth } from "../../context/AuthContext.jsx";
 import {
@@ -139,12 +139,10 @@ function getPrecioUnitario(recurso, tab, packTipo) {
 
 export default function RegistroCliente() {
   const { isAuthenticated, perfilCompleto, user, token, openAuthModal, loading: authLoading, authFetch } = useAuth();
-  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState("turno");
   const [step, setStep] = useState(0);
-  const [pagoResultado, setPagoResultado] = useState(null);
 
   const [disponibilidad, setDisponibilidad] = useState([]);
   const [espacios, setEspacios] = useState([]);
@@ -202,29 +200,6 @@ export default function RegistroCliente() {
     const top = el.getBoundingClientRect().top + window.scrollY - headerH - 12;
     window.scrollTo({ top: Math.max(top, 0), behavior });
   }, [step, activeTab]);
-
-  useEffect(() => {
-    const pagoParam = searchParams.get("pago");
-    if (!pagoParam) return;
-
-    const paymentId = searchParams.get("payment_id") || searchParams.get("collection_id");
-    const extRef = searchParams.get("external_reference");
-
-    if (paymentId && authFetch) {
-      authFetch(`${API_URL}/api/pagos/verificar/${paymentId}`)
-        .then((r) => (r.ok ? r.json() : Promise.reject()))
-        .then((data) =>
-          setPagoResultado({
-            status: pagoParam,
-            reservaId: extRef,
-            estadoPago: data.estadoPago,
-          })
-        )
-        .catch(() => setPagoResultado({ status: pagoParam, reservaId: extRef }));
-    } else {
-      setPagoResultado({ status: pagoParam, reservaId: extRef });
-    }
-  }, [searchParams, authFetch]);
 
   const resetAll = useCallback(() => {
     setStep(0);
@@ -582,6 +557,12 @@ export default function RegistroCliente() {
         });
         const data = await reservaRes.json().catch(() => ({}));
         if (!reservaRes.ok) {
+          if (reservaRes.status === 409 && data?.codigo === "SALDO_INSUFICIENTE") {
+            setCreditosFaltantes(data.creditosFaltantes ?? 0);
+            setCompraAbierta(true);
+            message.warning(data.message);
+            return false;
+          }
           message.error(data.fechaConflictiva ? `${data.message} (${data.fechaConflictiva})` : data.message || "Error al crear la reserva fija");
           return false;
         }
@@ -596,6 +577,7 @@ export default function RegistroCliente() {
           id: data.idReservaPago,
           monto: parseFloat(data.precioFinalTotal) || 0,
           nOcurrencias: data.nOcurrencias,
+          creditos: data.creditos,
           tipo: "fijo_mensual",
           espacio: espNombre,
           recurso: selectedRecursoFijo.Nombre,
@@ -606,6 +588,7 @@ export default function RegistroCliente() {
           horaInicio: horaIni,
           horaFin: horaFin,
         });
+        invalidarCreditos();
         setStep(2);
         notifyReservasChanged();
         return true;
@@ -906,40 +889,6 @@ export default function RegistroCliente() {
       </div>
     </div>
   );
-
-  if (pagoResultado) {
-    const isOk = pagoResultado.status === "ok" || pagoResultado.estadoPago === "Pagado";
-    const isError = pagoResultado.status === "error" || pagoResultado.estadoPago === "Rechazado";
-    return (
-      <div>
-        <Header />
-        <main className={styles.wrapper}>
-          <Result
-            status={isOk ? "success" : isError ? "error" : "info"}
-            title={
-              isOk ? "Pago realizado con exito!" :
-              isError ? "El pago no pudo realizarse" :
-              "Pago pendiente de acreditacion"
-            }
-            subTitle={
-              isOk ? "Tu reserva fue pagada correctamente con Mercado Pago." :
-              isError ? "Hubo un problema con tu pago. Podes intentar nuevamente desde tu perfil." :
-              "Tu pago esta siendo procesado. Te notificaremos cuando se acredite."
-            }
-            extra={[
-              <Button type="primary" className={styles.btnPrimary} key="perfil" onClick={() => navigate("/perfil")}>
-                Ver mis reservas
-              </Button>,
-              <Button key="nueva" onClick={() => { setPagoResultado(null); navigate("/registro", { replace: true }); }}>
-                Hacer otra reserva
-              </Button>,
-            ]}
-          />
-        </main>
-        <Footer />
-      </div>
-    );
-  }
 
   if (authLoading) {
     return (

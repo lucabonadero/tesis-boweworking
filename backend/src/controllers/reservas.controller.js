@@ -519,6 +519,12 @@ export const crearSerieMensual = async (req, res) => {
         }
       }
 
+      const decisionCreditos = await evaluarPagoConCreditos(client, req.usuario, precioFinalTotal);
+      if (decisionCreditos && !decisionCreditos.ok) {
+        await client.query("ROLLBACK");
+        return res.status(409).json(respuestaSaldoInsuficiente(decisionCreditos));
+      }
+
       const [yy, mm] = fi.split("-").map(Number);
       const periodoHasta = fechas[fechas.length - 1];
       const insSerie = await client.query(
@@ -570,12 +576,24 @@ export const crearSerieMensual = async (req, res) => {
         creadas.push(ins.rows[0]);
       }
 
+      const idReservaGrupo = Math.min(...creadas.map((r) => r.idReserva));
+      if (decisionCreditos?.requiereMovimiento) {
+        await aplicarMovimiento(client, {
+          clienteUsuarioId: req.usuario.id,
+          tipo: "descuento_reserva",
+          cantidad: -decisionCreditos.creditosNecesarios,
+          saldoPosterior: decisionCreditos.saldoPosterior,
+          motivo: `Serie mensual #${idSerie} (${fechas.length} turnos)`,
+          idReserva: idReservaGrupo,
+        });
+      }
+
       await client.query("COMMIT");
       enviarConfirmacionReservaEnBackground(
         pool,
         creadas.map((r) => r.idReserva)
       );
-      res.status(201).json({
+      const cuerpo = {
         idSerie,
         idReservaPago: creadas[0].idReserva,
         precioFinalTotal,
@@ -586,7 +604,14 @@ export const crearSerieMensual = async (req, res) => {
         fechaFinPeriodoExclusiva: fechaFinPeriodoExclusiva(fi),
         periodoHasta,
         reservas: serializarHorariosReservaEnFilas(creadas),
-      });
+      };
+      if (decisionCreditos) {
+        cuerpo.creditos = {
+          descontados: decisionCreditos.creditosNecesarios,
+          saldo: decisionCreditos.saldoPosterior,
+        };
+      }
+      res.status(201).json(cuerpo);
     } catch (err) {
       try {
         await client.query("ROLLBACK");
