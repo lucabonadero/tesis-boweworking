@@ -22,6 +22,7 @@ import adminUsuariosRoutes from "./routes/adminUsuarios.routes.js";
 import adminClientesRoutes from "./routes/adminClientes.routes.js";
 import estructuraRoutes from "./routes/estructura.routes.js";
 import pisosPublicoRoutes from "./routes/pisosPublico.routes.js";
+import creditosRoutes from "./routes/creditos.routes.js";
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -58,6 +59,7 @@ app.use("/api/espacios", espaciosRoutes);
 app.use("/api/recursos", recursosRoutes);
 app.use("/api/reservas", reservasRoutes);
 app.use("/api/pagos", pagosRoutes);
+app.use("/api/creditos", creditosRoutes);
 app.use("/api/dashboard/espacios", espaciosDashboardRoutes);
 app.use("/api/ai", aiReservaRoutes);
 // /api/admin/estructura debe ir ANTES que /api/admin para que el middleware
