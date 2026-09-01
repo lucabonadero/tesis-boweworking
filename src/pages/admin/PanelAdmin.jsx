@@ -7,12 +7,13 @@ import {
   BuildOutlined,
   DollarOutlined,
   TeamOutlined,
-  WalletOutlined,
   ArrowRightOutlined,
+  ClockCircleOutlined,
 } from "@ant-design/icons";
 import { useAuth } from "../../context/AuthContext.jsx";
 import Header from "../../components/header.jsx";
 import AdminPageHeader from "../../components/AdminPageHeader.jsx";
+import CoinIcon from "../../components/CoinIcon.jsx";
 import styles from "../../styles/admin/panelAdmin.module.css";
 
 export default function PanelAdmin() {
@@ -62,6 +63,16 @@ export default function PanelAdmin() {
         accentSoft: "rgba(8, 145, 178, 0.10)",
       },
       {
+        key: "disponibilidad",
+        titulo: "Gestión de Disponibilidad",
+        desc: "Configurá horarios semanales y bloqueos de recursos.",
+        icon: <ClockCircleOutlined />,
+        ruta: "/admin-disponibilidad",
+        visible: hasPermission("gestionar_estructura"),
+        accent: "#0d9488",
+        accentSoft: "rgba(13, 148, 136, 0.10)",
+      },
+      {
         key: "financiera",
         titulo: "Gestión Financiera",
         desc: "Revisá pagos, pendientes y transacciones.",
@@ -85,7 +96,7 @@ export default function PanelAdmin() {
         key: "creditos",
         titulo: "Gestión de Créditos",
         desc: "Paquetes de créditos y ajustes de saldo.",
-        icon: <WalletOutlined />,
+        icon: <CoinIcon size={18} color="var(--color-warning)" />,
         ruta: "/admin-creditos",
         visible: hasPermission("gestionar_creditos"),
         accent: "#ca8a04",
