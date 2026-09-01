@@ -6,6 +6,7 @@ import {
   validarRecepcionNoAnticipada,
 } from "../services/coworkingHours.service.js";
 import { bloquearEspaciosDeRecursos } from "../services/reservaConcurrency.service.js";
+import { validarDisponibilidadRecurso } from "../services/disponibilidadRecurso.service.js";
 import { mensajeTurnoNoDisponibleParaRecurso } from "../services/reservaRules.service.js";
 import { enviarConfirmacionReservaEnBackground } from "../services/reservaConfirmacionMail.service.js";
 import { parsePagination } from "../utils/pagination.js";
@@ -32,10 +33,12 @@ import {
 } from "../services/extensionReserva.service.js";
 import { lateralUltimaTransaccion } from "../services/transaccionUltimaJoin.service.js";
 import { evaluarDescuentoReserva } from "../services/creditos.service.js";
+import { evaluarCancelacion, inicioReservaEnMs } from "../services/cancelacionReserva.service.js";
 import {
   obtenerPesosPorCredito,
   bloquearSaldo,
   aplicarMovimiento,
+  creditosConsumidosPorReserva,
 } from "../repositories/creditos.repository.js";
 import {
   descuentoSerieMensualDefault,
@@ -511,6 +514,20 @@ export const crearSerieMensual = async (req, res) => {
       await client.query("BEGIN");
       await bloquearEspaciosDeRecursos(client, [idRecurso]);
 
+      for (const fechaSerie of fechas) {
+        const errDisp = await validarDisponibilidadRecurso(client, {
+          idRecurso,
+          diaReserva: fechaSerie,
+          horaInicio: nh.horaIni,
+          horaFin: nh.horaFin,
+          tipoReserva: "turno",
+        });
+        if (errDisp) {
+          await client.query("ROLLBACK");
+          return res.status(400).json(errDisp);
+        }
+      }
+
       for (const fecha of fechas) {
         const conflicto = await verificarConflictos(client, idRecurso, fecha, nh.horaIni, nh.horaFin, "turno", null);
         if (conflicto) {
@@ -896,6 +913,17 @@ export const crearReserva = async (req, res) => {
     try {
       await client.query("BEGIN");
       await bloquearEspaciosDeRecursos(client, [idRecurso]);
+      const errDisp = await validarDisponibilidadRecurso(client, {
+        idRecurso,
+        diaReserva: DiaReserva,
+        horaInicio: hi,
+        horaFin: hf,
+        tipoReserva: tipo,
+      });
+      if (errDisp) {
+        await client.query("ROLLBACK");
+        return res.status(400).json(errDisp);
+      }
       const conflicto = await verificarConflictos(client, idRecurso, DiaReserva, hi, hf, tipo, null);
       if (conflicto) {
         await client.query("ROLLBACK");
@@ -1015,6 +1043,21 @@ export const crearReservasMultiples = async (req, res) => {
   try {
     await client.query("BEGIN");
     await bloquearEspaciosDeRecursos(client, ids);
+
+    for (const idRec of ids) {
+      const errDisp = await validarDisponibilidadRecurso(client, {
+        idRecurso: idRec,
+        diaReserva: DiaReserva,
+        horaInicio: nh.horaIni,
+        horaFin: nh.horaFin,
+        tipoReserva: "turno",
+      });
+      if (errDisp) {
+        await client.query("ROLLBACK");
+        return res.status(400).json(errDisp);
+      }
+    }
+
     const creadas = [];
     let montoTotal = 0;
 
@@ -1209,6 +1252,17 @@ export const actualizarReserva = async (req, res) => {
         return res.status(404).json({ message: "Reserva no encontrada" });
       }
       await bloquearEspaciosDeRecursos(client, [prev[0].idRecurso, idRecursoNuevo]);
+      const errDisp = await validarDisponibilidadRecurso(client, {
+        idRecurso: idRecursoNuevo,
+        diaReserva: DiaReserva,
+        horaInicio: hi,
+        horaFin: hf,
+        tipoReserva: tipo,
+      });
+      if (errDisp) {
+        await client.query("ROLLBACK");
+        return res.status(400).json(errDisp);
+      }
       const conflicto = await verificarConflictos(client, idRecursoNuevo, DiaReserva, hi, hf, tipo, idReserva);
       if (conflicto) {
         await client.query("ROLLBACK");
@@ -1800,5 +1854,204 @@ export const eliminarReserva = async (req, res) => {
   } catch (error) {
     console.error("Error al eliminar reserva:", error);
     res.status(500).json({ message: "Error interno del servidor" });
+  }
+};
+
+/**
+ * Ids de todas las reservas que se cancelan juntas: el lote multi-recurso
+ * (idReservaGrupo) o la serie mensual (idSerie). El movimiento de créditos se
+ * ancló a una sola de ellas, así que hay que mirarlas todas.
+ */
+async function idsReservasDelLote(q, idReserva) {
+  const { rows } = await q.query(
+    'SELECT "idSerie" FROM "Reservas" WHERE "idReserva" = $1',
+    [idReserva]
+  );
+  const idSerie = rows[0]?.idSerie ?? null;
+  if (idSerie != null) {
+    const { rows: serie } = await q.query(
+      'SELECT "idReserva" FROM "Reservas" WHERE "idSerie" = $1 ORDER BY "idReserva" ASC',
+      [idSerie]
+    );
+    if (serie.length) return serie.map((r) => r.idReserva);
+  }
+  return idsReservasMismoGrupo(q, idReserva);
+}
+
+/**
+ * Reserva de referencia del lote para medir el plazo: la de inicio más temprano
+ * que todavía está pendiente. Cancelar una serie afecta a los turnos que
+ * quedan, y el plazo se mide contra el primero de ellos.
+ */
+function reservaReferenciaDelLote(filas, ahora = new Date()) {
+  const pendientes = filas.filter((f) => (inicioReservaEnMs(f) ?? 0) > ahora.getTime());
+  const candidatas = pendientes.length ? pendientes : filas;
+  return candidatas.reduce((mejor, f) =>
+    (inicioReservaEnMs(f) ?? Infinity) < (inicioReservaEnMs(mejor) ?? Infinity) ? f : mejor
+  );
+}
+
+/** Id de ClienteUsuario del titular de la reserva; null si no está registrado. */
+async function clienteUsuarioIdDeReserva(db, filaReserva) {
+  const dni = filaReserva?.DNI != null ? String(filaReserva.DNI).trim() : "";
+  if (!dni) return null;
+  const { rows } = await db.query('SELECT id FROM "ClienteUsuario" WHERE "DNI" = $1', [dni]);
+  return rows[0]?.id ?? null;
+}
+
+/**
+ * GET /api/reservas/:id/cancelacion-preview (RF11)
+ *
+ * Cuánto se reintegraría si cancelara ahora. No modifica nada: alimenta el
+ * modal de confirmación para que el cliente no cancele a ciegas.
+ */
+export const previsualizarCancelacionReserva = async (req, res) => {
+  const idReserva = parseInt(req.params.id, 10);
+  if (!Number.isFinite(idReserva) || idReserva <= 0) {
+    return res.status(400).json({ message: "ID de reserva inválido." });
+  }
+
+  try {
+    const { rows: base } = await pool.query('SELECT * FROM "Reservas" WHERE "idReserva" = $1', [idReserva]);
+    if (base.length === 0) return res.status(404).json({ message: "Reserva no encontrada" });
+    if (!puedeOperarReserva(req.usuario, base[0])) {
+      return res.status(403).json({ message: "No tenés permiso para cancelar esta reserva." });
+    }
+
+    const ids = await idsReservasDelLote(pool, idReserva);
+    const { rows: filas } = await pool.query(
+      'SELECT * FROM "Reservas" WHERE "idReserva" = ANY($1::int[])',
+      [ids]
+    );
+
+    const ahora = new Date();
+    const referencia = reservaReferenciaDelLote(filas, ahora);
+    const { descontados, reintegrados, disponibles } = await creditosConsumidosPorReserva(pool, ids);
+    const decision = evaluarCancelacion({ reserva: referencia, creditosUsados: disponibles, ahora });
+
+    res.json({
+      puedeCancelar: decision.ok === true,
+      codigo: decision.codigo ?? null,
+      mensaje: decision.mensaje ?? null,
+      horasDeAnticipacion: decision.horasDeAnticipacion ?? null,
+      porcentajeReintegro: decision.porcentaje ?? 0,
+      creditosUsados: disponibles,
+      creditosAReintegrar: decision.creditosAReintegrar ?? 0,
+      reservasAfectadas: ids.length,
+      detalleCreditos: { descontados, reintegrados },
+    });
+  } catch (error) {
+    console.error("Error al previsualizar la cancelación de la reserva:", error);
+    res.status(500).json({ message: "Error interno del servidor" });
+  }
+};
+
+/**
+ * POST /api/reservas/:id/cancelar (RF11 - RF15)
+ *
+ * Marca el lote como cancelado y acredita el reintegro que corresponda, todo
+ * dentro de una transacción: el saldo nunca puede quedar desfasado del estado.
+ *
+ * El porcentaje se recalcula acá contra el reloj del servidor; lo que mostró el
+ * modal es informativo y no participa de la decisión.
+ */
+export const cancelarReserva = async (req, res) => {
+  const idReserva = parseInt(req.params.id, 10);
+  if (!Number.isFinite(idReserva) || idReserva <= 0) {
+    return res.status(400).json({ message: "ID de reserva inválido." });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    const { rows: base } = await client.query(
+      'SELECT * FROM "Reservas" WHERE "idReserva" = $1 FOR UPDATE',
+      [idReserva]
+    );
+    if (base.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ message: "Reserva no encontrada" });
+    }
+    if (!puedeOperarReserva(req.usuario, base[0])) {
+      await client.query("ROLLBACK");
+      return res.status(403).json({ message: "No tenés permiso para cancelar esta reserva." });
+    }
+
+    const ids = await idsReservasDelLote(client, idReserva);
+    // Se relee el lote con lock: dos cancelaciones simultáneas no pueden
+    // reintegrar dos veces.
+    const { rows: filas } = await client.query(
+      'SELECT * FROM "Reservas" WHERE "idReserva" = ANY($1::int[]) ORDER BY "idReserva" FOR UPDATE',
+      [ids]
+    );
+
+    const ahora = new Date();
+    const referencia = reservaReferenciaDelLote(filas, ahora);
+
+    // El dueño del saldo es el titular de la reserva, no quien ejecuta la
+    // acción: el staff también puede cancelar por mostrador.
+    const clienteUsuarioId = await clienteUsuarioIdDeReserva(client, base[0]);
+
+    let disponibles = 0;
+    if (clienteUsuarioId != null) {
+      await bloquearSaldo(client, clienteUsuarioId);
+      ({ disponibles } = await creditosConsumidosPorReserva(client, ids));
+    }
+
+    const decision = evaluarCancelacion({ reserva: referencia, creditosUsados: disponibles, ahora });
+    if (!decision.ok) {
+      await client.query("ROLLBACK");
+      return res.status(409).json({
+        message: decision.mensaje,
+        codigo: decision.codigo,
+        porcentajeReintegro: decision.porcentaje ?? 0,
+        creditosAReintegrar: 0,
+      });
+    }
+
+    await client.query(
+      'UPDATE "Reservas" SET "Estado" = \'cancelada\' WHERE "idReserva" = ANY($1::int[])',
+      [ids]
+    );
+
+    let saldoPosterior = null;
+    if (decision.requiereMovimiento && clienteUsuarioId != null) {
+      const saldoActual = await bloquearSaldo(client, clienteUsuarioId);
+      saldoPosterior = saldoActual + decision.creditosAReintegrar;
+      await aplicarMovimiento(client, {
+        clienteUsuarioId,
+        tipo: "reintegro_cancelacion",
+        cantidad: decision.creditosAReintegrar,
+        saldoPosterior,
+        motivo: `Cancelación de reserva #${idReserva} (reintegro del ${decision.porcentaje}%)`,
+        idReserva,
+      });
+    }
+
+    await client.query("COMMIT");
+
+    res.json({
+      message:
+        decision.creditosAReintegrar > 0
+          ? `Reserva cancelada. Te reintegramos ${decision.creditosAReintegrar} créditos (${decision.porcentaje}%).`
+          : "Reserva cancelada. No corresponde reintegro de créditos.",
+      estado: "cancelada",
+      porcentajeReintegro: decision.porcentaje,
+      creditosUsados: decision.creditosUsados,
+      creditosReintegrados: decision.creditosAReintegrar,
+      saldo: saldoPosterior,
+      reservasAfectadas: ids.length,
+    });
+  } catch (error) {
+    try {
+      await client.query("ROLLBACK");
+    } catch {
+      /* */
+    }
+    console.error("Error al cancelar la reserva:", error);
+    res.status(500).json({ message: "Error interno del servidor" });
+  } finally {
+    client.release();
   }
 };
