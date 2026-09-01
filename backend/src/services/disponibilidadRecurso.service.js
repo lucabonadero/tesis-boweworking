@@ -68,7 +68,7 @@ export async function validarDisponibilidadRecurso(
   for (const ymd of dias) {
     const delDia = franjas.filter((f) => f.DiaSemana === diaSemanaDeYmd(ymd));
     if (delDia.length === 0) return mensajeDiaNoDisponible(propio.Nombre, ymd);
-    if (!turnoEntraEnFranjas(hi, hf, delDia)) {
+    if (esTurno && !turnoEntraEnFranjas(hi, hf, delDia)) {
       return mensajeFueraDeDisponibilidad(propio.Nombre, ymd, delDia);
     }
   }

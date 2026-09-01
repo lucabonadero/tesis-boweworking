@@ -1614,6 +1614,21 @@ export const extenderReserva = async (req, res) => {
         return res.status(400).json({ message: errVentana });
       }
 
+      // Disponibilidad configurada y bloqueos (RF16/RF17): la ventana completa
+      // extendida debe seguir entrando en las franjas del recurso y no chocar
+      // con un bloqueo temporal.
+      const errDisp = await validarDisponibilidadRecurso(client, {
+        idRecurso: reserva.idRecurso,
+        diaReserva: pgDateToYmd(fresh.DiaReserva),
+        horaInicio: iniActual,
+        horaFin: nuevoFin,
+        tipoReserva: "turno",
+      });
+      if (errDisp) {
+        await client.query("ROLLBACK");
+        return res.status(400).json(errDisp);
+      }
+
       // Disponibilidad: la ventana completa extendida no debe chocar con otra reserva
       // (excluyendo la propia). Cubre recurso, grupo y espacio completo.
       const conflicto = await verificarConflictos(
