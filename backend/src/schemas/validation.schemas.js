@@ -255,3 +255,57 @@ export const adminCrearPaqueteSchema = z.object({
 export const adminActualizarPaqueteSchema = adminCrearPaqueteSchema.extend({
   activo: flagBooleano.optional(),
 });
+
+const HORA_HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
+const FECHA_YMD = /^\d{4}-\d{2}-\d{2}$/;
+
+export const crearBloqueoSchema = z
+  .object({
+    idRecurso: z.coerce.number().int().positive(),
+    fechaInicio: z.string().min(10),
+    fechaFin: z.string().min(10),
+    motivo: z.string().trim().max(300).optional().nullable(),
+  })
+  .refine((v) => new Date(v.fechaInicio) < new Date(v.fechaFin), {
+    message: "La fecha de fin debe ser posterior a la de inicio.",
+    path: ["fechaFin"],
+  });
+
+export const actualizarBloqueoSchema = z
+  .object({
+    fechaInicio: z.string().min(10),
+    fechaFin: z.string().min(10),
+    motivo: z.string().trim().max(300).optional().nullable(),
+  })
+  .refine((v) => new Date(v.fechaInicio) < new Date(v.fechaFin), {
+    message: "La fecha de fin debe ser posterior a la de inicio.",
+    path: ["fechaFin"],
+  });
+
+export const guardarDisponibilidadSchema = z.object({
+  franjas: z
+    .array(
+      z
+        .object({
+          diaSemana: z.coerce.number().int().min(0).max(6),
+          horaInicio: z.string().regex(HORA_HHMM, "Formato de hora inválido (HH:MM)."),
+          horaFin: z.string().regex(HORA_HHMM, "Formato de hora inválido (HH:MM)."),
+        })
+        .refine((f) => f.horaInicio < f.horaFin, {
+          message: "La hora de fin debe ser posterior a la de inicio.",
+          path: ["horaFin"],
+        })
+    )
+    .max(70),
+});
+
+export const slotsQuerySchema = z.object({
+  idRecurso: z.coerce.number().int().positive(),
+  fecha: z.string().regex(FECHA_YMD, "La fecha debe tener formato YYYY-MM-DD."),
+});
+
+export const bloqueosQuerySchema = z.object({
+  idRecurso: z.coerce.number().int().positive().optional(),
+  desde: z.string().regex(FECHA_YMD).optional(),
+  hasta: z.string().regex(FECHA_YMD).optional(),
+});
