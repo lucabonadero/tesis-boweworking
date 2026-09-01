@@ -26,13 +26,15 @@ import {
   validarInicioTurnoNoEnElPasadoLocal,
 } from "../../utils/coworkingHours.js";
 import { notifyReservasChanged } from "../../utils/boweSync.js";
+import ComprarCreditosModal from "../../components/ComprarCreditosModal.jsx";
+import { useCotizarReserva, useSaldoCreditos, useInvalidarCreditos } from "../../hooks/useCreditos.js";
+import { etiquetaCreditos } from "../../utils/creditosFormato.js";
 import {
   ArrowLeftOutlined,
   ArrowRightOutlined,
   ExpandAltOutlined,
   CheckCircleOutlined,
   UserOutlined,
-  CreditCardOutlined,
   CalendarOutlined,
   ClockCircleOutlined,
   ScheduleOutlined,
@@ -44,7 +46,6 @@ import {
   TeamOutlined,
   CloudOutlined,
   HomeOutlined,
-  ShopOutlined,
 } from "@ant-design/icons";
 
 const { Step } = Steps;
@@ -137,13 +138,12 @@ function getPrecioUnitario(recurso, tab, packTipo) {
 }
 
 export default function RegistroCliente() {
-  const { isAuthenticated, perfilCompleto, user, openAuthModal, loading: authLoading, authFetch } = useAuth();
+  const { isAuthenticated, perfilCompleto, user, token, openAuthModal, loading: authLoading, authFetch } = useAuth();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState("turno");
   const [step, setStep] = useState(0);
-  const [mpLoading, setMpLoading] = useState(false);
   const [pagoResultado, setPagoResultado] = useState(null);
 
   const [disponibilidad, setDisponibilidad] = useState([]);
@@ -485,29 +485,66 @@ export default function RegistroCliente() {
     return 0;
   }, [selectedRecursosTurno, selectedRecursoPack, activeTab, turnoDuracion, packTipo, fijoCotizacion]);
 
-  const handlePagarMP = async ({ idReserva, idSerie, idReservaGrupo }) => {
-    if (!idReserva && !idSerie && idReservaGrupo == null) return;
-    setMpLoading(true);
-    try {
-      const body =
-        idSerie != null ? { idSerie } : idReservaGrupo != null ? { idReservaGrupo } : { idReserva };
-      const res = await authFetch(`${API_URL}/api/pagos/crear-preferencia`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        message.error(data.message || "Error al crear preferencia de pago");
-        return;
-      }
-      window.location.href = data.sandboxInitPoint || data.initPoint;
-    } catch {
-      message.error("Error al conectar con Mercado Pago");
-    } finally {
-      setMpLoading(false);
+  useSaldoCreditos(token);
+  const cotizar = useCotizarReserva(token);
+  const invalidarCreditos = useInvalidarCreditos();
+
+  const [cotizacion, setCotizacion] = useState(null);
+  const [compraAbierta, setCompraAbierta] = useState(false);
+  const [creditosFaltantes, setCreditosFaltantes] = useState(0);
+
+  // El total en créditos se recalcula en cada cambio de selección: el cliente
+  // ve qué le va a costar antes de confirmar. Solo turno y pack cotizan en vivo;
+  // fijo tiene su propio endpoint de cotización de serie mensual.
+  useEffect(() => {
+    const items =
+      activeTab === "turno"
+        ? selectedRecursosTurno.map((r) => ({ idRecurso: r.idRecurso }))
+        : activeTab === "pack" && selectedRecursoPack
+          ? [{ idRecurso: selectedRecursoPack.idRecurso }]
+          : [];
+
+    const fechaBase = activeTab === "turno" ? turnoFecha : activeTab === "pack" ? packFechaInicio : null;
+
+    if (!token || activeTab === "fijo" || items.length === 0 || !fechaBase) {
+      setCotizacion(null);
+      return;
     }
-  };
+
+    let cancelado = false;
+    cotizar
+      .mutateAsync({
+        items,
+        DiaReserva: fechaBase.format("YYYY-MM-DD"),
+        HorarioReserva: activeTab === "turno" && turnoHora ? turnoHora.format("HH:mm") : null,
+        HorarioFin:
+          activeTab === "turno" && turnoHora && turnoDuracion
+            ? turnoHora.clone().add(turnoDuracion, "minute").format("HH:mm")
+            : null,
+        TipoReserva: activeTab === "turno" ? "turno" : packTipo,
+      })
+      .then((r) => {
+        if (!cancelado) setCotizacion(r);
+      })
+      .catch(() => {
+        if (!cancelado) setCotizacion(null);
+      });
+
+    return () => {
+      cancelado = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    token,
+    activeTab,
+    selectedRecursosTurno,
+    selectedRecursoPack,
+    packTipo,
+    turnoFecha,
+    packFechaInicio,
+    turnoHora,
+    turnoDuracion,
+  ]);
 
   const submitReserva = async () => {
     if (!user || !perfilCompleto) return false;
@@ -617,6 +654,12 @@ export default function RegistroCliente() {
         });
         const data = await reservaRes.json().catch(() => ({}));
         if (!reservaRes.ok) {
+          if (reservaRes.status === 409 && data?.codigo === "SALDO_INSUFICIENTE") {
+            setCreditosFaltantes(data.creditosFaltantes ?? 0);
+            setCompraAbierta(true);
+            message.warning(data.message);
+            return false;
+          }
           message.error(data.message || "Error al crear reservas");
           return false;
         }
@@ -632,6 +675,7 @@ export default function RegistroCliente() {
           ids: rows.map((r) => r.idReserva),
           idReservaGrupo,
           monto: montoSum,
+          creditos: data.creditos,
           tipo: "turno",
           espacio: espNombre,
           recursos: selectedRecursosTurno.map((r) => r.Nombre),
@@ -641,6 +685,7 @@ export default function RegistroCliente() {
           horaInicio: turnoHora.format("HH:mm"),
           horaFin: turnoHora.clone().add(turnoDuracion, "minute").format("HH:mm"),
         });
+        invalidarCreditos();
         setStep(2);
         notifyReservasChanged();
         return true;
@@ -671,6 +716,12 @@ export default function RegistroCliente() {
 
       const data = await reservaRes.json().catch(() => ({}));
       if (!reservaRes.ok) {
+        if (reservaRes.status === 409 && data?.codigo === "SALDO_INSUFICIENTE") {
+          setCreditosFaltantes(data.creditosFaltantes ?? 0);
+          setCompraAbierta(true);
+          message.warning(data.message);
+          return false;
+        }
         message.error(data.message || "Error al crear reserva");
         return false;
       }
@@ -687,6 +738,7 @@ export default function RegistroCliente() {
         setReservaCreada({
           id: data.idReserva,
           monto,
+          creditos: data.creditos,
           tipo: "turno",
           espacio: espNombre,
           recurso: sel.Nombre,
@@ -702,6 +754,7 @@ export default function RegistroCliente() {
         setReservaCreada({
           id: data.idReserva,
           monto,
+          creditos: data.creditos,
           tipo: packTipo,
           espacio: "Primer Piso",
           recurso: sel.Nombre,
@@ -712,6 +765,7 @@ export default function RegistroCliente() {
         });
       }
 
+      invalidarCreditos();
       setStep(2);
       notifyReservasChanged();
       return true;
@@ -1314,6 +1368,29 @@ export default function RegistroCliente() {
               {montoTotal > 0 && (
                 <span className={styles.selectedBarPrice}>{formatPrecio(montoTotal)}</span>
               )}
+              {cotizacion && (
+                <div className={styles.fieldHint}>
+                  Costo: <strong>{etiquetaCreditos(cotizacion.creditosNecesarios)}</strong>
+                  {" · "}
+                  Tu saldo: {etiquetaCreditos(cotizacion.saldo)}
+                  {!cotizacion.alcanza && (
+                    <>
+                      {" · "}
+                      <Button
+                        type="link"
+                        size="small"
+                        style={{ padding: 0 }}
+                        onClick={() => {
+                          setCreditosFaltantes(cotizacion.creditosFaltantes);
+                          setCompraAbierta(true);
+                        }}
+                      >
+                        Te faltan {cotizacion.creditosFaltantes}: comprar créditos
+                      </Button>
+                    </>
+                  )}
+                </div>
+              )}
             </span>
             <Button
               type="primary"
@@ -1420,6 +1497,30 @@ export default function RegistroCliente() {
               </div>
             )}
           </div>
+
+          {cotizacion && (
+            <div className={styles.fieldHint}>
+              Costo: <strong>{etiquetaCreditos(cotizacion.creditosNecesarios)}</strong>
+              {" · "}
+              Tu saldo: {etiquetaCreditos(cotizacion.saldo)}
+              {!cotizacion.alcanza && (
+                <>
+                  {" · "}
+                  <Button
+                    type="link"
+                    size="small"
+                    style={{ padding: 0 }}
+                    onClick={() => {
+                      setCreditosFaltantes(cotizacion.creditosFaltantes);
+                      setCompraAbierta(true);
+                    }}
+                  >
+                    Te faltan {cotizacion.creditosFaltantes}: comprar créditos
+                  </Button>
+                </>
+              )}
+            </div>
+          )}
 
           <div className={styles.stepButtons}>
             <Button icon={<ArrowLeftOutlined />} onClick={() => setStep(0)}>
@@ -1531,45 +1632,12 @@ export default function RegistroCliente() {
 
           <div className={styles.pagoSection}>
             <div className={styles.pagoDivider} />
-            <h4 className={styles.pagoTitle}>Como queres pagar?</h4>
-            <div className={styles.pagoOptions}>
-              {reservaCreada.multiple && reservaCreada.ids?.length > 1 ? (
-                <p className={styles.fieldHint} style={{ marginBottom: 12 }}>
-                  Un solo pago con Mercado Pago cubre los {reservaCreada.ids.length} lugares de esta reserva.
-                </p>
-              ) : null}
-              {reservaCreada.serie ? (
-                <p className={styles.fieldHint} style={{ marginBottom: 12 }}>
-                  Un solo pago con Mercado Pago cubre los {reservaCreada.nOcurrencias} turnos de la serie (descuento incluido).
-                </p>
-              ) : null}
-              <Button
-                size="large"
-                className={styles.btnMercadoPago}
-                icon={<CreditCardOutlined />}
-                loading={mpLoading}
-                onClick={() =>
-                  reservaCreada.serie
-                    ? handlePagarMP({ idSerie: reservaCreada.idSerie })
-                    : reservaCreada.multiple && reservaCreada.idReservaGrupo != null
-                      ? handlePagarMP({ idReservaGrupo: reservaCreada.idReservaGrupo })
-                      : handlePagarMP({ idReserva: reservaCreada.id })
-                }
-              >
-                {reservaCreada.serie
-                  ? "Pagar serie (4 semanas) con Mercado Pago"
-                  : reservaCreada.multiple && reservaCreada.ids?.length > 1
-                    ? "Pagar reserva con Mercado Pago"
-                    : "Pagar con MercadoPago"}
-              </Button>
-              <div className={styles.pagoPresencial}>
-                <ShopOutlined style={{ fontSize: 20, color: "#34c08f" }} />
-                <div>
-                  <strong>Pagar en el local</strong>
-                  <p>Abona al llegar al coworking. Tu reserva queda en estado pendiente.</p>
-                </div>
-              </div>
-            </div>
+            <h4 className={styles.pagoTitle}>Pago</h4>
+            <p className={styles.fieldHint}>
+              {reservaCreada.creditos
+                ? `Se descontaron ${etiquetaCreditos(reservaCreada.creditos.descontados)} de tu saldo. Te quedan ${etiquetaCreditos(reservaCreada.creditos.saldo)}.`
+                : "Tu reserva quedó confirmada."}
+            </p>
           </div>
         </div>
       )}
@@ -1647,6 +1715,11 @@ export default function RegistroCliente() {
         <div className={styles.stepContent}>{stepContents[step]()}</div>
       </main>
       <Footer />
+      <ComprarCreditosModal
+        abierto={compraAbierta}
+        creditosFaltantes={creditosFaltantes}
+        onCerrar={() => setCompraAbierta(false)}
+      />
     </div>
   );
 }
