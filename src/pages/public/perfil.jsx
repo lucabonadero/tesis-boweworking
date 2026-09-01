@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from "react";
 import dayjs from "dayjs";
 import Header from "../../components/header.jsx";
 import Footer from "../../components/footer.jsx";
+import HistorialCreditos from "../../components/HistorialCreditos.jsx";
 import { useAuth } from "../../context/AuthContext.jsx";
 import "../../styles/global.css";
 import styles from "../../styles/public/perfil.module.css";
@@ -37,7 +38,6 @@ import {
   CalendarOutlined,
   CheckCircleOutlined,
   ClockCircleOutlined,
-  CreditCardOutlined,
   LockOutlined,
   ReadOutlined,
   UploadOutlined,
@@ -76,7 +76,6 @@ export default function Perfil() {
   const [passwordSaving, setPasswordSaving] = useState(false);
   const [reservas, setReservas] = useState([]);
   const [loadingReservas, setLoadingReservas] = useState(true);
-  const [mpLoadingId, setMpLoadingId] = useState(null);
   const [form] = Form.useForm();
   const [passwordForm] = Form.useForm();
   const [estudianteForm] = Form.useForm();
@@ -282,33 +281,6 @@ export default function Perfil() {
     }
   };
 
-  const handlePagarMP = async (r) => {
-    const loadingKey = r.idSerie ? `serie-${r.idSerie}` : r.idReservaGrupo ? `grupo-${r.idReservaGrupo}` : r.idReserva;
-    setMpLoadingId(loadingKey);
-    try {
-      const body = r.idSerie
-        ? { idSerie: r.idSerie }
-        : r.idReservaGrupo
-          ? { idReservaGrupo: r.idReservaGrupo }
-          : { idReserva: r.idReserva };
-      const res = await authFetch(`${API_URL}/api/pagos/crear-preferencia`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        message.error(data.message || "Error al crear preferencia de pago");
-        return;
-      }
-      window.location.href = data.sandboxInitPoint || data.initPoint;
-    } catch {
-      message.error("Error al conectar con Mercado Pago");
-    } finally {
-      setMpLoadingId(null);
-    }
-  };
-
   const reservaCols = [
     {
       title: "Fecha",
@@ -322,30 +294,6 @@ export default function Perfil() {
         </span>
       ),
       sorter: (a, b) => new Date(a.DiaReserva || 0) - new Date(b.DiaReserva || 0),
-    },
-    {
-      title: "Pago",
-      key: "pagoAccion",
-      width: 118,
-      fixed: "left",
-      render: (_, r) => {
-        const puedePagar =
-          r.EstadoPago !== "Pagado" && r.Estado !== "cancelada" && (parseFloat(r.Monto) || 0) > 0;
-        if (!puedePagar) return <span className={styles.cellMuted}>—</span>;
-        const loadKey = r.idSerie ? `serie-${r.idSerie}` : r.idReservaGrupo ? `grupo-${r.idReservaGrupo}` : r.idReserva;
-        return (
-          <Button
-            size="small"
-            type="primary"
-            icon={<CreditCardOutlined />}
-            loading={mpLoadingId === loadKey}
-            onClick={() => handlePagarMP(r)}
-            style={{ background: "#009ee3", borderColor: "#009ee3" }}
-          >
-            Pagar
-          </Button>
-        );
-      },
     },
     {
       title: "Recurso",
@@ -655,6 +603,8 @@ export default function Perfil() {
             )}
           </Card>
           </div>
+
+          <HistorialCreditos />
 
           <Card className={`${styles.reservasCard} ${styles.reservasCardTable}`} title="Mis Reservas">
             {loadingReservas ? (
