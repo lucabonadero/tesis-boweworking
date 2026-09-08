@@ -242,3 +242,171 @@ export async function creditosConsumidosPorReserva(db, idsReserva) {
   const reintegrados = Number(rows[0]?.reintegrados ?? 0);
   return { descontados, reintegrados, disponibles: Math.max(0, descontados - reintegrados) };
 }
+
+/* ── Panel financiero ─────────────────────────────────────────────
+ * El ingreso real del coworking son las compras de paquetes acreditadas.
+ * Las reservas descuentan saldo ya pagado, así que no se suman acá.
+ */
+
+/** Solo 'acreditada' es plata cobrada: las pendientes son checkouts sin completar. */
+const SQL_COMPRA_ACREDITADA = `cc.estado = 'acreditada'`;
+
+/**
+ * Totales del panel. `paquetesVendidos` y los conteos no son sensibles;
+ * el llamador decide si expone además los montos (solo propietarios).
+ */
+export async function resumenFinancieroCreditos(db) {
+  const { rows } = await db.query(`
+    SELECT
+      COUNT(*) FILTER (WHERE ${SQL_COMPRA_ACREDITADA})::int          AS paquetes_vendidos,
+      COUNT(*) FILTER (WHERE cc.estado = 'pendiente')::int           AS compras_pendientes,
+      COUNT(DISTINCT cc.cliente_usuario_id)
+        FILTER (WHERE ${SQL_COMPRA_ACREDITADA})::int                 AS compradores,
+      COALESCE(SUM(cc.creditos) FILTER (WHERE ${SQL_COMPRA_ACREDITADA}), 0)::int AS creditos_vendidos,
+      COALESCE(SUM(cc.precio) FILTER (WHERE ${SQL_COMPRA_ACREDITADA}), 0)::numeric AS total_ingresos,
+      COALESCE(SUM(cc.precio) FILTER (
+        WHERE ${SQL_COMPRA_ACREDITADA} AND cc.acreditada_at::date = CURRENT_DATE
+      ), 0)::numeric AS ingresos_hoy,
+      COUNT(*) FILTER (
+        WHERE ${SQL_COMPRA_ACREDITADA} AND cc.acreditada_at::date = CURRENT_DATE
+      )::int AS ventas_hoy
+    FROM creditos_compra cc
+  `);
+
+  const f = rows[0] ?? {};
+  return {
+    paquetesVendidos: f.paquetes_vendidos ?? 0,
+    comprasPendientes: f.compras_pendientes ?? 0,
+    compradores: f.compradores ?? 0,
+    creditosVendidos: f.creditos_vendidos ?? 0,
+    ventasHoy: f.ventas_hoy ?? 0,
+    totalIngresos: Number.parseFloat(f.total_ingresos) || 0,
+    ingresosHoy: Number.parseFloat(f.ingresos_hoy) || 0,
+  };
+}
+
+/** Ingreso por día, para el gráfico. Se agrupa por fecha de acreditación (caja real). */
+export async function ingresosPorDiaCreditos(db, { dias = 30 } = {}) {
+  const { rows } = await db.query(
+    `SELECT
+       cc.acreditada_at::date            AS fecha,
+       COUNT(*)::int                     AS ventas,
+       COALESCE(SUM(cc.precio), 0)::numeric AS monto
+     FROM creditos_compra cc
+     WHERE ${SQL_COMPRA_ACREDITADA}
+       AND cc.acreditada_at >= CURRENT_DATE - ($1::int - 1)
+     GROUP BY 1
+     ORDER BY 1 ASC`,
+    [dias]
+  );
+  return rows.map((r) => ({
+    fecha: r.fecha,
+    ventas: r.ventas,
+    monto: Number.parseFloat(r.monto) || 0,
+  }));
+}
+
+/**
+ * Listado de compras con quién compró y qué paquete.
+ *
+ * El conteo comparte el FROM con la consulta de filas: la búsqueda por texto
+ * pega contra las tablas unidas, así que un COUNT sin los JOIN daría un total
+ * distinto al de la página y la paginación quedaría descolgada.
+ */
+export async function listarComprasCreditos(
+  db,
+  { limit = 20, offset = 0, estado, desde, hasta, busqueda } = {}
+) {
+  const cond = [];
+  const params = [];
+
+  if (estado) {
+    params.push(estado);
+    cond.push(`cc.estado = $${params.length}`);
+  }
+  if (desde) {
+    params.push(desde);
+    cond.push(`COALESCE(cc.acreditada_at, cc.created_at) >= $${params.length}::date`);
+  }
+  if (hasta) {
+    params.push(hasta);
+    cond.push(`COALESCE(cc.acreditada_at, cc.created_at) < ($${params.length}::date + 1)`);
+  }
+  if (busqueda) {
+    params.push(`%${busqueda}%`);
+    const i = params.length;
+    cond.push(`(
+      cu.nombre ILIKE $${i} OR cu.apellido ILIKE $${i} OR cu.email ILIKE $${i}
+      OR cu.dni ILIKE $${i} OR cp.nombre ILIKE $${i}
+    )`);
+  }
+
+  const where = cond.length ? `WHERE ${cond.join(" AND ")}` : "";
+  const desde_ = `
+    FROM creditos_compra cc
+    LEFT JOIN "ClienteUsuario" cu ON cu.id = cc.cliente_usuario_id
+    LEFT JOIN creditos_paquete cp ON cp.id = cc.paquete_id
+  `;
+
+  const { rows: conteo } = await db.query(
+    `SELECT COUNT(*)::int AS c ${desde_} ${where}`,
+    params
+  );
+
+  const { rows } = await db.query(
+    `SELECT
+       cc.id, cc.creditos, cc.precio, cc.estado,
+       cc.created_at, cc.acreditada_at, cc.mp_payment_id, cc.mp_preference_id,
+       cc.origen, cc.metodo_pago, cc.anulada_at,
+       cu.id AS cliente_id, cu.email AS cliente_email, cu.dni AS cliente_dni,
+       TRIM(CONCAT_WS(' ', cu.nombre, cu.apellido)) AS cliente_nombre,
+       cp.nombre AS paquete_nombre
+     ${desde_}
+     ${where}
+     ORDER BY COALESCE(cc.acreditada_at, cc.created_at) DESC, cc.id DESC
+     LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+    [...params, limit, offset]
+  );
+
+  return {
+    items: rows.map((r) => ({ ...r, precio: Number.parseFloat(r.precio) || 0 })),
+    total: conteo[0]?.c ?? 0,
+  };
+}
+
+/* ── Compras presenciales ────────────────────────────────────────
+ * El coworking también vende paquetes en mostrador. Son ingreso real, así que
+ * viven en creditos_compra junto a las de Mercado Pago, distinguidas por
+ * `origen` para poder auditar quién las cargó.
+ */
+
+/** Nace acreditada: la plata ya está en la caja cuando el staff la registra. */
+export async function crearCompraPresencial(
+  db,
+  { clienteUsuarioId, paqueteId, creditos, precio, metodoPago, registradaPorUsuarioId }
+) {
+  const { rows } = await db.query(
+    `INSERT INTO creditos_compra (
+       cliente_usuario_id, paquete_id, creditos, precio,
+       estado, origen, metodo_pago, registrada_por_usuario_id, acreditada_at
+     ) VALUES ($1, $2, $3, $4, 'acreditada', 'presencial', $5, $6, NOW())
+     RETURNING *`,
+    [clienteUsuarioId, paqueteId, creditos, precio, metodoPago, registradaPorUsuarioId]
+  );
+  return conPrecioNumerico(rows[0]);
+}
+
+/**
+ * Anula una compra presencial mal cargada. No se borra la fila: queda el
+ * rastro de qué se anuló y quién lo hizo.
+ */
+export async function anularCompraPresencial(db, compraId, anuladaPorUsuarioId) {
+  const { rows } = await db.query(
+    `UPDATE creditos_compra
+     SET estado = 'anulada', anulada_at = NOW(), anulada_por_usuario_id = $2
+     WHERE id = $1
+     RETURNING *`,
+    [compraId, anuladaPorUsuarioId]
+  );
+  return conPrecioNumerico(rows[0] ?? null);
+}

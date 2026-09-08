@@ -41,10 +41,6 @@ export const BENEFICIOS_POR_ROL = {
   },
 };
 
-export function esRolClienteValido(rol) {
-  return ROLES_CLIENTE.includes(rol);
-}
-
 /** Beneficios del rol. Devuelve una copia para no exponer la constante. */
 export function beneficiosParaRol(rol) {
   const base = BENEFICIOS_POR_ROL[rol] ?? BENEFICIOS_POR_ROL[ROL_POR_DEFECTO];

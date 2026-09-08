@@ -313,9 +313,9 @@ function PanelAjustes({ token }) {
           <Statistic
             title={`Saldo de ${data.usuario.nombre} ${data.usuario.apellido}`}
             value={data.saldo}
-            prefix={<CoinIcon color="var(--color-warning)" />}
+            prefix={<CoinIcon color="var(--color-warning-text)" />}
             suffix={data.saldo === 1 ? "crédito" : "créditos"}
-            valueStyle={{ color: data.saldo < 0 ? "#cf1322" : undefined }}
+            valueStyle={{ color: data.saldo < 0 ? "var(--color-danger-text)" : undefined }}
           />
 
           <Form form={form} layout="vertical" onFinish={onFinish} style={{ maxWidth: 520 }}>
@@ -375,7 +375,7 @@ export default function GestionCreditos() {
       <div className={adminLayout.contentWide}>
         <AdminPageHeader
           eyebrow="Administración"
-          icon={<CoinIcon size={20} color="var(--color-warning)" />}
+          icon={<CoinIcon size={20} />}
           title="Gestión de créditos"
           description="Configurá los paquetes de créditos y ajustá el saldo de un usuario puntual."
         />

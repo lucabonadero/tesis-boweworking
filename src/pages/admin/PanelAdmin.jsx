@@ -96,7 +96,7 @@ export default function PanelAdmin() {
         key: "creditos",
         titulo: "Gestión de Créditos",
         desc: "Paquetes de créditos y ajustes de saldo.",
-        icon: <CoinIcon size={18} color="var(--color-warning)" />,
+        icon: <CoinIcon size={18} />,
         ruta: "/admin-creditos",
         visible: hasPermission("gestionar_creditos"),
         accent: "#ca8a04",

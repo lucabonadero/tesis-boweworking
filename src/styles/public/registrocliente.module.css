@@ -475,6 +475,15 @@
   color: #a15c1a;
 }
 
+.avisoBeneficio {
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: #eafbf4;
+  border: 1px solid #34c08f;
+  color: #1f7a56;
+  font-weight: 600;
+}
+
 .timeSlotBlock {
   margin-bottom: 1rem;
 }

@@ -282,6 +282,10 @@ export const actualizarBloqueoSchema = z
     path: ["fechaFin"],
   });
 
+export const beneficioEstudianteSchema = z.object({
+  habilitado: z.boolean(),
+});
+
 export const guardarDisponibilidadSchema = z.object({
   franjas: z
     .array(

@@ -389,7 +389,7 @@
 
 .metodoEfectivo {
   background: var(--color-info-soft);
-  color: var(--color-info);
+  color: var(--color-info-text);
 }
 
 .metodoMercadoPago {
@@ -643,4 +643,41 @@
     font-size: 12px;
     line-height: 1.4;
   }
+}
+
+/* Separa la operación de reservas del bloque de ingresos por créditos. */
+.seccionTitulo {
+  margin: 28px 0 4px;
+  font-size: 16px;
+  font-weight: var(--weight-bold);
+  color: var(--color-text-primary);
+}
+
+/* ── Tabla de compras de paquetes ── */
+
+.celdaApilada {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.3;
+}
+
+.celdaApilada span {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+}
+
+.montoOk {
+  color: var(--color-success-text, var(--color-brand-primary));
+}
+
+.montoGris {
+  color: var(--color-text-tertiary);
+  font-weight: var(--weight-regular);
+}
+
+.formHint {
+  margin: 0 0 16px;
+  font-size: 12px;
+  line-height: var(--leading-normal);
+  color: var(--color-text-tertiary);
 }

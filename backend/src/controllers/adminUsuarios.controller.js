@@ -116,6 +116,22 @@ export const crearUsuario = async (req, res) => {
   // Body ya validado por Zod (adminCrearUsuarioSchema).
   const { email, password, rol, permisos } = req.body;
 
+  // Solo un administrador crea administradores o elige permisos a mano: con
+  // `gestionar_usuarios` alcanzaba para darse de alta una segunda cuenta admin.
+  const esAdmin = req.usuario?.rol === "admin";
+  if (!esAdmin && rol === "admin") {
+    return res.status(403).json({
+      message: "Solo un administrador puede crear otra cuenta de administrador",
+      codigo: "SOLO_ADMIN_CREA_ADMIN",
+    });
+  }
+  if (!esAdmin && Array.isArray(permisos) && permisos.length > 0) {
+    return res.status(403).json({
+      message: "Solo un administrador puede elegir permisos a mano. La cuenta se crea con los permisos por defecto del rol.",
+      codigo: "SOLO_ADMIN_ASIGNA_PERMISOS",
+    });
+  }
+
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
@@ -202,6 +218,16 @@ export const actualizarUsuario = async (req, res) => {
     if (rows[0].rol === "admin" && req.usuario.id !== Number(id)) {
       await client.query("ROLLBACK");
       return res.status(403).json({ message: "No podes modificar a otro administrador" });
+    }
+
+    // Cambiar la contrasena de otra cuenta equivale a apropiarsela: un staff
+    // solo puede cambiar la propia. El admin sigue pudiendo resetear a su equipo.
+    if (password !== undefined && req.usuario.rol !== "admin" && req.usuario.id !== Number(id)) {
+      await client.query("ROLLBACK");
+      return res.status(403).json({
+        message: "Solo un administrador puede cambiar la contraseña de otra cuenta",
+        codigo: "SOLO_ADMIN_CAMBIA_PASSWORD",
+      });
     }
 
     const updates = [];

@@ -10,6 +10,7 @@ export const creditosKeys = {
   movimientos: (paginacion) => ["creditos", "movimientos", paginacion ?? {}],
   movimientosTodos: ["creditos", "movimientos"],
   paquetes: ["creditos", "paquetes"],
+  paquetesPublicos: ["creditos", "paquetes", "publicos"],
 };
 
 /** Conserva status y código para distinguir el 409 de saldo insuficiente. */
@@ -26,7 +27,10 @@ export class ApiError extends Error {
 async function pedir(url, { token, ...init } = {}) {
   const res = await fetch(url, {
     ...init,
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
   });
   const texto = await res.text();
   const data = texto ? JSON.parse(texto) : null;
@@ -62,6 +66,22 @@ export function usePaquetesCreditos(token) {
     queryFn: () => pedir(`${API_URL}/api/creditos/paquetes`, { token }),
     enabled: Boolean(token),
     staleTime: 5 * 60 * 1000,
+  });
+}
+
+/**
+ * Vidriera de la landing: sin token, solo paquetes activos.
+ *
+ * El admin edita los paquetes desde otro navegador, así que la invalidación de
+ * caché no llega hasta acá: un staleTime corto + refetch al volver a la pestaña
+ * alcanzan para que un cambio del panel se vea sin recargar a mano.
+ */
+export function usePaquetesPublicos() {
+  return useQuery({
+    queryKey: creditosKeys.paquetesPublicos,
+    queryFn: () => pedir(`${API_URL}/api/publico/creditos/paquetes`),
+    staleTime: 30 * 1000,
+    refetchOnWindowFocus: true,
   });
 }
 

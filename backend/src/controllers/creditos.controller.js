@@ -1,5 +1,6 @@
 import pool from "../config/db.js";
 import { creditosParaMontos, referenciaCompra } from "../services/creditos.service.js";
+import { esEstudianteElegible, tipoAplicaBeneficio, aplicarBeneficioAMontos } from "../services/beneficioEstudiante.service.js";
 import {
   obtenerSaldo,
   obtenerPesosPorCredito,
@@ -9,6 +10,7 @@ import {
   crearCompra,
   guardarPreferenciaCompra,
 } from "../repositories/creditos.repository.js";
+import { idsConBeneficio, rolClienteUsuario } from "../repositories/beneficioEstudiante.repository.js";
 
 /** El staff no tiene saldo propio: los créditos son del usuario final. */
 function exigirCliente(req, res) {
@@ -108,14 +110,24 @@ export const cotizarReserva = async (req, res) => {
       return res.status(400).json({ message: "El horario de inicio y fin no es válido" });
     }
 
-    const montos = [];
+    const itemsConMonto = [];
     for (const item of items) {
       const monto = await precioRecurso(item.idRecurso, TipoReserva, minutos);
       if (monto === null) {
         return res.status(404).json({ message: `Recurso ${item.idRecurso} no encontrado` });
       }
-      montos.push(monto);
+      itemsConMonto.push({ idRecurso: item.idRecurso, monto });
     }
+
+    let beneficio = { recursosGratuitos: [] };
+    if (tipoAplicaBeneficio(TipoReserva)) {
+      const rol = await rolClienteUsuario(pool, req.usuario.id);
+      if (esEstudianteElegible({ tipo: "cliente", rol })) {
+        const ids = await idsConBeneficio(pool, itemsConMonto.map((i) => i.idRecurso));
+        beneficio = aplicarBeneficioAMontos(itemsConMonto, ids);
+      }
+    }
+    const montos = (beneficio.montos ?? itemsConMonto).map((i) => i.monto);
 
     const [pesosPorCredito, { saldo }] = await Promise.all([
       obtenerPesosPorCredito(pool),
@@ -132,6 +144,10 @@ export const cotizarReserva = async (req, res) => {
       alcanza: saldo >= creditosNecesarios,
       creditosFaltantes: Math.max(0, creditosNecesarios - saldo),
       pesosPorCredito,
+      beneficioEstudiante:
+        beneficio.recursosGratuitos.length > 0
+          ? { aplicado: true, recursosGratuitos: beneficio.recursosGratuitos }
+          : { aplicado: false, recursosGratuitos: [] },
     });
   } catch (error) {
     console.error("Error al cotizar la reserva en créditos:", error);

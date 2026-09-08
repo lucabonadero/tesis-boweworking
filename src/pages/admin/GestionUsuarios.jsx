@@ -8,12 +8,13 @@ import {
   PlusOutlined, DeleteOutlined, KeyOutlined,
   LockOutlined, MailOutlined, SafetyCertificateOutlined,
   TeamOutlined, SwapOutlined, ReloadOutlined, SolutionOutlined,
-  UserSwitchOutlined,
+  UserSwitchOutlined, WarningOutlined,
 } from "@ant-design/icons";
 import { useAuth } from "../../context/AuthContext.jsx";
 import Header from "../../components/header.jsx";
 import AdminPageHeader from "../../components/AdminPageHeader.jsx";
 import adminLayout from "../../styles/admin/adminLayout.module.css";
+import permisosStyles from "../../styles/admin/permisosModal.module.css";
 import GestionUsuariosFinales, {
   SolicitudesEstudiante,
 } from "./GestionUsuariosFinales.jsx";
@@ -34,9 +35,11 @@ const MODULO_LABELS = {
   reservas: "Reservas",
   clientes: "Clientes",
   espacios: "Espacios",
+  estructura: "Estructura",
+  creditos: "Créditos",
   financiero: "Gestión Financiera",
   calendario: "Calendario",
-  altas: "Altas / Asistencia",
+  altas: "Altas y Asistencia",
   usuarios: "Gestión de Usuarios",
 };
 
@@ -44,11 +47,22 @@ const MODULO_COLORS = {
   reservas: "blue",
   clientes: "green",
   espacios: "purple",
+  estructura: "geekblue",
+  creditos: "gold",
   financiero: "red",
   calendario: "cyan",
   altas: "orange",
   usuarios: "magenta",
 };
+
+/** Orden de los módulos en el panel de permisos: operación primero, administración al final. */
+const MODULO_ORDEN = [
+  "reservas", "calendario", "clientes", "altas",
+  "espacios", "estructura", "creditos", "financiero", "usuarios",
+];
+
+/** Permisos sensibles: quedan reservados al admin salvo decisión explícita. */
+const PERMISOS_SENSIBLES = new Set(["gestionar_usuarios", "gestionar_pagos"]);
 
 const ROL_COLORS = { admin: "red", staff: "green", empleado: "default" };
 const ROL_LABELS = { admin: "Administrador", staff: "Staff", empleado: "Empleado (legacy)" };
@@ -56,11 +70,15 @@ const ROL_LABELS = { admin: "Administrador", staff: "Staff", empleado: "Empleado
 // Permisos predeterminados al seleccionar un rol en el formulario de creación
 const PERMISOS_DEFECTO_ROL = {
   admin: {},
+  // Refleja PERMISOS_POR_ROL.staff del backend (rolUsuario.service.js).
+  // ver_financiero entra por defecto: el backend le oculta los montos totales
+  // a quien no es admin, así que el staff solo ve conteos y transacciones.
   staff: {
     ver_reservas: true, crear_reservas: true, modificar_reservas: true, eliminar_reservas: true,
     ver_clientes: true, gestionar_clientes: true,
     ver_espacios: true, gestionar_espacios: true,
     ver_calendario: true, altas_clientes: true,
+    ver_financiero: true, registrar_pagos: true,
   },
 };
 
@@ -92,14 +110,21 @@ function PanelStaff() {
     ? usuarios.filter((u) => u.rol === filtroRol)
     : usuarios;
 
-  const permisosPorModulo = useMemo(
-    () =>
-      permisosCatalogo.reduce((acc, p) => {
-        (acc[p.modulo] ||= []).push(p);
-        return acc;
-      }, {}),
-    [permisosCatalogo]
-  );
+  // Agrupado por módulo y ordenado: operación primero, administración al final.
+  // Los módulos que no figuran en MODULO_ORDEN van al fondo, alfabéticos.
+  const permisosPorModulo = useMemo(() => {
+    const agrupado = permisosCatalogo.reduce((acc, p) => {
+      (acc[p.modulo] ||= []).push(p);
+      return acc;
+    }, {});
+    const peso = (modulo) => {
+      const i = MODULO_ORDEN.indexOf(modulo);
+      return i === -1 ? MODULO_ORDEN.length : i;
+    };
+    return Object.entries(agrupado).sort(
+      ([a], [b]) => peso(a) - peso(b) || a.localeCompare(b)
+    );
+  }, [permisosCatalogo]);
 
   const permisosSeleccionados = () =>
     Object.entries(permisosTemp).filter(([, v]) => v).map(([k]) => k);
@@ -368,50 +393,87 @@ function PanelStaff() {
     },
   ];
 
+  /** Marca o desmarca de una todos los permisos de un módulo. */
+  const setModulo = (perms, valor) =>
+    setPermisosTemp((prev) => {
+      const next = { ...prev };
+      perms.forEach((p) => { next[p.clave] = valor; });
+      return next;
+    });
+
   const renderPermisosPanel = (rolActual) => {
     const esAdmin = rolActual === "admin";
-    return Object.entries(permisosPorModulo).map(([modulo, perms]) => (
-      <div key={modulo} style={{ marginBottom: 20 }}>
-        <Tag
-          color={MODULO_COLORS[modulo] || "default"}
-          style={{ marginBottom: 10, fontSize: 13, padding: "3px 10px" }}
-        >
-          {MODULO_LABELS[modulo] || modulo}
-        </Tag>
-        <Row gutter={[8, 8]}>
-          {perms.map((p) => {
-            const activo = esAdmin || !!permisosTemp[p.clave];
-            return (
-              <Col xs={24} sm={12} key={p.clave}>
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    padding: "10px 14px",
-                    borderRadius: "var(--radius-md)",
-                    background: activo ? "var(--color-brand-primary-soft)" : "var(--color-neutral-100)",
-                    border: `1px solid ${activo ? "var(--color-brand-primary-glow)" : "var(--color-neutral-300)"}`,
-                    transition: "all var(--transition-fast)",
-                    opacity: esAdmin ? 0.75 : 1,
-                  }}
-                >
-                  <Text style={{ fontSize: "var(--text-sm)" }}>{p.descripcion}</Text>
-                  <Switch
+
+    return (
+      <div className={permisosStyles.grupos}>
+        {permisosPorModulo.map(([modulo, perms]) => {
+          const activos = perms.filter((p) => esAdmin || !!permisosTemp[p.clave]).length;
+          const todos = activos === perms.length;
+
+          return (
+            <section key={modulo} className={permisosStyles.grupo}>
+              <header className={permisosStyles.grupoHeader}>
+                <Space size={8} align="center">
+                  <Tag color={MODULO_COLORS[modulo] || "default"} className={permisosStyles.moduloTag}>
+                    {MODULO_LABELS[modulo] || modulo}
+                  </Tag>
+                  <Text type="secondary" className={permisosStyles.contador}>
+                    {activos} de {perms.length}
+                  </Text>
+                </Space>
+                {!esAdmin && (
+                  <Button
+                    type="link"
                     size="small"
-                    checked={activo}
-                    disabled={esAdmin}
-                    onChange={(checked) =>
-                      setPermisosTemp((prev) => ({ ...prev, [p.clave]: checked }))
-                    }
-                  />
-                </div>
-              </Col>
-            );
-          })}
-        </Row>
+                    className={permisosStyles.accionGrupo}
+                    onClick={() => setModulo(perms, !todos)}
+                  >
+                    {todos ? "Quitar todos" : "Activar todos"}
+                  </Button>
+                )}
+              </header>
+
+              <div className={permisosStyles.lista}>
+                {perms.map((p) => {
+                  const activo = esAdmin || !!permisosTemp[p.clave];
+                  const sensible = PERMISOS_SENSIBLES.has(p.clave);
+                  return (
+                    <label
+                      key={p.clave}
+                      className={[
+                        permisosStyles.item,
+                        activo ? permisosStyles.itemActivo : "",
+                        esAdmin ? permisosStyles.itemBloqueado : "",
+                      ].filter(Boolean).join(" ")}
+                    >
+                      <span className={permisosStyles.itemTexto}>
+                        <span className={permisosStyles.itemTitulo}>{p.descripcion}</span>
+                        <span className={permisosStyles.itemClave}>{p.clave}</span>
+                      </span>
+                      <Space size={6} align="center">
+                        {sensible && (
+                          <Tooltip title="Permiso sensible: otorgalo solo a cuentas de confianza.">
+                            <WarningOutlined className={permisosStyles.iconoSensible} />
+                          </Tooltip>
+                        )}
+                        <Switch
+                          size="small"
+                          checked={activo}
+                          disabled={esAdmin}
+                          onChange={(checked) =>
+                            setPermisosTemp((prev) => ({ ...prev, [p.clave]: checked }))
+                          }
+                        />
+                      </Space>
+                    </label>
+                  );
+                })}
+              </div>
+            </section>
+          );
+        })}
       </div>
-    ));
+    );
   };
 
   return (
@@ -513,7 +575,7 @@ function PanelStaff() {
               placeholder="Seleccioná el rol del usuario"
               onChange={handleRolChange}
               options={[
-                { value: "staff", label: "Staff — sin acceso a módulo financiero" },
+                { value: "staff", label: "Staff — acceso limitado" },
                 { value: "admin", label: "Administrador — acceso completo al sistema" },
               ]}
             />
@@ -578,14 +640,31 @@ function PanelStaff() {
       >
         {usuarioSeleccionado && (
           <div style={{ marginTop: 8 }}>
-            <Space style={{ marginBottom: 16 }}>
-              <Tag color={ROL_COLORS[usuarioSeleccionado.rol]}>
-                {ROL_LABELS[usuarioSeleccionado.rol] || usuarioSeleccionado.rol}
-              </Tag>
-              <Text type="secondary">{usuarioSeleccionado.email}</Text>
-            </Space>
-            <Divider style={{ marginTop: 4, marginBottom: 16 }} />
-            <div style={{ maxHeight: 480, overflowY: "auto", paddingRight: 4 }}>
+            <div className={permisosStyles.resumen}>
+              <Space size={8} wrap>
+                <Tag color={ROL_COLORS[usuarioSeleccionado.rol]} style={{ margin: 0 }}>
+                  {ROL_LABELS[usuarioSeleccionado.rol] || usuarioSeleccionado.rol}
+                </Tag>
+                <Text type="secondary">{usuarioSeleccionado.email}</Text>
+              </Space>
+              <Text type="secondary" style={{ fontSize: "var(--text-xs)" }}>
+                {usuarioSeleccionado.rol === "admin"
+                  ? "Acceso total al sistema"
+                  : `${permisosSeleccionados().length} de ${permisosCatalogo.length} permisos activos`}
+              </Text>
+            </div>
+
+            {usuarioSeleccionado.rol === "admin" && (
+              <Alert
+                type="info"
+                showIcon
+                style={{ marginBottom: 16 }}
+                message="El administrador tiene todos los permisos de forma implícita"
+                description="Para limitar el acceso de esta cuenta, cambiale el rol a Staff."
+              />
+            )}
+
+            <div className={permisosStyles.scroll}>
               {renderPermisosPanel(usuarioSeleccionado.rol)}
             </div>
           </div>

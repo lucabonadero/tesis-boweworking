@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Cascader, Tabs, DatePicker, Input, Button, List, Popconfirm, message, Empty, Badge } from "antd";
 import { useQuery } from "@tanstack/react-query";
 import AdminPageHeader from "../../components/AdminPageHeader.jsx";
@@ -29,6 +29,17 @@ function espacioAOpcion(espacio) {
     recursos: espacio.recursos || [],
     children: hijos.length ? hijos.map(espacioAOpcion) : undefined,
   };
+}
+
+/** Primer nodo del árbol que tenga recursos, con la ruta del Cascader para llegar. */
+function primerNodoConRecursos(opciones, rutaPrevia = []) {
+  for (const opcion of opciones || []) {
+    const ruta = [...rutaPrevia, opcion.value];
+    if ((opcion.recursos || []).length > 0) return { ruta, nodo: opcion };
+    const enHijos = primerNodoConRecursos(opcion.children, ruta);
+    if (enHijos) return enHijos;
+  }
+  return null;
 }
 
 export default function GestionDisponibilidad() {
@@ -62,6 +73,17 @@ export default function GestionDisponibilidad() {
       })),
     [estructura]
   );
+
+  // La página no arranca vacía: al cargar la estructura se abre el primer
+  // recurso disponible. Solo corre mientras no haya nada elegido.
+  useEffect(() => {
+    if (idRecurso || !opcionesCascader.length) return;
+    const inicial = primerNodoConRecursos(opcionesCascader);
+    if (!inicial) return;
+    setRutaEspacio(inicial.ruta);
+    setNodoSeleccionado(inicial.nodo);
+    setIdRecurso(inicial.nodo.recursos[0].idRecurso);
+  }, [opcionesCascader, idRecurso]);
 
   const { data: franjasGuardadas } = useDisponibilidadRecurso(idRecurso, token);
   const { data: bloqueos = [] } = useBloqueos(idRecurso, token);

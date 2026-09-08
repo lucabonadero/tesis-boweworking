@@ -3,7 +3,6 @@ import Header from "../../components/header.jsx";
 import Footer from "../../components/footer.jsx";
 import "../../styles/global.css";
 import React, { useState, useMemo, useCallback, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
 import dayjs from "dayjs";
 import { useAuth } from "../../context/AuthContext.jsx";
 import {
@@ -115,9 +114,42 @@ function getResourceColor(name) {
   return { bg: "#f5f7f9", border: "#e2e6ea", text: "#444" };
 }
 
+function AvisoCosto({ cotizacion, onComprarCreditos }) {
+  if (!cotizacion) return null;
+  const gratis = cotizacion.beneficioEstudiante?.aplicado && cotizacion.creditosNecesarios === 0;
+
+  if (gratis) {
+    return (
+      <div className={`${styles.fieldHint} ${styles.avisoBeneficio}`}>
+        Este espacio es gratuito para tu cuenta de estudiante. No se descontarán créditos.
+      </div>
+    );
+  }
+
+  return (
+    <div className={styles.fieldHint}>
+      {cotizacion.beneficioEstudiante?.recursosGratuitos?.length > 0 && (
+        <>
+          Parte de tu selección es gratuita por tu cuenta de estudiante.{" "}
+        </>
+      )}
+      Costo: <strong>{etiquetaCreditos(cotizacion.creditosNecesarios)}</strong>
+      {" · "}
+      Tu saldo: {etiquetaCreditos(cotizacion.saldo)}
+      {!cotizacion.alcanza && (
+        <>
+          {" · "}
+          <Button type="link" size="small" style={{ padding: 0 }} onClick={onComprarCreditos}>
+            Te faltan {cotizacion.creditosFaltantes}: comprar créditos
+          </Button>
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function RegistroCliente() {
   const { isAuthenticated, perfilCompleto, user, token, openAuthModal, loading: authLoading, authFetch } = useAuth();
-  const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState("turno");
   const [step, setStep] = useState(0);
@@ -256,6 +288,12 @@ export default function RegistroCliente() {
       if (activeTab === "fijo") setFijoCotizacion(null);
       return;
     }
+    // La cotización exige sesión: sin token no se pide y el precio aparece
+    // recién cuando el usuario inicia sesión para confirmar la reserva.
+    if (!isAuthenticated) {
+      setFijoCotizacion(null);
+      return;
+    }
     const t = setTimeout(async () => {
       try {
         const horaIni = turnoHora.format("HH:mm");
@@ -267,7 +305,7 @@ export default function RegistroCliente() {
           HorarioReserva: horaIni,
           HorarioFin: horaFin,
         });
-        const res = await fetch(`${API_URL}/api/reservas/serie-mensual/cotizar?${params}`);
+        const res = await authFetch(`${API_URL}/api/reservas/serie-mensual/cotizar?${params}`);
         const data = await res.json().catch(() => ({}));
         if (res.ok) setFijoCotizacion(data);
         else setFijoCotizacion(null);
@@ -276,7 +314,7 @@ export default function RegistroCliente() {
       }
     }, 450);
     return () => clearTimeout(t);
-  }, [activeTab, fijoFechaInicio, fijoDiaSemanaIso, selectedRecursoFijo, turnoHora, turnoDuracion]);
+  }, [activeTab, fijoFechaInicio, fijoDiaSemanaIso, selectedRecursoFijo, turnoHora, turnoDuracion, isAuthenticated, authFetch]);
 
   useEffect(() => {
     const dateForSlots = activeTab === "fijo" ? slotAnchorFijo : turnoFecha;
@@ -620,6 +658,7 @@ export default function RegistroCliente() {
           idReservaGrupo,
           monto: montoSum,
           creditos: data.creditos,
+          beneficioEstudiante: data.beneficioEstudiante,
           tipo: "turno",
           espacio: espNombre,
           recursos: selectedRecursosTurno.map((r) => r.Nombre),
@@ -683,6 +722,7 @@ export default function RegistroCliente() {
           id: data.idReserva,
           monto,
           creditos: data.creditos,
+          beneficioEstudiante: data.beneficioEstudiante,
           tipo: "turno",
           espacio: espNombre,
           recurso: sel.Nombre,
@@ -1268,29 +1308,13 @@ export default function RegistroCliente() {
                   Seleccionaste: <strong>{selectedRecursoPack.Nombre}</strong>
                 </>
               )}
-              {cotizacion && (
-                <div className={styles.fieldHint}>
-                  Costo: <strong>{etiquetaCreditos(cotizacion.creditosNecesarios)}</strong>
-                  {" · "}
-                  Tu saldo: {etiquetaCreditos(cotizacion.saldo)}
-                  {!cotizacion.alcanza && (
-                    <>
-                      {" · "}
-                      <Button
-                        type="link"
-                        size="small"
-                        style={{ padding: 0 }}
-                        onClick={() => {
-                          setCreditosFaltantes(cotizacion.creditosFaltantes);
-                          setCompraAbierta(true);
-                        }}
-                      >
-                        Te faltan {cotizacion.creditosFaltantes}: comprar créditos
-                      </Button>
-                    </>
-                  )}
-                </div>
-              )}
+              <AvisoCosto
+                cotizacion={cotizacion}
+                onComprarCreditos={() => {
+                  setCreditosFaltantes(cotizacion.creditosFaltantes);
+                  setCompraAbierta(true);
+                }}
+              />
             </span>
             <Button
               type="primary"
@@ -1389,29 +1413,13 @@ export default function RegistroCliente() {
             </div>
           </div>
 
-          {cotizacion && (
-            <div className={styles.fieldHint}>
-              Costo: <strong>{etiquetaCreditos(cotizacion.creditosNecesarios)}</strong>
-              {" · "}
-              Tu saldo: {etiquetaCreditos(cotizacion.saldo)}
-              {!cotizacion.alcanza && (
-                <>
-                  {" · "}
-                  <Button
-                    type="link"
-                    size="small"
-                    style={{ padding: 0 }}
-                    onClick={() => {
-                      setCreditosFaltantes(cotizacion.creditosFaltantes);
-                      setCompraAbierta(true);
-                    }}
-                  >
-                    Te faltan {cotizacion.creditosFaltantes}: comprar créditos
-                  </Button>
-                </>
-              )}
-            </div>
-          )}
+          <AvisoCosto
+            cotizacion={cotizacion}
+            onComprarCreditos={() => {
+              setCreditosFaltantes(cotizacion.creditosFaltantes);
+              setCompraAbierta(true);
+            }}
+          />
 
           <div className={styles.stepButtons}>
             <Button icon={<ArrowLeftOutlined />} onClick={() => setStep(0)}>
@@ -1517,7 +1525,9 @@ export default function RegistroCliente() {
             <div className={styles.pagoDivider} />
             <h4 className={styles.pagoTitle}>Pago</h4>
             <p className={styles.fieldHint}>
-              {reservaCreada.creditos
+              {reservaCreada.beneficioEstudiante?.aplicado
+                ? "Reserva sin costo por tu beneficio de estudiante."
+                : reservaCreada.creditos
                 ? `Se descontaron ${etiquetaCreditos(reservaCreada.creditos.descontados)} de tu saldo. Te quedan ${etiquetaCreditos(reservaCreada.creditos.saldo)}.`
                 : "Tu reserva quedó confirmada."}
             </p>

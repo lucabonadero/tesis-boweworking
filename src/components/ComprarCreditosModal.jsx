@@ -53,7 +53,7 @@ export default function ComprarCreditosModal({ abierto, onCerrar, creditosFaltan
     >
       <Space direction="vertical" size="middle" style={{ width: "100%" }}>
         <Text>
-          <CoinIcon color="var(--color-warning)" /> Tu saldo: <strong>{etiquetaCreditos(saldoData?.saldo ?? 0)}</strong>
+          <CoinIcon color="var(--color-warning-text)" /> Tu saldo: <strong>{etiquetaCreditos(saldoData?.saldo ?? 0)}</strong>
         </Text>
 
         {creditosFaltantes > 0 && (

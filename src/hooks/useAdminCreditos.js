@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { creditosKeys } from "./useCreditos.js";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 
@@ -40,6 +41,15 @@ export function usePaquetesAdmin(token) {
   });
 }
 
+/**
+ * Todo alta/edición/baja de paquetes tiene que refrescar las dos vistas:
+ * la tabla del panel y la vidriera pública de la landing.
+ */
+function invalidarPaquetes(qc) {
+  qc.invalidateQueries({ queryKey: adminCreditosKeys.paquetes });
+  qc.invalidateQueries({ queryKey: creditosKeys.paquetes });
+}
+
 export function useCrearPaquete(token) {
   const qc = useQueryClient();
   return useMutation({
@@ -49,7 +59,7 @@ export function useCrearPaquete(token) {
         method: "POST",
         body: JSON.stringify(body),
       }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: adminCreditosKeys.paquetes }),
+    onSuccess: () => invalidarPaquetes(qc),
   });
 }
 
@@ -62,7 +72,7 @@ export function useActualizarPaquete(token) {
         method: "PUT",
         body: JSON.stringify(body),
       }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: adminCreditosKeys.paquetes }),
+    onSuccess: () => invalidarPaquetes(qc),
   });
 }
 
@@ -71,7 +81,7 @@ export function useEliminarPaquete(token) {
   return useMutation({
     mutationFn: (id) =>
       pedir(`${API_URL}/api/admin/creditos/paquetes/${id}`, { token, method: "DELETE" }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: adminCreditosKeys.paquetes }),
+    onSuccess: () => invalidarPaquetes(qc),
   });
 }
 

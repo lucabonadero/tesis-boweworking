@@ -29,7 +29,7 @@ export default function SaldoCreditosWidget() {
           onClick={() => setComprando(true)}
           aria-label={`Tenés ${etiquetaCreditos(data.saldo)}. Comprar más.`}
         >
-          <CoinIcon size={15} color="var(--color-warning)" />
+          <CoinIcon size={15} />
           <span className="header__credits-count">{data.saldo}</span>
         </button>
       </Tooltip>

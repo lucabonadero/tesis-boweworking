@@ -33,6 +33,8 @@ import {
 } from "../services/extensionReserva.service.js";
 import { lateralUltimaTransaccion } from "../services/transaccionUltimaJoin.service.js";
 import { evaluarDescuentoReserva } from "../services/creditos.service.js";
+import { esEstudianteElegible, tipoAplicaBeneficio, aplicarBeneficioAMontos } from "../services/beneficioEstudiante.service.js";
+import { idsConBeneficio, rolClienteUsuario, esBeneficioEstudiante } from "../repositories/beneficioEstudiante.repository.js";
 import { evaluarCancelacion, inicioReservaEnMs } from "../services/cancelacionReserva.service.js";
 import {
   obtenerPesosPorCredito,
@@ -142,6 +144,29 @@ async function evaluarPagoConCreditos(client, usuario, montoTotal) {
     ...evaluarDescuentoReserva({ saldoActual, montoEnPesos: montoTotal, pesosPorCredito }),
     saldoActual,
   };
+}
+
+/**
+ * Anula el monto de los recursos marcados como beneficio estudiante (RF21/RF22).
+ *
+ * El rol se relee de "ClienteUsuario" dentro de la transacción: las rutas de
+ * reservas solo pasan por verificarToken, así que el rol del JWT puede estar
+ * desactualizado si el admin cambió el rol después de emitido el token.
+ *
+ * `items`: [{ idRecurso, monto }]. Solo aplica a turno (RF21 no cubre packs).
+ */
+async function aplicarBeneficioEstudiante(client, usuario, tipoReserva, items) {
+  if (usuario?.tipo !== "cliente" || !tipoAplicaBeneficio(tipoReserva)) {
+    return { montos: items, recursosGratuitos: [], montoOriginal: items.reduce((a, i) => a + (i.monto || 0), 0), montoFinal: items.reduce((a, i) => a + (i.monto || 0), 0) };
+  }
+
+  const rol = await rolClienteUsuario(client, usuario.id);
+  if (!esEstudianteElegible({ tipo: "cliente", rol })) {
+    return { montos: items, recursosGratuitos: [], montoOriginal: items.reduce((a, i) => a + (i.monto || 0), 0), montoFinal: items.reduce((a, i) => a + (i.monto || 0), 0) };
+  }
+
+  const ids = await idsConBeneficio(client, items.map((i) => i.idRecurso));
+  return aplicarBeneficioAMontos(items, ids);
 }
 
 /** Cuerpo del 409 cuando no alcanza el saldo: la interfaz abre la compra con esto. */
@@ -942,6 +967,11 @@ export const crearReserva = async (req, res) => {
         montoFinal = await calcularMonto(idRecurso, tipo, horaIniStore || undefined, horaFinStore || undefined);
       }
 
+      const beneficio = await aplicarBeneficioEstudiante(client, req.usuario, tipo, [
+        { idRecurso, monto: montoFinal },
+      ]);
+      montoFinal = beneficio.montoFinal;
+
       // Se decide antes de insertar: sin saldo, la reserva no llega a existir.
       const decisionCreditos = await evaluarPagoConCreditos(client, req.usuario, montoFinal);
       if (decisionCreditos && !decisionCreditos.ok) {
@@ -987,6 +1017,9 @@ export const crearReserva = async (req, res) => {
           descontados: decisionCreditos.creditosNecesarios,
           saldo: decisionCreditos.saldoPosterior,
         };
+      }
+      if (beneficio.recursosGratuitos.length > 0) {
+        cuerpo.beneficioEstudiante = { aplicado: true, recursosGratuitos: beneficio.recursosGratuitos };
       }
       res.status(201).json(cuerpo);
     } catch (err) {
@@ -1058,9 +1091,10 @@ export const crearReservasMultiples = async (req, res) => {
       }
     }
 
-    const creadas = [];
-    let montoTotal = 0;
-
+    // Valida y cotiza todo antes de insertar nada: si un recurso choca, ninguna
+    // fila llega a existir (antes se insertaban las anteriores y se deshacían
+    // por ROLLBACK; el resultado es el mismo, pero así no depende de eso).
+    const items = [];
     for (const idRecurso of ids) {
       const msgTurno = await mensajeTurnoNoDisponibleParaRecurso(idRecurso);
       if (msgTurno) {
@@ -1081,20 +1115,26 @@ export const crearReservasMultiples = async (req, res) => {
         return res.status(409).json({ message: conflicto });
       }
 
-      const montoFila = await calcularMonto(idRecurso, "turno", nh.horaIni, nh.horaFin);
-      montoTotal += montoFila;
+      const monto = await calcularMonto(idRecurso, "turno", nh.horaIni, nh.horaFin);
+      items.push({ idRecurso, monto });
+    }
 
+    const beneficio = await aplicarBeneficioEstudiante(client, req.usuario, "turno", items);
+
+    const creadas = [];
+    for (const item of beneficio.montos) {
       const ins = await client.query(
         `INSERT INTO "Reservas" ("DNI","Nombre","idRecurso","HorarioReserva","HorarioFin","Monto","DiaReserva","TipoReserva","Estado")
          VALUES ($1,$2,$3,$4,$5,$6,$7,'turno','activa')
          RETURNING *`,
-        [titular.dni, titular.nombre, idRecurso, nh.horaIni, nh.horaFin, montoFila, DiaReserva]
+        [titular.dni, titular.nombre, item.idRecurso, nh.horaIni, nh.horaFin, item.monto, DiaReserva]
       );
       creadas.push(ins.rows[0]);
     }
 
     // Se cotiza el total una sola vez: redondear renglón por renglón le
     // cobraría de más al cliente.
+    const montoTotal = beneficio.montoFinal;
     const decisionCreditos = await evaluarPagoConCreditos(client, req.usuario, montoTotal);
     if (decisionCreditos && !decisionCreditos.ok) {
       await client.query("ROLLBACK");
@@ -1147,6 +1187,9 @@ export const crearReservasMultiples = async (req, res) => {
         descontados: decisionCreditos.creditosNecesarios,
         saldo: decisionCreditos.saldoPosterior,
       };
+    }
+    if (beneficio.recursosGratuitos.length > 0) {
+      cuerpo.beneficioEstudiante = { aplicado: true, recursosGratuitos: beneficio.recursosGratuitos };
     }
     res.status(201).json(cuerpo);
   } catch (error) {
@@ -1267,6 +1310,20 @@ export const actualizarReserva = async (req, res) => {
       if (conflicto) {
         await client.query("ROLLBACK");
         return res.status(409).json({ message: conflicto });
+      }
+
+      // Una reserva de beneficio estudiante (Monto = 0) no puede migrar a un
+      // recurso pago sin recotizar: cerraría el cobro por la puerta del PUT.
+      if (Number(ex.Monto) === 0 && esCliente(req.usuario)) {
+        const sigueSiendoBeneficio = await esBeneficioEstudiante(client, idRecursoNuevo);
+        if (!sigueSiendoBeneficio) {
+          await client.query("ROLLBACK");
+          return res.status(409).json({
+            message:
+              "No podés mover una reserva de beneficio estudiante a un recurso pago. Cancelala y creá una reserva nueva.",
+            codigo: "BENEFICIO_ESTUDIANTE_NO_TRANSFERIBLE",
+          });
+        }
       }
 
       const result = await client.query(

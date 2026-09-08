@@ -120,6 +120,9 @@ export const registro = async (req, res) => {
       return res.status(400).json({ message: "Todos los campos son obligatorios." });
     }
 
+    // El mensaje no dice cuál de los dos choca: confirmar "ese email existe"
+    // permitiria enumerar cuentas. La ambigüedad es deliberada, y el endpoint
+    // esta detras de clienteRegistroLimiter para acotar el sondeo por fuerza bruta.
     const { rows: existe } = await pool.query(
       'SELECT id FROM "ClienteUsuario" WHERE email = $1 OR dni = $2',
       [email, dni]
@@ -615,8 +618,15 @@ export const cambiarPassword = async (req, res) => {
     }
 
     const hash = await bcrypt.hash(passwordNueva, 10);
+    // Si habia un enlace de recuperacion pendiente queda invalidado: despues de
+    // cambiar la contrasena a mano, ese mail no debe seguir sirviendo.
     const { rows: upd } = await pool.query(
-      `UPDATE "ClienteUsuario" SET password = $1 WHERE id = $2 RETURNING *`,
+      `UPDATE "ClienteUsuario"
+       SET password = $1,
+           password_reset_token_hash = NULL,
+           password_reset_expires_at = NULL
+       WHERE id = $2
+       RETURNING *`,
       [hash, user.id]
     );
 

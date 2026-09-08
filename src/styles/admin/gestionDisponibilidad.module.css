@@ -1,91 +1,110 @@
+/* Contenedor de scroll: la grilla no debe comprimirse por debajo del ancho
+   con el que las celdas siguen siendo clickeables y arrastrables. */
+.grillaScroll {
+  overflow-x: auto;
+}
+
 .grilla {
   display: grid;
-  grid-template-columns: 60px repeat(7, 1fr);
+  grid-template-columns: 60px repeat(7, minmax(44px, 1fr));
   gap: 2px;
   user-select: none;
+  min-width: 500px;
 }
 
 .celdaHeader {
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
   text-align: center;
-  padding: 6px 0;
-  font-size: 0.85rem;
+  padding: var(--space-1) 0 var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--color-text-primary);
 }
 
 .celdaHora {
-  font-size: 0.75rem;
-  color: #666;
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
   text-align: right;
-  padding-right: 8px;
+  padding-right: var(--space-2);
   line-height: 28px;
 }
 
 .celda {
   height: 28px;
-  background: #f0f0f0;
-  border-radius: 3px;
+  background: var(--color-neutral-200);
+  border-radius: var(--radius-xs);
   cursor: pointer;
-  transition: background 0.12s;
+  transition: background var(--transition-fast);
 }
 
 .celda:hover {
-  outline: 1px solid #999;
+  outline: 1px solid var(--color-neutral-500);
 }
 
-.celdaActiva {
-  background: #52c41a;
+/* Cerrado por horario semanal: lo que el admin pinta. */
+.celdaCerrada {
+  background: var(--color-danger);
 }
 
+/* Bloqueo temporal por fechas: se raya para distinguirlo del cierre semanal. */
 .celdaBloqueada {
-  background: #ff4d4f;
+  background: repeating-linear-gradient(
+    45deg,
+    var(--color-danger-dark),
+    var(--color-danger-dark) 4px,
+    var(--color-danger) 4px,
+    var(--color-danger) 8px
+  );
   cursor: not-allowed;
 }
 
 .grillaAcciones {
   display: flex;
-  gap: 8px;
-  margin-bottom: 12px;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
 }
 
 .leyenda {
-  margin-top: 10px;
-  font-size: 0.8rem;
-  color: #666;
+  margin-top: var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
 }
 
+/* minmax(0,…) deja que la 2da columna se encoja sin desbordar el layout;
+   la grilla de adentro se protege con su propio min-width + scroll. */
 .panelDisponibilidad {
   display: grid;
-  grid-template-columns: 320px 1fr;
-  gap: 24px;
+  grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
+  gap: var(--space-6);
 }
 
 .tarjetasRecurso {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  gap: 10px;
-  margin-top: 16px;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
 }
 
 .tarjetaRecurso {
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
-  padding: 12px 8px;
+  border: 1px solid var(--color-neutral-300);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-2);
   text-align: center;
   cursor: pointer;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 .tarjetaRecurso:hover {
-  border-color: #1677ff;
+  border-color: var(--color-brand-primary);
 }
 
 .tarjetaActiva {
-  border-color: #1677ff;
-  box-shadow: 0 0 0 2px rgba(22, 119, 255, 0.15);
+  border-color: var(--color-brand-primary);
+  box-shadow: 0 0 0 2px var(--color-brand-primary-mid);
 }
 
 @media (max-width: 900px) {
   .panelDisponibilidad {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }

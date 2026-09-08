@@ -14,7 +14,16 @@ import {
   ArrowRightOutlined,
   TeamOutlined,
   EnvironmentOutlined,
+  HeartOutlined,
+  BulbOutlined,
+  SafetyCertificateOutlined,
 } from "@ant-design/icons";
+import PaquetesCreditosSection from "../../components/PaquetesCreditosSection.jsx";
+import logoFundacion from "../../assets/logo_lacasauni.png";
+import imgPlantaBaja from "../../assets/plantabaja.png";
+import imgPrimerPiso from "../../assets/primerpiso.png";
+import imgTerraza from "../../assets/terrazarda.png";
+import imgHero from "../../assets/personaenterraza.png";
 
 export default function Index() {
   const navigate = useNavigate();
@@ -44,7 +53,7 @@ export default function Index() {
       <Header />
 
       {/* Portada */}
-      <section className={styles.hero}>
+      <section className={styles.hero} style={{ backgroundImage: `url(${imgHero})` }}>
         <div className={styles.heroOverlay}>
           <div className={styles.heroContent}>
             <span className={styles.heroBadge}>
@@ -124,7 +133,7 @@ export default function Index() {
             }
           >
             <div className={styles.spaceCardImg}>
-              <img src="/src/assets/plantabaja.png" alt="Planta Baja" />
+              <img src={imgPlantaBaja} alt="Planta Baja" />
               <span className={styles.spaceCardBadge}>20 lugares</span>
             </div>
             <div className={styles.spaceCardBody}>
@@ -142,7 +151,7 @@ export default function Index() {
             }
           >
             <div className={styles.spaceCardImg}>
-              <img src="/src/assets/primerpiso.png" alt="Primer Piso" />
+              <img src={imgPrimerPiso} alt="Primer Piso" />
               <span className={styles.spaceCardBadge}>Oficinas privadas</span>
             </div>
             <div className={styles.spaceCardBody}>
@@ -160,7 +169,7 @@ export default function Index() {
             }
           >
             <div className={styles.spaceCardImg}>
-              <img src="/src/assets/terrazarda.png" alt="Terraza" />
+              <img src={imgTerraza} alt="Terraza" />
               <span className={styles.spaceCardBadge}>Aire libre</span>
             </div>
             <div className={styles.spaceCardBody}>
@@ -202,6 +211,59 @@ export default function Index() {
         </div>
       </section>
 
+      {/* Identidad institucional — RF24 / RF25 */}
+      <section
+        id="fundacion"
+        className={`${styles.institucional} ${styles.animateOnScroll}`}
+        aria-labelledby="fundacion-titulo"
+      >
+        <div className={styles.institucionalInner}>
+          <div className={styles.institucionalMarca}>
+            <img
+              className={styles.institucionalLogo}
+              src={logoFundacion}
+              alt="Fundacion La Casa Uni"
+            />
+            <p className={styles.institucionalMarcaRol}>Fundacion</p>
+            {/* TODO: validar nombre legal institucional */}
+            <p className={styles.institucionalMarcaNombre}>La Casa Uni</p>
+          </div>
+
+          <div>
+            <h2 id="fundacion-titulo" className={styles.institucionalTitulo}>
+              Bo WeWorking es un proyecto de la <em>Fundacion La Casa Uni</em>
+            </h2>
+            {/* TODO: validar mision y textos institucionales con la fundacion */}
+            <p className={styles.institucionalTexto}>
+              Creemos que el trabajo digno necesita un lugar donde suceder. Por eso
+              sostenemos un espacio abierto en el corazon de Nueva Cordoba, pensado para
+              que estudiantes, emprendedores y profesionales independientes encuentren
+              infraestructura real sin barreras de entrada.
+            </p>
+            <p className={styles.institucionalTexto}>
+              Cada reserva sostiene los programas de la fundacion: acompanamiento a
+              jovenes universitarios, beneficios para estudiantes y actividades abiertas
+              a la comunidad. Trabajar aca es tambien construir algo en comun.
+            </p>
+
+            <ul className={styles.institucionalValores}>
+              <li className={styles.institucionalValor}>
+                <HeartOutlined /> Compromiso social
+              </li>
+              <li className={styles.institucionalValor}>
+                <TeamOutlined /> Comunidad universitaria
+              </li>
+              <li className={styles.institucionalValor}>
+                <BulbOutlined /> Autonomia y desarrollo
+              </li>
+              <li className={styles.institucionalValor}>
+                <SafetyCertificateOutlined /> Acceso equitativo
+              </li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
       {/* Vista previa de packs */}
       <section className={`${styles.packs} ${styles.animateOnScroll}`}>
         <h2 className={styles.sectionTitle}>Packs semanales y mensuales</h2>
@@ -229,6 +291,8 @@ export default function Index() {
           </div>
         </div>
       </section>
+
+      <PaquetesCreditosSection styles={styles} />
 
       {/* Cierre + pie de página — mismo gradiente, sin corte */}
       <div className={styles.ctaFooterWrap}>

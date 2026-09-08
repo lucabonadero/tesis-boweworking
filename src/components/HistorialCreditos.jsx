@@ -71,7 +71,7 @@ export default function HistorialCreditos() {
       <Statistic
         title="Saldo disponible"
         value={saldoData?.saldo ?? 0}
-        prefix={<CoinIcon color="var(--color-warning)" />}
+        prefix={<CoinIcon color="var(--color-warning-text)" />}
         suffix={saldoData?.saldo === 1 ? "crédito" : "créditos"}
         valueStyle={{ color: (saldoData?.saldo ?? 0) < 0 ? "#cf1322" : undefined }}
         style={{ marginBottom: 24 }}

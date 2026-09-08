@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { verificarToken, verificarPermiso } from "../middleware/auth.middleware.js";
+import { verificarToken, verificarPermiso, verificarAdmin } from "../middleware/auth.middleware.js";
 import { validateBody, validateParams } from "../middleware/validate.middleware.js";
 import {
   adminCrearUsuarioSchema,
@@ -39,8 +39,13 @@ router.put(
 
 // Cambio de rol como operacion propia: recalcula los permisos en la misma
 // transaccion, en lugar de mezclarse con la edicion de datos.
+//
+// Solo un administrador: quien reparte roles y permisos define quien manda en
+// el sistema. Con solo `gestionar_usuarios`, un staff podia promoverse a admin
+// o autoasignarse cualquier permiso.
 router.put(
   "/usuarios/:id/rol",
+  verificarAdmin,
   validateParams(adminIdParamSchema),
   validateBody(adminCambiarRolUsuarioSchema),
   cambiarRolUsuario
@@ -48,6 +53,7 @@ router.put(
 
 router.put(
   "/usuarios/:id/permisos",
+  verificarAdmin,
   validateParams(adminIdParamSchema),
   validateBody(adminActualizarPermisosSchema),
   actualizarPermisos
@@ -56,6 +62,7 @@ router.put(
 // Reparacion desde la interfaz de cuentas con permisos inconsistentes.
 router.post(
   "/usuarios/:id/restaurar-permisos",
+  verificarAdmin,
   validateParams(adminIdParamSchema),
   restaurarPermisosPorRol
 );

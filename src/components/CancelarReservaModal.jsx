@@ -35,7 +35,7 @@ export default function CancelarReservaModal({
       open={abierto}
       title={
         <span>
-          <ExclamationCircleOutlined style={{ color: "#faad14", marginRight: 8 }} />
+          <ExclamationCircleOutlined style={{ color: "var(--color-warning)", marginRight: 8 }} />
           Cancelar reserva
         </span>
       }
