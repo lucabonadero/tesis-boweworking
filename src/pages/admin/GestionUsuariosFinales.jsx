@@ -159,13 +159,7 @@ export default function GestionUsuariosFinales() {
       dataIndex: "rol",
       key: "rol",
       width: 130,
-      // RF02: filtro por rol, tanto en la tabla como contra el servidor.
-      filters: [
-        { text: "Usuario", value: "usuario" },
-        { text: "Estudiante", value: "estudiante" },
-      ],
-      filteredValue: filtroRol ? [filtroRol] : null,
-      onFilter: () => true,
+      // RF02: el filtro por rol se controla desde el Select superior (contra el servidor).
       render: (rol) => (
         <Tag color={ROL_CLIENTE_COLORS[rol] || "default"}>
           {ROL_CLIENTE_LABELS[rol] || rol}
@@ -233,6 +227,7 @@ export default function GestionUsuariosFinales() {
           prefix={<SearchOutlined />}
           placeholder="Buscar por nombre, email o DNI"
           style={{ width: 280 }}
+          value={busqueda}
           onChange={(e) => setBusqueda(e.target.value)}
         />
         <Select

@@ -94,7 +94,7 @@
 .tableFooter {
   padding-top: 12px;
   font-size: 13px;
-  color: #888;
+  color: var(--color-text-tertiary);
 }
 
 /* Drawer form */
@@ -167,16 +167,16 @@
 }
 
 .chipActive {
-  background: #34c08f !important;
+  background: var(--color-brand-primary) !important;
   color: #fff !important;
-  border-color: #2aad7e !important;
+  border-color: var(--color-brand-primary-dark) !important;
 }
 
 .chipCompleto {
   border-style: dashed;
-  background: #fefcf3;
-  border-color: #e0c97a;
-  color: #7a6b2a;
+  background: var(--color-warning-soft);
+  border-color: rgba(232, 168, 48, 0.45);
+  color: var(--color-warning-text);
 }
 
 /* Occupancy view */
@@ -556,11 +556,11 @@
 
 .fieldHintWarn {
   font-size: 12px;
-  color: #a05a00;
+  color: var(--color-warning-text);
   padding: 8px 10px;
-  background: #fff7e6;
+  background: var(--color-warning-soft);
   border-radius: var(--radius-sm);
-  border: 1px solid #ffd591;
+  border: 1px solid rgba(232, 168, 48, 0.35);
 }
 
 .fieldHintOk {
@@ -813,8 +813,8 @@
 }
 
 .resourceChipBadgeBusy {
-  background: #fff1f0;
-  color: #cf1322;
+  background: var(--color-danger-soft);
+  color: var(--color-danger-text);
 }
 
 .resourceChipActive {
@@ -836,9 +836,9 @@
 
 .resourceChipCompleto {
   border-style: dashed;
-  background: #fefcf3;
-  border-color: #e0c97a;
-  color: #7a6b2a;
+  background: var(--color-warning-soft);
+  border-color: rgba(232, 168, 48, 0.45);
+  color: var(--color-warning-text);
 }
 
 .resourceChipDisabled {

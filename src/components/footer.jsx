@@ -1,5 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
+import logoFundacion from "../assets/logo_lacasauni.png";
 
 export default function Footer({ className = "" }) {
   return (
@@ -7,7 +8,20 @@ export default function Footer({ className = "" }) {
       <div className="footer__top">
         <div className="footer__info">
           <div className="footer__bo">
-            <h3>Bo WeWorking</h3>
+            <div className="footer__institucional">
+              <img
+                className="footer__fundacion-logo"
+                src={logoFundacion}
+                alt="Fundacion La Casa Uni"
+              />
+              <div>
+                <h3>Bo WeWorking</h3>
+                {/* TODO: validar denominacion legal de la fundacion */}
+                <p className="footer__fundacion-nombre">
+                  Un proyecto de la Fundacion La Casa Uni
+                </p>
+              </div>
+            </div>
             <p>
               Es el lugar! Veni a conocernos, estamos ubicados en Buenos Aires 1120,
               Nueva Cordoba.
@@ -58,7 +72,8 @@ export default function Footer({ className = "" }) {
         </div>
       </div>
       <div className="footer__bottom">
-        Bo WeWorking &copy; {new Date().getFullYear()} — Buenos Aires 1120, Nueva Córdoba.
+        Bo WeWorking &copy; {new Date().getFullYear()} — Fundación La Casa Uni · Buenos
+        Aires 1120, Nueva Córdoba.
       </div>
     </footer>
   );

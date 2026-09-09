@@ -8,9 +8,10 @@ import {
   PlusOutlined, DeleteOutlined, SaveOutlined, UndoOutlined,
   AppstoreOutlined, HomeOutlined, GroupOutlined, BlockOutlined,
   WarningOutlined, ReloadOutlined, DragOutlined,
-  DollarOutlined, ThunderboltOutlined, InfoCircleOutlined,
+  ThunderboltOutlined, InfoCircleOutlined, GoldOutlined, ReadOutlined,
 } from "@ant-design/icons";
 import { useAuth } from "../../context/AuthContext.jsx";
+import { useFijarBeneficioEstudiante } from "../../hooks/useBeneficioEstudiante.js";
 import Header from "../../components/header.jsx";
 import AdminPageHeader from "../../components/AdminPageHeader.jsx";
 import adminLayout from "../../styles/admin/adminLayout.module.css";
@@ -1089,6 +1090,8 @@ function FormularioEdicion({
   onAddEspacioEnPiso, onAddSubEspacio, onAddRecurso, onAddSubRecurso, onEliminar,
 }) {
   const { tipo, nodo } = seleccion;
+  const { token } = useAuth();
+  const fijarBeneficio = useFijarBeneficioEstudiante(token);
 
   if (tipo === NODO_PISO) {
     return (
@@ -1243,13 +1246,14 @@ function FormularioEdicion({
         </Form.Item>
       </Seccion>
 
-      <Seccion icon={<DollarOutlined />} titulo="Precios" hint="Dejá vacío si no aplica">
+      <Seccion icon={<GoldOutlined />} titulo="Créditos" hint="Dejá vacío si no aplica">
         <div className={styles.grid3}>
           <Form.Item label="Por hora">
             <InputNumber
               min={0}
+              step={1}
+              precision={0}
               style={{ width: "100%" }}
-              prefix="$"
               placeholder="0"
               value={nodo.PrecioHora}
               onChange={(v) => onChange({ PrecioHora: v })}
@@ -1258,8 +1262,9 @@ function FormularioEdicion({
           <Form.Item label="Semanal">
             <InputNumber
               min={0}
+              step={1}
+              precision={0}
               style={{ width: "100%" }}
-              prefix="$"
               placeholder="0"
               value={nodo.PrecioSemanal}
               onChange={(v) => onChange({ PrecioSemanal: v })}
@@ -1268,8 +1273,9 @@ function FormularioEdicion({
           <Form.Item label="Mensual">
             <InputNumber
               min={0}
+              step={1}
+              precision={0}
               style={{ width: "100%" }}
-              prefix="$"
               placeholder="0"
               value={nodo.PrecioMensual}
               onChange={(v) => onChange({ PrecioMensual: v })}
@@ -1303,6 +1309,33 @@ function FormularioEdicion({
             descripcion="Acepta abonos por mes"
             checked={!!nodo.AceptaPackMensual}
             onChange={(v) => onChange({ AceptaPackMensual: v })}
+          />
+        </div>
+      </Seccion>
+
+      <Seccion icon={<ReadOutlined />} titulo="Beneficios">
+        <div className={styles.toggleGrid}>
+          <ToggleCard
+            label="Gratuito para estudiantes"
+            descripcion={
+              isTempId(seleccion.id)
+                ? "Guardá el recurso antes de activar este beneficio"
+                : "Las cuentas verificadas como estudiante reservan este recurso por turno sin consumir créditos"
+            }
+            checked={nodo.beneficioEstudiante === true}
+            onChange={(v) => {
+              if (isTempId(seleccion.id)) return;
+              fijarBeneficio.mutate(
+                { idRecurso: nodo.idRecurso, habilitado: v },
+                {
+                  onSuccess: () => {
+                    onChange({ beneficioEstudiante: v });
+                    message.success(v ? "Recurso marcado como gratuito para estudiantes." : "Beneficio desactivado.");
+                  },
+                  onError: (err) => message.error(err.message || "No se pudo guardar el beneficio."),
+                }
+              );
+            }}
           />
         </div>
       </Seccion>
@@ -1386,16 +1419,16 @@ function ModalCrear({ modal, form, tiposRecurso, onCancel, onSubmit }) {
                 options={tiposRecurso.map((t) => ({ value: t.clave, label: t.label }))}
               />
             </Form.Item>
-            <Seccion icon={<DollarOutlined />} titulo="Precios" hint="Dejá vacío si no aplica">
+            <Seccion icon={<GoldOutlined />} titulo="Créditos" hint="Dejá vacío si no aplica">
               <div className={styles.grid3}>
                 <Form.Item name="PrecioHora" label="Por hora">
-                  <InputNumber min={0} style={{ width: "100%" }} prefix="$" placeholder="0" />
+                  <InputNumber min={0} step={1} precision={0} style={{ width: "100%" }} placeholder="0" />
                 </Form.Item>
                 <Form.Item name="PrecioSemanal" label="Semanal">
-                  <InputNumber min={0} style={{ width: "100%" }} prefix="$" placeholder="0" />
+                  <InputNumber min={0} step={1} precision={0} style={{ width: "100%" }} placeholder="0" />
                 </Form.Item>
                 <Form.Item name="PrecioMensual" label="Mensual">
-                  <InputNumber min={0} style={{ width: "100%" }} prefix="$" placeholder="0" />
+                  <InputNumber min={0} step={1} precision={0} style={{ width: "100%" }} placeholder="0" />
                 </Form.Item>
               </div>
             </Seccion>

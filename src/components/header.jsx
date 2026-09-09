@@ -14,6 +14,9 @@ import {
   RobotOutlined,
   DashboardOutlined,
 } from "@ant-design/icons";
+import SaldoCreditosWidget from "./SaldoCreditosWidget.jsx";
+import logoFundacion from "../assets/logo_lacasauni.png";
+import logoBo from "../assets/logoblanco.png";
 
 export default function Header() {
   const location = useLocation();
@@ -85,11 +88,18 @@ export default function Header() {
   return (
     <header>
       <div className="header">
-        <Link to="/">
-          <img className="logo" src="/src/assets/logoblanco.png" alt="Logo" />
+        <Link to="/" className="header__brand">
+          <img className="logo" src={logoBo} alt="Bo WeWorking" />
+          <span className="header__brand-divider" aria-hidden="true" />
+          <img
+            className="header__fundacion-logo"
+            src={logoFundacion}
+            alt="Fundacion La Casa Uni"
+          />
         </Link>
         <div className="header__logo-text">
           <Link to="/" className={claseEnlace("/")}>Bo WeWorking</Link>
+          <span className="header__logo-sub">por Fundacion La Casa Uni</span>
         </div>
 
         <ul className="header__links">
@@ -108,8 +118,10 @@ export default function Header() {
                 href="#"
                 onClick={(e) => {
                   e.preventDefault();
-                  const footer = document.getElementById("footer");
-                  if (footer) footer.scrollIntoView({ behavior: "smooth", block: "end" });
+                  const destino =
+                    document.getElementById("fundacion") ||
+                    document.getElementById("footer");
+                  if (destino) destino.scrollIntoView({ behavior: "smooth", block: "start" });
                 }}
                 className={claseEnlace("/acerca")}
               >
@@ -139,12 +151,15 @@ export default function Header() {
               </Dropdown>
             </>
           ) : auth.isAuthenticated ? (
-            <Dropdown menu={menuUsuario} placement="bottomRight" trigger={["click"]}>
-              <button type="button" className="header__user-btn">
-                <UserOutlined />
-                <span className="header__user-name">{auth.user?.nombre}</span>
-              </button>
-            </Dropdown>
+            <>
+              <SaldoCreditosWidget />
+              <Dropdown menu={menuUsuario} placement="bottomRight" trigger={["click"]}>
+                <button type="button" className="header__user-btn">
+                  <UserOutlined />
+                  <span className="header__user-name">{auth.user?.nombre}</span>
+                </button>
+              </Dropdown>
+            </>
           ) : (
             <div className="header__auth-buttons">
               <button
@@ -198,8 +213,10 @@ export default function Header() {
                 onClick={(e) => {
                   e.preventDefault();
                   setMenuAbierto(false);
-                  const footer = document.getElementById("footer");
-                  if (footer) footer.scrollIntoView({ behavior: "smooth", block: "end" });
+                  const destino =
+                    document.getElementById("fundacion") ||
+                    document.getElementById("footer");
+                  if (destino) destino.scrollIntoView({ behavior: "smooth", block: "start" });
                 }}
               >
                 <span className="header__drawer-icon"><InfoCircleOutlined /></span>

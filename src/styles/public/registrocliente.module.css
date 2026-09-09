@@ -224,7 +224,8 @@
   font-family: var(--font-family) !important;
   height: 40px;
   padding: 0 24px;
-  transition: background var(--transition-fast) !important, border-color var(--transition-fast) !important;
+  transition: background var(--transition-fast) !important; 
+  border-color: var(--transition-fast) !important;
 }
 
 .btnPrimary:hover {
@@ -472,6 +473,15 @@
   font-size: 14px;
   line-height: 1.45;
   color: #a15c1a;
+}
+
+.avisoBeneficio {
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: #eafbf4;
+  border: 1px solid #34c08f;
+  color: #1f7a56;
+  font-weight: 600;
 }
 
 .timeSlotBlock {
@@ -966,24 +976,6 @@
   font-size: 13px;
   color: #777;
   margin-bottom: 14px;
-}
-
-.btnMercadoPago {
-  width: 100%;
-  background: #009ee3 !important;
-  border-color: #009ee3 !important;
-  color: #fff !important;
-  border-radius: 8px;
-  font-weight: 600;
-  height: 48px;
-  font-size: 15px;
-}
-
-.btnMercadoPago:disabled {
-  background: #b8dff3 !important;
-  border-color: #b8dff3 !important;
-  color: #fff !important;
-  opacity: 0.8;
 }
 
 /* ══════════════════════════════════════════════

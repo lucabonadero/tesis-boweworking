@@ -1,0 +1,120 @@
+/* Panel de permisos granulares (modal de Gestión de Usuarios).
+   Agrupa por módulo con encabezado sticky y filas de alto uniforme para que
+   una lista de ~17 permisos siga siendo escaneable. */
+
+.grupos {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.grupo {
+  border: 1px solid var(--color-neutral-300);
+  border-radius: var(--radius-lg);
+  background: #fff;
+  overflow: hidden;
+}
+
+.grupoHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-neutral-100);
+  border-bottom: 1px solid var(--color-neutral-300);
+}
+
+.moduloTag {
+  margin: 0;
+  font-size: var(--text-sm);
+  padding: 2px 10px;
+  border-radius: var(--radius-sm);
+}
+
+.contador {
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.accionGrupo {
+  padding: 0;
+  height: auto;
+  font-size: var(--text-xs);
+}
+
+.lista {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--color-neutral-300);
+}
+
+@media (max-width: 640px) {
+  .lista { grid-template-columns: 1fr; }
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: #fff;
+  cursor: pointer;
+  transition: background var(--transition-fast, 150ms ease);
+}
+
+.item:hover { background: var(--color-neutral-100); }
+
+.itemActivo { background: var(--color-brand-primary-soft); }
+.itemActivo:hover { background: var(--color-brand-primary-mid); }
+
+.itemBloqueado {
+  cursor: default;
+  opacity: 0.7;
+}
+
+.itemTexto {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.itemTitulo {
+  font-size: var(--text-sm);
+  color: var(--color-neutral-900);
+  line-height: 1.35;
+}
+
+.itemClave {
+  font-size: var(--text-xs);
+  color: var(--color-neutral-500);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.iconoSensible {
+  color: #d48806;
+  font-size: var(--text-sm);
+}
+
+/* Cabecera del modal: rol, email y resumen de permisos activos. */
+.resumen {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-4);
+  border: 1px solid var(--color-neutral-300);
+  border-radius: var(--radius-md);
+  background: var(--color-neutral-100);
+}
+
+.scroll {
+  max-height: 52vh;
+  overflow-y: auto;
+  padding-right: var(--space-1);
+}

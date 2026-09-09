@@ -45,7 +45,7 @@
   width: 72px;
   height: 72px;
   margin: 0 auto 12px;
-  background: linear-gradient(135deg, #34c08f, #2aad7e);
+  background: linear-gradient(135deg, var(--color-brand-primary), var(--color-brand-primary-dark));
   color: #fff;
   font-size: 30px;
   border-radius: 50%;
@@ -102,15 +102,15 @@
 .editBtn {
   margin-top: 8px;
   width: 100%;
-  border-color: #34c08f;
-  color: #34c08f;
+  border-color: var(--color-brand-primary);
+  color: var(--color-brand-primary);
   font-weight: 600;
 }
 
 .editBtn:hover {
   background: #f0faf5;
-  border-color: #2aad7e;
-  color: #2aad7e;
+  border-color: var(--color-brand-primary-dark);
+  color: var(--color-brand-primary-dark);
 }
 
 .editForm {

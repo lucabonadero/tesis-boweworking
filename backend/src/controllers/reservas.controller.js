@@ -6,6 +6,7 @@ import {
   validarRecepcionNoAnticipada,
 } from "../services/coworkingHours.service.js";
 import { bloquearEspaciosDeRecursos } from "../services/reservaConcurrency.service.js";
+import { validarDisponibilidadRecurso } from "../services/disponibilidadRecurso.service.js";
 import { mensajeTurnoNoDisponibleParaRecurso } from "../services/reservaRules.service.js";
 import { enviarConfirmacionReservaEnBackground } from "../services/reservaConfirmacionMail.service.js";
 import { parsePagination } from "../utils/pagination.js";
@@ -31,6 +32,16 @@ import {
   minutosAHora,
 } from "../services/extensionReserva.service.js";
 import { lateralUltimaTransaccion } from "../services/transaccionUltimaJoin.service.js";
+import { evaluarDescuentoReserva } from "../services/creditos.service.js";
+import { esEstudianteElegible, tipoAplicaBeneficio, aplicarBeneficioAMontos } from "../services/beneficioEstudiante.service.js";
+import { idsConBeneficio, rolClienteUsuario, esBeneficioEstudiante } from "../repositories/beneficioEstudiante.repository.js";
+import { evaluarCancelacion, inicioReservaEnMs } from "../services/cancelacionReserva.service.js";
+import {
+  obtenerPesosPorCredito,
+  bloquearSaldo,
+  aplicarMovimiento,
+  creditosConsumidosPorReserva,
+} from "../repositories/creditos.repository.js";
 import {
   descuentoSerieMensualDefault,
   fechasSerieMensualRodante,
@@ -111,6 +122,62 @@ async function resolverTitularReserva(req, res) {
   }
   const nombre = `${row.nombre || ""} ${row.apellido || ""}`.trim() || "Cliente";
   return { dni: dniDb, nombre };
+}
+
+/**
+ * Bloquea el saldo del cliente y decide si alcanza para la reserva (RF07).
+ *
+ * Devuelve null para el staff: una reserva cargada por mostrador se cobra por
+ * el circuito de caja, no con créditos del cliente.
+ *
+ * DEBE llamarse dentro de la transacción y DESPUÉS de bloquearEspaciosDeRecursos:
+ * el orden de adquisición de locks es único en todo el sistema para no generar
+ * deadlocks.
+ */
+async function evaluarPagoConCreditos(client, usuario, montoTotal) {
+  if (usuario?.tipo !== "cliente") return null;
+
+  const pesosPorCredito = await obtenerPesosPorCredito(client);
+  const saldoActual = await bloquearSaldo(client, usuario.id);
+
+  return {
+    ...evaluarDescuentoReserva({ saldoActual, montoEnPesos: montoTotal, pesosPorCredito }),
+    saldoActual,
+  };
+}
+
+/**
+ * Anula el monto de los recursos marcados como beneficio estudiante (RF21/RF22).
+ *
+ * El rol se relee de "ClienteUsuario" dentro de la transacción: las rutas de
+ * reservas solo pasan por verificarToken, así que el rol del JWT puede estar
+ * desactualizado si el admin cambió el rol después de emitido el token.
+ *
+ * `items`: [{ idRecurso, monto }]. Solo aplica a turno (RF21 no cubre packs).
+ */
+async function aplicarBeneficioEstudiante(client, usuario, tipoReserva, items) {
+  if (usuario?.tipo !== "cliente" || !tipoAplicaBeneficio(tipoReserva)) {
+    return { montos: items, recursosGratuitos: [], montoOriginal: items.reduce((a, i) => a + (i.monto || 0), 0), montoFinal: items.reduce((a, i) => a + (i.monto || 0), 0) };
+  }
+
+  const rol = await rolClienteUsuario(client, usuario.id);
+  if (!esEstudianteElegible({ tipo: "cliente", rol })) {
+    return { montos: items, recursosGratuitos: [], montoOriginal: items.reduce((a, i) => a + (i.monto || 0), 0), montoFinal: items.reduce((a, i) => a + (i.monto || 0), 0) };
+  }
+
+  const ids = await idsConBeneficio(client, items.map((i) => i.idRecurso));
+  return aplicarBeneficioAMontos(items, ids);
+}
+
+/** Cuerpo del 409 cuando no alcanza el saldo: la interfaz abre la compra con esto. */
+function respuestaSaldoInsuficiente(decision) {
+  return {
+    message: decision.mensaje,
+    codigo: decision.codigo,
+    creditosNecesarios: decision.creditosNecesarios,
+    creditosFaltantes: decision.creditosFaltantes,
+    saldoActual: decision.saldoActual,
+  };
 }
 
 async function esGrupo(db, idRecurso) {
@@ -472,12 +539,32 @@ export const crearSerieMensual = async (req, res) => {
       await client.query("BEGIN");
       await bloquearEspaciosDeRecursos(client, [idRecurso]);
 
+      for (const fechaSerie of fechas) {
+        const errDisp = await validarDisponibilidadRecurso(client, {
+          idRecurso,
+          diaReserva: fechaSerie,
+          horaInicio: nh.horaIni,
+          horaFin: nh.horaFin,
+          tipoReserva: "turno",
+        });
+        if (errDisp) {
+          await client.query("ROLLBACK");
+          return res.status(400).json(errDisp);
+        }
+      }
+
       for (const fecha of fechas) {
         const conflicto = await verificarConflictos(client, idRecurso, fecha, nh.horaIni, nh.horaFin, "turno", null);
         if (conflicto) {
           await client.query("ROLLBACK");
           return res.status(409).json({ message: conflicto, fechaConflictiva: fecha });
         }
+      }
+
+      const decisionCreditos = await evaluarPagoConCreditos(client, req.usuario, precioFinalTotal);
+      if (decisionCreditos && !decisionCreditos.ok) {
+        await client.query("ROLLBACK");
+        return res.status(409).json(respuestaSaldoInsuficiente(decisionCreditos));
       }
 
       const [yy, mm] = fi.split("-").map(Number);
@@ -531,12 +618,24 @@ export const crearSerieMensual = async (req, res) => {
         creadas.push(ins.rows[0]);
       }
 
+      const idReservaGrupo = Math.min(...creadas.map((r) => r.idReserva));
+      if (decisionCreditos?.requiereMovimiento) {
+        await aplicarMovimiento(client, {
+          clienteUsuarioId: req.usuario.id,
+          tipo: "descuento_reserva",
+          cantidad: -decisionCreditos.creditosNecesarios,
+          saldoPosterior: decisionCreditos.saldoPosterior,
+          motivo: `Serie mensual #${idSerie} (${fechas.length} turnos)`,
+          idReserva: idReservaGrupo,
+        });
+      }
+
       await client.query("COMMIT");
       enviarConfirmacionReservaEnBackground(
         pool,
         creadas.map((r) => r.idReserva)
       );
-      res.status(201).json({
+      const cuerpo = {
         idSerie,
         idReservaPago: creadas[0].idReserva,
         precioFinalTotal,
@@ -547,7 +646,14 @@ export const crearSerieMensual = async (req, res) => {
         fechaFinPeriodoExclusiva: fechaFinPeriodoExclusiva(fi),
         periodoHasta,
         reservas: serializarHorariosReservaEnFilas(creadas),
-      });
+      };
+      if (decisionCreditos) {
+        cuerpo.creditos = {
+          descontados: decisionCreditos.creditosNecesarios,
+          saldo: decisionCreditos.saldoPosterior,
+        };
+      }
+      res.status(201).json(cuerpo);
     } catch (err) {
       try {
         await client.query("ROLLBACK");
@@ -832,6 +938,17 @@ export const crearReserva = async (req, res) => {
     try {
       await client.query("BEGIN");
       await bloquearEspaciosDeRecursos(client, [idRecurso]);
+      const errDisp = await validarDisponibilidadRecurso(client, {
+        idRecurso,
+        diaReserva: DiaReserva,
+        horaInicio: hi,
+        horaFin: hf,
+        tipoReserva: tipo,
+      });
+      if (errDisp) {
+        await client.query("ROLLBACK");
+        return res.status(400).json(errDisp);
+      }
       const conflicto = await verificarConflictos(client, idRecurso, DiaReserva, hi, hf, tipo, null);
       if (conflicto) {
         await client.query("ROLLBACK");
@@ -850,6 +967,18 @@ export const crearReserva = async (req, res) => {
         montoFinal = await calcularMonto(idRecurso, tipo, horaIniStore || undefined, horaFinStore || undefined);
       }
 
+      const beneficio = await aplicarBeneficioEstudiante(client, req.usuario, tipo, [
+        { idRecurso, monto: montoFinal },
+      ]);
+      montoFinal = beneficio.montoFinal;
+
+      // Se decide antes de insertar: sin saldo, la reserva no llega a existir.
+      const decisionCreditos = await evaluarPagoConCreditos(client, req.usuario, montoFinal);
+      if (decisionCreditos && !decisionCreditos.ok) {
+        await client.query("ROLLBACK");
+        return res.status(409).json(respuestaSaldoInsuficiente(decisionCreditos));
+      }
+
       const { rows } = await client.query(
         `INSERT INTO "Reservas" ("DNI","Nombre","idRecurso","HorarioReserva","HorarioFin","Monto","DiaReserva","TipoReserva","Estado")
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'activa')
@@ -866,9 +995,33 @@ export const crearReserva = async (req, res) => {
         ]
       );
 
+      // Después del INSERT para poder referenciar la reserva. Comparten
+      // transacción: o van los dos, o no va ninguno.
+      if (decisionCreditos?.requiereMovimiento) {
+        await aplicarMovimiento(client, {
+          clienteUsuarioId: req.usuario.id,
+          tipo: "descuento_reserva",
+          cantidad: -decisionCreditos.creditosNecesarios,
+          saldoPosterior: decisionCreditos.saldoPosterior,
+          motivo: `Reserva #${rows[0].idReserva}`,
+          idReserva: rows[0].idReserva,
+        });
+      }
+
       await client.query("COMMIT");
       enviarConfirmacionReservaEnBackground(pool, [rows[0].idReserva]);
-      res.status(201).json(serializarHorariosReservaEnFila(rows[0]));
+
+      const cuerpo = serializarHorariosReservaEnFila(rows[0]);
+      if (decisionCreditos) {
+        cuerpo.creditos = {
+          descontados: decisionCreditos.creditosNecesarios,
+          saldo: decisionCreditos.saldoPosterior,
+        };
+      }
+      if (beneficio.recursosGratuitos.length > 0) {
+        cuerpo.beneficioEstudiante = { aplicado: true, recursosGratuitos: beneficio.recursosGratuitos };
+      }
+      res.status(201).json(cuerpo);
     } catch (err) {
       try {
         await client.query("ROLLBACK");
@@ -923,8 +1076,25 @@ export const crearReservasMultiples = async (req, res) => {
   try {
     await client.query("BEGIN");
     await bloquearEspaciosDeRecursos(client, ids);
-    const creadas = [];
 
+    for (const idRec of ids) {
+      const errDisp = await validarDisponibilidadRecurso(client, {
+        idRecurso: idRec,
+        diaReserva: DiaReserva,
+        horaInicio: nh.horaIni,
+        horaFin: nh.horaFin,
+        tipoReserva: "turno",
+      });
+      if (errDisp) {
+        await client.query("ROLLBACK");
+        return res.status(400).json(errDisp);
+      }
+    }
+
+    // Valida y cotiza todo antes de insertar nada: si un recurso choca, ninguna
+    // fila llega a existir (antes se insertaban las anteriores y se deshacían
+    // por ROLLBACK; el resultado es el mismo, pero así no depende de eso).
+    const items = [];
     for (const idRecurso of ids) {
       const msgTurno = await mensajeTurnoNoDisponibleParaRecurso(idRecurso);
       if (msgTurno) {
@@ -945,15 +1115,30 @@ export const crearReservasMultiples = async (req, res) => {
         return res.status(409).json({ message: conflicto });
       }
 
-      const montoFila = await calcularMonto(idRecurso, "turno", nh.horaIni, nh.horaFin);
+      const monto = await calcularMonto(idRecurso, "turno", nh.horaIni, nh.horaFin);
+      items.push({ idRecurso, monto });
+    }
 
+    const beneficio = await aplicarBeneficioEstudiante(client, req.usuario, "turno", items);
+
+    const creadas = [];
+    for (const item of beneficio.montos) {
       const ins = await client.query(
         `INSERT INTO "Reservas" ("DNI","Nombre","idRecurso","HorarioReserva","HorarioFin","Monto","DiaReserva","TipoReserva","Estado")
          VALUES ($1,$2,$3,$4,$5,$6,$7,'turno','activa')
          RETURNING *`,
-        [titular.dni, titular.nombre, idRecurso, nh.horaIni, nh.horaFin, montoFila, DiaReserva]
+        [titular.dni, titular.nombre, item.idRecurso, nh.horaIni, nh.horaFin, item.monto, DiaReserva]
       );
       creadas.push(ins.rows[0]);
+    }
+
+    // Se cotiza el total una sola vez: redondear renglón por renglón le
+    // cobraría de más al cliente.
+    const montoTotal = beneficio.montoFinal;
+    const decisionCreditos = await evaluarPagoConCreditos(client, req.usuario, montoTotal);
+    if (decisionCreditos && !decisionCreditos.ok) {
+      await client.query("ROLLBACK");
+      return res.status(409).json(respuestaSaldoInsuficiente(decisionCreditos));
     }
 
     const idsCreadas = creadas.map((r) => r.idReserva);
@@ -974,16 +1159,39 @@ export const crearReservasMultiples = async (req, res) => {
       throw err;
     }
 
+    // Un solo movimiento por el grupo, anclado a la reserva de menor id.
+    if (decisionCreditos?.requiereMovimiento) {
+      await aplicarMovimiento(client, {
+        clienteUsuarioId: req.usuario.id,
+        tipo: "descuento_reserva",
+        cantidad: -decisionCreditos.creditosNecesarios,
+        saldoPosterior: decisionCreditos.saldoPosterior,
+        motivo: `Reserva múltiple #${idReservaGrupo} (${creadas.length} lugares)`,
+        idReserva: idReservaGrupo,
+      });
+    }
+
     await client.query("COMMIT");
     enviarConfirmacionReservaEnBackground(
       pool,
       creadas.map((r) => r.idReserva)
     );
-    res.status(201).json({
+
+    const cuerpo = {
       reservas: serializarHorariosReservaEnFilas(creadas),
       count: creadas.length,
       idReservaGrupo,
-    });
+    };
+    if (decisionCreditos) {
+      cuerpo.creditos = {
+        descontados: decisionCreditos.creditosNecesarios,
+        saldo: decisionCreditos.saldoPosterior,
+      };
+    }
+    if (beneficio.recursosGratuitos.length > 0) {
+      cuerpo.beneficioEstudiante = { aplicado: true, recursosGratuitos: beneficio.recursosGratuitos };
+    }
+    res.status(201).json(cuerpo);
   } catch (error) {
     try {
       await client.query("ROLLBACK");
@@ -1087,10 +1295,35 @@ export const actualizarReserva = async (req, res) => {
         return res.status(404).json({ message: "Reserva no encontrada" });
       }
       await bloquearEspaciosDeRecursos(client, [prev[0].idRecurso, idRecursoNuevo]);
+      const errDisp = await validarDisponibilidadRecurso(client, {
+        idRecurso: idRecursoNuevo,
+        diaReserva: DiaReserva,
+        horaInicio: hi,
+        horaFin: hf,
+        tipoReserva: tipo,
+      });
+      if (errDisp) {
+        await client.query("ROLLBACK");
+        return res.status(400).json(errDisp);
+      }
       const conflicto = await verificarConflictos(client, idRecursoNuevo, DiaReserva, hi, hf, tipo, idReserva);
       if (conflicto) {
         await client.query("ROLLBACK");
         return res.status(409).json({ message: conflicto });
+      }
+
+      // Una reserva de beneficio estudiante (Monto = 0) no puede migrar a un
+      // recurso pago sin recotizar: cerraría el cobro por la puerta del PUT.
+      if (Number(ex.Monto) === 0 && esCliente(req.usuario)) {
+        const sigueSiendoBeneficio = await esBeneficioEstudiante(client, idRecursoNuevo);
+        if (!sigueSiendoBeneficio) {
+          await client.query("ROLLBACK");
+          return res.status(409).json({
+            message:
+              "No podés mover una reserva de beneficio estudiante a un recurso pago. Cancelala y creá una reserva nueva.",
+            codigo: "BENEFICIO_ESTUDIANTE_NO_TRANSFERIBLE",
+          });
+        }
       }
 
       const result = await client.query(
@@ -1438,6 +1671,21 @@ export const extenderReserva = async (req, res) => {
         return res.status(400).json({ message: errVentana });
       }
 
+      // Disponibilidad configurada y bloqueos (RF16/RF17): la ventana completa
+      // extendida debe seguir entrando en las franjas del recurso y no chocar
+      // con un bloqueo temporal.
+      const errDisp = await validarDisponibilidadRecurso(client, {
+        idRecurso: reserva.idRecurso,
+        diaReserva: pgDateToYmd(fresh.DiaReserva),
+        horaInicio: iniActual,
+        horaFin: nuevoFin,
+        tipoReserva: "turno",
+      });
+      if (errDisp) {
+        await client.query("ROLLBACK");
+        return res.status(400).json(errDisp);
+      }
+
       // Disponibilidad: la ventana completa extendida no debe chocar con otra reserva
       // (excluyendo la propia). Cubre recurso, grupo y espacio completo.
       const conflicto = await verificarConflictos(
@@ -1678,5 +1926,204 @@ export const eliminarReserva = async (req, res) => {
   } catch (error) {
     console.error("Error al eliminar reserva:", error);
     res.status(500).json({ message: "Error interno del servidor" });
+  }
+};
+
+/**
+ * Ids de todas las reservas que se cancelan juntas: el lote multi-recurso
+ * (idReservaGrupo) o la serie mensual (idSerie). El movimiento de créditos se
+ * ancló a una sola de ellas, así que hay que mirarlas todas.
+ */
+async function idsReservasDelLote(q, idReserva) {
+  const { rows } = await q.query(
+    'SELECT "idSerie" FROM "Reservas" WHERE "idReserva" = $1',
+    [idReserva]
+  );
+  const idSerie = rows[0]?.idSerie ?? null;
+  if (idSerie != null) {
+    const { rows: serie } = await q.query(
+      'SELECT "idReserva" FROM "Reservas" WHERE "idSerie" = $1 ORDER BY "idReserva" ASC',
+      [idSerie]
+    );
+    if (serie.length) return serie.map((r) => r.idReserva);
+  }
+  return idsReservasMismoGrupo(q, idReserva);
+}
+
+/**
+ * Reserva de referencia del lote para medir el plazo: la de inicio más temprano
+ * que todavía está pendiente. Cancelar una serie afecta a los turnos que
+ * quedan, y el plazo se mide contra el primero de ellos.
+ */
+function reservaReferenciaDelLote(filas, ahora = new Date()) {
+  const pendientes = filas.filter((f) => (inicioReservaEnMs(f) ?? 0) > ahora.getTime());
+  const candidatas = pendientes.length ? pendientes : filas;
+  return candidatas.reduce((mejor, f) =>
+    (inicioReservaEnMs(f) ?? Infinity) < (inicioReservaEnMs(mejor) ?? Infinity) ? f : mejor
+  );
+}
+
+/** Id de ClienteUsuario del titular de la reserva; null si no está registrado. */
+async function clienteUsuarioIdDeReserva(db, filaReserva) {
+  const dni = filaReserva?.DNI != null ? String(filaReserva.DNI).trim() : "";
+  if (!dni) return null;
+  const { rows } = await db.query('SELECT id FROM "ClienteUsuario" WHERE "DNI" = $1', [dni]);
+  return rows[0]?.id ?? null;
+}
+
+/**
+ * GET /api/reservas/:id/cancelacion-preview (RF11)
+ *
+ * Cuánto se reintegraría si cancelara ahora. No modifica nada: alimenta el
+ * modal de confirmación para que el cliente no cancele a ciegas.
+ */
+export const previsualizarCancelacionReserva = async (req, res) => {
+  const idReserva = parseInt(req.params.id, 10);
+  if (!Number.isFinite(idReserva) || idReserva <= 0) {
+    return res.status(400).json({ message: "ID de reserva inválido." });
+  }
+
+  try {
+    const { rows: base } = await pool.query('SELECT * FROM "Reservas" WHERE "idReserva" = $1', [idReserva]);
+    if (base.length === 0) return res.status(404).json({ message: "Reserva no encontrada" });
+    if (!puedeOperarReserva(req.usuario, base[0])) {
+      return res.status(403).json({ message: "No tenés permiso para cancelar esta reserva." });
+    }
+
+    const ids = await idsReservasDelLote(pool, idReserva);
+    const { rows: filas } = await pool.query(
+      'SELECT * FROM "Reservas" WHERE "idReserva" = ANY($1::int[])',
+      [ids]
+    );
+
+    const ahora = new Date();
+    const referencia = reservaReferenciaDelLote(filas, ahora);
+    const { descontados, reintegrados, disponibles } = await creditosConsumidosPorReserva(pool, ids);
+    const decision = evaluarCancelacion({ reserva: referencia, creditosUsados: disponibles, ahora });
+
+    res.json({
+      puedeCancelar: decision.ok === true,
+      codigo: decision.codigo ?? null,
+      mensaje: decision.mensaje ?? null,
+      horasDeAnticipacion: decision.horasDeAnticipacion ?? null,
+      porcentajeReintegro: decision.porcentaje ?? 0,
+      creditosUsados: disponibles,
+      creditosAReintegrar: decision.creditosAReintegrar ?? 0,
+      reservasAfectadas: ids.length,
+      detalleCreditos: { descontados, reintegrados },
+    });
+  } catch (error) {
+    console.error("Error al previsualizar la cancelación de la reserva:", error);
+    res.status(500).json({ message: "Error interno del servidor" });
+  }
+};
+
+/**
+ * POST /api/reservas/:id/cancelar (RF11 - RF15)
+ *
+ * Marca el lote como cancelado y acredita el reintegro que corresponda, todo
+ * dentro de una transacción: el saldo nunca puede quedar desfasado del estado.
+ *
+ * El porcentaje se recalcula acá contra el reloj del servidor; lo que mostró el
+ * modal es informativo y no participa de la decisión.
+ */
+export const cancelarReserva = async (req, res) => {
+  const idReserva = parseInt(req.params.id, 10);
+  if (!Number.isFinite(idReserva) || idReserva <= 0) {
+    return res.status(400).json({ message: "ID de reserva inválido." });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    const { rows: base } = await client.query(
+      'SELECT * FROM "Reservas" WHERE "idReserva" = $1 FOR UPDATE',
+      [idReserva]
+    );
+    if (base.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ message: "Reserva no encontrada" });
+    }
+    if (!puedeOperarReserva(req.usuario, base[0])) {
+      await client.query("ROLLBACK");
+      return res.status(403).json({ message: "No tenés permiso para cancelar esta reserva." });
+    }
+
+    const ids = await idsReservasDelLote(client, idReserva);
+    // Se relee el lote con lock: dos cancelaciones simultáneas no pueden
+    // reintegrar dos veces.
+    const { rows: filas } = await client.query(
+      'SELECT * FROM "Reservas" WHERE "idReserva" = ANY($1::int[]) ORDER BY "idReserva" FOR UPDATE',
+      [ids]
+    );
+
+    const ahora = new Date();
+    const referencia = reservaReferenciaDelLote(filas, ahora);
+
+    // El dueño del saldo es el titular de la reserva, no quien ejecuta la
+    // acción: el staff también puede cancelar por mostrador.
+    const clienteUsuarioId = await clienteUsuarioIdDeReserva(client, base[0]);
+
+    let disponibles = 0;
+    if (clienteUsuarioId != null) {
+      await bloquearSaldo(client, clienteUsuarioId);
+      ({ disponibles } = await creditosConsumidosPorReserva(client, ids));
+    }
+
+    const decision = evaluarCancelacion({ reserva: referencia, creditosUsados: disponibles, ahora });
+    if (!decision.ok) {
+      await client.query("ROLLBACK");
+      return res.status(409).json({
+        message: decision.mensaje,
+        codigo: decision.codigo,
+        porcentajeReintegro: decision.porcentaje ?? 0,
+        creditosAReintegrar: 0,
+      });
+    }
+
+    await client.query(
+      'UPDATE "Reservas" SET "Estado" = \'cancelada\' WHERE "idReserva" = ANY($1::int[])',
+      [ids]
+    );
+
+    let saldoPosterior = null;
+    if (decision.requiereMovimiento && clienteUsuarioId != null) {
+      const saldoActual = await bloquearSaldo(client, clienteUsuarioId);
+      saldoPosterior = saldoActual + decision.creditosAReintegrar;
+      await aplicarMovimiento(client, {
+        clienteUsuarioId,
+        tipo: "reintegro_cancelacion",
+        cantidad: decision.creditosAReintegrar,
+        saldoPosterior,
+        motivo: `Cancelación de reserva #${idReserva} (reintegro del ${decision.porcentaje}%)`,
+        idReserva,
+      });
+    }
+
+    await client.query("COMMIT");
+
+    res.json({
+      message:
+        decision.creditosAReintegrar > 0
+          ? `Reserva cancelada. Te reintegramos ${decision.creditosAReintegrar} créditos (${decision.porcentaje}%).`
+          : "Reserva cancelada. No corresponde reintegro de créditos.",
+      estado: "cancelada",
+      porcentajeReintegro: decision.porcentaje,
+      creditosUsados: decision.creditosUsados,
+      creditosReintegrados: decision.creditosAReintegrar,
+      saldo: saldoPosterior,
+      reservasAfectadas: ids.length,
+    });
+  } catch (error) {
+    try {
+      await client.query("ROLLBACK");
+    } catch {
+      /* */
+    }
+    console.error("Error al cancelar la reserva:", error);
+    res.status(500).json({ message: "Error interno del servidor" });
+  } finally {
+    client.release();
   }
 };

@@ -43,25 +43,6 @@ export function diaSemanaIsoDesdeYmd(fechaYmd) {
   return dow === 0 ? 7 : dow;
 }
 
-// Todas las fechas en [fechaInicio, fechaFinExclusiva) que caen en ese día de semana ISO.
-// Con soloDiasHabiles (por defecto true) se excluyen sábado y domingo aunque coincidan.
-export function fechasDiaSemanaEnRango(fechaInicioYmd, fechaFinExclusivaYmd, diaSemanaIso, opts = {}) {
-  const soloDiasHabiles = opts.soloDiasHabiles !== false;
-  const [y0, m0, d0] = fechaInicioYmd.split("-").map(Number);
-  const [y1, m1, d1] = fechaFinExclusivaYmd.split("-").map(Number);
-  const inicio = new Date(y0, m0 - 1, d0);
-  const finExclusivo = new Date(y1, m1 - 1, d1);
-  const out = [];
-  for (let cur = new Date(inicio); cur < finExclusivo; cur.setDate(cur.getDate() + 1)) {
-    const dow = cur.getDay();
-    const iso = dow === 0 ? 7 : dow;
-    if (iso !== diaSemanaIso) continue;
-    if (soloDiasHabiles && (iso === 6 || iso === 7)) continue;
-    out.push(toIsoYmd(cur));
-  }
-  return out;
-}
-
 // Cuatro semanas desde fechaInicio: la fecha debe caer en ese día ISO; luego +7, +14 y +21 días.
 // Devuelve las fechas YYYY-MM-DD, o [] si la fecha no coincide con el día o no es un día permitido.
 export function fechasSerieMensualRodante(fechaInicioYmd, diaSemanaIso) {

@@ -1,6 +1,6 @@
 /* ══════════════════════════════════════════════════════════════════════════════
    ESPACIOS — Visual redesign
-   Paleta: verde #34c08f · azul #4f8ef7 · naranja #ff9800 · navy #1a1a2e
+   Paleta: verde var(--color-brand-primary) · azul #4f8ef7 · naranja #ff9800 · navy #1a1a2e
    Font: Poppins (cargada via global.css)
    CSS custom property --accent se inyecta por sección desde el JSX
 ══════════════════════════════════════════════════════════════════════════════ */
@@ -78,7 +78,7 @@
   display: inline-block;
   background: rgba(52, 192, 143, 0.18);
   border: 1px solid rgba(52, 192, 143, 0.55);
-  color: #34c08f;
+  color: var(--color-brand-primary);
   font-size: 11.5px;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -98,7 +98,7 @@
 }
 
 .heroAccent {
-  color: #34c08f;
+  color: var(--color-brand-primary);
 }
 
 .heroSub {
@@ -132,8 +132,8 @@
 }
 
 .heroFloorBtn:hover {
-  background: var(--accent, #34c08f);
-  border-color: var(--accent, #34c08f);
+  background: var(--accent, var(--color-brand-primary));
+  border-color: var(--accent, var(--color-brand-primary));
   transform: translateY(-3px);
   box-shadow: 0 8px 22px rgba(0, 0, 0, 0.25);
 }
@@ -234,7 +234,7 @@
   right: 12px;
   bottom: 0;
   height: 3px;
-  background: var(--accent, #34c08f);
+  background: var(--accent, var(--color-brand-primary));
   border-radius: 2px 2px 0 0;
 }
 
@@ -249,7 +249,7 @@
 }
 
 .floorNavActive .floorNavNum {
-  background: var(--accent, #34c08f);
+  background: var(--accent, var(--color-brand-primary));
   color: #fff;
 }
 
@@ -316,7 +316,7 @@
 
 .floorNumBadge {
   display: inline-block;
-  background: var(--accent, #34c08f);
+  background: var(--accent, var(--color-brand-primary));
   color: #fff;
   font-size: 11px;
   font-weight: 800;
@@ -372,18 +372,18 @@
 
 .floorIdeal {
   font-size: 13.5px;
-  color: #7a8288;
+  color: var(--color-text-secondary);
   line-height: 1.55;
   margin: 0 0 22px;
   padding: 10px 14px;
   background: rgba(0, 0, 0, 0.025);
-  border-left: 3px solid var(--accent, #34c08f);
+  border-left: 3px solid var(--accent, var(--color-brand-primary));
   border-radius: 0 8px 8px 0;
 }
 
 .floorIdealLabel {
   font-weight: 700;
-  color: #4a5560;
+  color: var(--color-text-primary);
   font-style: normal;
 }
 
@@ -478,7 +478,7 @@
   height: 30px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.9);
-  color: #1a1a2e;
+  color: var(--color-text-primary);
   font-size: 16px;
   display: flex;
   align-items: center;
@@ -500,10 +500,10 @@
 .spacesBlockTitle {
   font-size: 1.05rem;
   font-weight: 700;
-  color: #1a1a2e;
+  color: var(--color-text-primary);
   margin: 0 0 18px;
   padding-left: 16px;
-  border-left: 4px solid var(--accent, #34c08f);
+  border-left: 4px solid var(--accent, var(--color-brand-primary));
   letter-spacing: -0.01em;
 }
 
@@ -548,7 +548,7 @@
   position: absolute;
   top: 13px;
   right: 13px;
-  background: var(--accent, #34c08f);
+  background: var(--accent, var(--color-brand-primary));
   color: #fff;
   font-size: 11px;
   font-weight: 700;

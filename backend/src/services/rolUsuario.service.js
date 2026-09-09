@@ -22,11 +22,17 @@ export const ROLES_ASIGNABLES = ["admin", "staff"];
  */
 export const PERMISOS_POR_ROL = {
   admin: [],
+  // `ver_financiero` entra por defecto: el modulo financiero oculta los montos
+  // a quien no es admin (ver finanzasCreditos.controller.js), asi que el staff
+  // solo accede a conteos y transacciones, nunca a la recaudacion total.
+  // Estructura y creditos quedan fuera: configuran el catalogo del coworking y
+  // el saldo de los clientes, y se otorgan caso por caso desde "Permisos".
   staff: [
     "ver_reservas", "crear_reservas", "modificar_reservas", "eliminar_reservas",
     "ver_clientes", "gestionar_clientes",
     "ver_espacios", "gestionar_espacios",
     "ver_calendario", "altas_clientes",
+    "ver_financiero", "registrar_pagos",
   ],
   empleado: [
     "ver_reservas", "crear_reservas", "modificar_reservas", "eliminar_reservas",

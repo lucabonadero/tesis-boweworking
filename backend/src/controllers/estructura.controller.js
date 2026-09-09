@@ -12,9 +12,11 @@ export const obtenerEstructura = async (req, res) => {
     const [pisos, espacios, recursos, conteoReservas] = await Promise.all([
       pool.query(`SELECT * FROM "Pisos" ${filtroPiso} ORDER BY "Orden", "idPiso"`),
       pool.query(`SELECT * FROM "Espacios" ${filtroEsp} ORDER BY "Orden", "Espacio"`),
-      pool.query(`SELECT r.*, t.label AS tipo_label
+      pool.query(`SELECT r.*, t.label AS tipo_label,
+                         COALESCE(b."habilitado", false) AS "beneficioEstudiante"
                   FROM "Recursos" r
                   LEFT JOIN "TiposRecurso" t ON r."Tipo" = t.clave
+                  LEFT JOIN "RecursoBeneficioEstudiante" b ON b."idRecurso" = r."idRecurso"
                   ${filtroRec}
                   ORDER BY "Orden", "idRecurso"`),
       pool.query(`

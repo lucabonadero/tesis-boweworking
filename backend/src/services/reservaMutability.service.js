@@ -167,6 +167,8 @@ export function enriquecerFilaConMutacion(rowSerializada, rowCruda, now = new Da
     ...rowSerializada,
     puedeEditar: ev.puedeEditar,
     puedeEliminar,
+    // Solo activa y a futuro: el porcentaje exacto lo resuelve la preview (RF11).
+    puedeCancelar: (rowCruda.Estado || "activa") === "activa" && reservaPeriodoAunNoTermino(rowCruda, now),
     codigoMutacion: ev.codigo,
     mensajeMutacion: ev.mensaje,
   };

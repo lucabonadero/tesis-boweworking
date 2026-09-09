@@ -20,18 +20,11 @@ import {
   verificarPermiso,
   verificarPermisoAlguno,
 } from "../middleware/auth.middleware.js";
-import { validateBody } from "../middleware/validate.middleware.js";
 import { mercadoPagoWebhookLimiter } from "../middleware/rateLimit.middleware.js";
-import { crearPreferenciaSchema } from "../schemas/validation.schemas.js";
 
 const router = Router();
 
-router.post(
-  "/crear-preferencia",
-  verificarToken,
-  validateBody(crearPreferenciaSchema),
-  crearPreferencia
-);
+router.post("/crear-preferencia", verificarToken, crearPreferencia);
 router.post("/webhook", mercadoPagoWebhookLimiter, webhook);
 router.get("/verificar/:paymentId", verificarToken, verificarPago);
 router.get("/estado/:idReserva", verificarToken, obtenerEstadoPago);

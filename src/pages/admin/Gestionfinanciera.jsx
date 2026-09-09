@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import Header from "../../components/header";
 import AdminPageHeader from "../../components/AdminPageHeader.jsx";
+import IngresosCreditosPanel from "../../components/admin/IngresosCreditosPanel.jsx";
 import { adminFetch } from "../../utils/adminApi";
-import { notifyReservasChanged } from "../../utils/boweSync.js";
 import styles from "../../styles/admin/gestionfinanciera.module.css";
 import "../../styles/global.css";
 
@@ -19,10 +18,6 @@ import {
   DatePicker,
   message,
   Tag,
-  Badge,
-  Empty,
-  Tooltip,
-  Modal,
 } from "antd";
 import {
   SearchOutlined,
@@ -30,18 +25,22 @@ import {
   SyncOutlined,
   WalletOutlined,
   CheckCircleOutlined,
-  CreditCardOutlined,
   UndoOutlined,
   GlobalOutlined,
   ShopOutlined,
-  ClockCircleOutlined,
-  CloseCircleOutlined,
-  WarningOutlined,
 } from "@ant-design/icons";
-import { PAGO_ESTADO_LABEL } from "../../utils/reservaEstados.js";
+import { formatearPrecio, etiquetaCreditos } from "../../utils/creditosFormato.js";
+import {
+  useComprasCreditos,
+  useResumenFinanciero,
+  useRegistrarCompraPresencial,
+  useAnularCompra,
+  useBuscarClientes,
+} from "../../hooks/useFinanzasCreditos.js";
+import { usePaquetesCreditos } from "../../hooks/useCreditos.js";
+import { getAdminToken } from "../../utils/adminApi";
 
 const { Content } = Layout;
-const { Option } = Select;
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 
@@ -53,57 +52,60 @@ const METODO_STYLES = {
   Transferencia: styles.metodoOtro,
 };
 
-const METODOS_FILTRO = ["Efectivo", "Transferencia", "Mercado Pago", "QR", "Tarjeta"];
+/** Métodos que el staff puede cobrar en mostrador (Mercado Pago llega por la web). */
+const METODOS_PRESENCIALES = ["Efectivo", "Transferencia", "QR", "Tarjeta"];
 
-function estadoPagoCell(stylesCss, estadoRaw) {
-  const estado = (estadoRaw || "").trim();
-  const lower = estado.toLowerCase();
-  const label = PAGO_ESTADO_LABEL[estado] || estado || "Pendiente de pago";
-  if (lower === "pagado") {
-    return (
-      <span className={`${stylesCss.estadoBadge} ${stylesCss.estadoPagado}`} title="Cobro confirmado">
-        <CheckCircleOutlined aria-hidden />
-        {PAGO_ESTADO_LABEL.Pagado}
-      </span>
-    );
-  }
-  if (lower === "rechazado" || lower === "fallido" || lower === "cancelado") {
-    return (
-      <span className={`${stylesCss.estadoBadge} ${stylesCss.estadoRechazado}`} title="Pago no acreditado">
-        <CloseCircleOutlined aria-hidden />
-        {label}
-      </span>
-    );
-  }
-  return (
-    <span className={`${stylesCss.estadoBadge} ${stylesCss.estadoPendiente}`} title="Pendiente de cobro o confirmación">
-      <ClockCircleOutlined aria-hidden />
-      {PAGO_ESTADO_LABEL.Pendiente}
-    </span>
-  );
-}
+const COMPRA_ESTADO = {
+  acreditada: { color: "green", label: "Acreditada" },
+  pendiente: { color: "gold", label: "Pendiente" },
+  rechazada: { color: "red", label: "Rechazada" },
+  anulada: { color: "default", label: "Anulada" },
+};
+
 
 export default function GestionFinanciera() {
-  const queryClient = useQueryClient();
-  const [transacciones, setTransacciones] = useState([]);
-  const [transaccionesTotal, setTransaccionesTotal] = useState(0);
   const [tablePage, setTablePage] = useState(1);
   const pageSize = 10;
   const [resumen, setResumen] = useState(null);
   const [reservasPendientes, setReservasPendientes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [filtroMetodo, setFiltroMetodo] = useState("Todos");
+  // La búsqueda pega contra el backend: se espera a que el usuario deje de tipear.
+  const [busquedaAplicada, setBusquedaAplicada] = useState("");
+  const [filtroEstado, setFiltroEstado] = useState(null);
   const [dateRange, setDateRange] = useState(null);
 
-  const [formReserva, setFormReserva] = useState(null);
-  const [formMetodo, setFormMetodo] = useState(null);
-  const [submitting, setSubmitting] = useState(false);
+  // Venta presencial de un paquete.
+  const [ventaCliente, setVentaCliente] = useState(null);
+  const [ventaPaquete, setVentaPaquete] = useState(null);
+  const [ventaMetodo, setVentaMetodo] = useState(null);
+  const [ventaBusqueda, setVentaBusqueda] = useState("");
+  const [ventaBusquedaAplicada, setVentaBusquedaAplicada] = useState("");
 
-  // Cobro de una transacción pendiente (p. ej. cargo de extensión).
-  const [cobrarTarget, setCobrarTarget] = useState(null);
-  const [cobrarMetodo, setCobrarMetodo] = useState(null);
-  const [cobrarSubmitting, setCobrarSubmitting] = useState(false);
+  const { data: resumenFin } = useResumenFinanciero();
+  const puedeVerMontos = resumenFin?.puedeVerMontos === true;
+
+  const { data: paquetesData } = usePaquetesCreditos(getAdminToken());
+  const paquetes = paquetesData?.paquetes ?? [];
+
+  const { data: comprasData, isFetching: cargandoCompras } = useComprasCreditos({
+    limit: pageSize,
+    offset: (tablePage - 1) * pageSize,
+    q: busquedaAplicada || undefined,
+    estado: filtroEstado || undefined,
+    desde: dateRange?.[0]?.format("YYYY-MM-DD"),
+    hasta: dateRange?.[1]?.format("YYYY-MM-DD"),
+  });
+  const compras = comprasData?.items ?? [];
+  const comprasTotal = comprasData?.total ?? 0;
+
+  const { data: clientesData, isFetching: buscandoClientes } =
+    useBuscarClientes(ventaBusquedaAplicada);
+  const clientesEncontrados = clientesData?.items ?? [];
+
+  const registrarVenta = useRegistrarCompraPresencial();
+  const anularCompraMut = useAnularCompra();
+
 
   /** Una fila por serie o por lote multi-recurso (evita duplicar cobros/pendientes en UI). */
   const reservasPendientesVista = useMemo(() => {
@@ -179,25 +181,6 @@ export default function GestionFinanciera() {
     return out;
   }, [reservasPendientes]);
 
-  const fetchTransaccionesPage = async (page = 1) => {
-    const limit = pageSize;
-    const offset = (page - 1) * limit;
-    const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
-    if (search.trim()) params.set("q", search.trim());
-    if (filtroMetodo !== "Todos") params.set("metodo", filtroMetodo);
-    if (dateRange?.[0] && dateRange?.[1]) {
-      params.set("desde", dateRange[0].format("YYYY-MM-DD"));
-      params.set("hasta", dateRange[1].format("YYYY-MM-DD"));
-    }
-    const resTrans = await adminFetch(`${API_URL}/api/pagos?${params}`);
-    const data = await resTrans.json();
-    const items = data.items ?? [];
-    const total = data.total ?? items.length;
-    setTransacciones(items.map((t) => ({ ...t, key: t.idTransaccion })));
-    setTransaccionesTotal(total);
-    setTablePage(page);
-  };
-
   const fetchResumenYPendientes = async () => {
     const [resResumen, resReservas] = await Promise.all([
       adminFetch(`${API_URL}/api/pagos/resumen`),
@@ -220,43 +203,34 @@ export default function GestionFinanciera() {
     }
   };
 
-  const refreshAfterMutation = async () => {
-    try {
-      await fetchResumenYPendientes();
-      await fetchTransaccionesPage(tablePage);
-      queryClient.invalidateQueries({ queryKey: ["staff-reservas"] });
-      notifyReservasChanged();
-    } catch {
-      message.error("Error al actualizar listados");
-    }
-  };
-
   useEffect(() => {
     fetchAll();
   }, []);
 
   useEffect(() => {
-    setTablePage(1);
-  }, [search, filtroMetodo, dateRange]);
+    const id = setTimeout(() => setVentaBusquedaAplicada(ventaBusqueda.trim()), 300);
+    return () => clearTimeout(id);
+  }, [ventaBusqueda]);
+
+  // Debounce de la búsqueda: cada cambio dispara una consulta al backend.
+  useEffect(() => {
+    const id = setTimeout(() => setBusquedaAplicada(search.trim()), 350);
+    return () => clearTimeout(id);
+  }, [search]);
 
   useEffect(() => {
-    if (loading) return;
-    (async () => {
-      try {
-        await fetchTransaccionesPage(tablePage);
-      } catch {
-        message.error("Error al cargar transacciones");
-      }
-    })();
-  }, [loading, tablePage, search, filtroMetodo, dateRange]);
+    setTablePage(1);
+  }, [busquedaAplicada, dateRange, filtroEstado]);
 
-  /* ── Stats ── */
+  /* ── Stats ──
+   * Solo métricas operativas de reservas. El dinero del coworking se mide en
+   * IngresosCreditosPanel a partir de las compras de paquetes: mezclar acá los
+   * montos de reservas duplicaría el ingreso ya cobrado con el paquete.
+   */
   const stats = useMemo(() => {
     const pendN = reservasPendientesVista.length;
     if (resumen) {
       return {
-        totalIngresos: resumen.totalIngresosPagados ?? 0,
-        ingresosHoy: resumen.ingresosHoy ?? 0,
         totalTransacciones: resumen.totalTransacciones ?? 0,
         pendientesCobro: pendN,
         pagosPresencial: resumen.pagosPresencial ?? 0,
@@ -264,250 +238,141 @@ export default function GestionFinanciera() {
       };
     }
     return {
-      totalIngresos: 0,
-      ingresosHoy: 0,
-      totalTransacciones: transaccionesTotal,
+      totalTransacciones: 0,
       pendientesCobro: pendN,
       pagosPresencial: 0,
       pagosOnline: 0,
     };
-  }, [resumen, reservasPendientesVista.length, transaccionesTotal]);
+  }, [resumen, reservasPendientesVista.length]);
 
-  const tableRangeStart = transacciones.length === 0 ? 0 : (tablePage - 1) * pageSize + 1;
-  const tableRangeEnd = (tablePage - 1) * pageSize + transacciones.length;
+  const tableRangeStart = compras.length === 0 ? 0 : (tablePage - 1) * pageSize + 1;
+  const tableRangeEnd = (tablePage - 1) * pageSize + compras.length;
 
-  /* ── Revertir cobro: borra la transacción; el estado del turno no se modifica aquí ── */
-  const revertirPago = async (id) => {
+  /* ── Revertir un cobro presencial: anula la compra y descuenta los créditos ── */
+  const revertirCompra = async (id) => {
     try {
-      const res = await adminFetch(`${API_URL}/api/pagos/${id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error();
-      message.success("Cobro revertido — la reserva vuelve a aparecer como pendiente de pago");
-      void refreshAfterMutation();
-    } catch {
-      message.error("Error al revertir transacción");
+      await anularCompraMut.mutateAsync(id);
+      message.success("Cobro revertido — se descontaron los créditos entregados");
+    } catch (err) {
+      message.error(err.message || "Error al revertir el cobro");
     }
   };
 
-  /* ── Cobrar una transacción pendiente (cargo de extensión, etc.) ── */
-  const cobrarPendiente = async () => {
-    if (!cobrarTarget || !cobrarMetodo) {
-      message.warning("Elegí el método de pago");
+  /* ── Venta presencial de un paquete ── */
+  const onRegistrarVenta = async () => {
+    if (!ventaCliente || !ventaPaquete || !ventaMetodo) {
+      message.warning("Elegí el usuario, el paquete y el método de pago");
       return;
     }
-    setCobrarSubmitting(true);
     try {
-      const res = await adminFetch(`${API_URL}/api/pagos/${cobrarTarget.idTransaccion}/estado`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ EstadoPago: "Pagado", MetodoPago: cobrarMetodo }),
+      const r = await registrarVenta.mutateAsync({
+        clienteUsuarioId: ventaCliente,
+        paqueteId: ventaPaquete,
+        metodoPago: ventaMetodo,
       });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.message || "No se pudo registrar el cobro");
-      }
-      message.success("Cobro registrado");
-      setCobrarTarget(null);
-      setCobrarMetodo(null);
-      void refreshAfterMutation();
+      message.success(`Compra registrada — el usuario quedó con ${r.saldoPosterior} créditos`);
+      setVentaCliente(null);
+      setVentaPaquete(null);
+      setVentaMetodo(null);
     } catch (err) {
-      message.error(err.message);
-    } finally {
-      setCobrarSubmitting(false);
-    }
-  };
-
-  /* ── Register payment (always as Pagado) ── */
-  const onRegistrar = async () => {
-    if (!formReserva || !formMetodo) {
-      message.warning("Seleccioná una reserva y el método de pago");
-      return;
-    }
-    setSubmitting(true);
-    try {
-      const res = await adminFetch(`${API_URL}/api/pagos`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          idReserva: formReserva,
-          MetodoPago: formMetodo,
-        }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.message || "Error al registrar pago");
-      }
-      message.success("Pago registrado correctamente");
-      setFormReserva(null);
-      setFormMetodo(null);
-      void refreshAfterMutation();
-    } catch (err) {
-      message.error(err.message);
-    } finally {
-      setSubmitting(false);
+      message.error(err.message || "No se pudo registrar la compra");
     }
   };
 
   /* ── Columns ── */
   const columns = [
     {
-      title: "Cliente",
-      key: "cliente",
-      sorter: (a, b) => (a.reserva_nombre || "").localeCompare(b.reserva_nombre || ""),
-      render: (_, r) => (
-        <div>
-          <div style={{ fontWeight: 500, color: "#222" }}>{r.reserva_nombre || "-"}</div>
-          {r.cliente_dni && <div style={{ fontSize: 11, color: "#999" }}>DNI: {r.cliente_dni}</div>}
-        </div>
-      ),
-    },
-    {
-      title: "Recurso",
-      key: "espacio",
-      render: (_, r) => {
-        const detalle = Array.isArray(r.recursos_detalle) && r.recursos_detalle.length
-          ? r.recursos_detalle
-          : r.recurso_nombre
-            ? [{ recurso: r.recurso_nombre, espacio: r.espacio_nombre || null }]
-            : r.espacio_nombre
-              ? [{ recurso: r.espacio_nombre, espacio: null }]
-              : [];
-        const tooltipContent = detalle.length && detalle.some((d) => d.espacio) ? (
-          <div className={styles.recursoTooltip}>
-            {detalle.map((d, i) => (
-              <div key={`${d.recurso}-${i}`} className={styles.recursoTooltipRow}>
-                <strong>{d.recurso}</strong>
-                <span>{d.espacio || "Sin espacio"}</span>
-              </div>
-            ))}
-          </div>
-        ) : null;
-        const label = detalle.length
-          ? detalle.map((d) => d.recurso).join(", ")
-          : r.recurso_nombre || r.espacio_nombre || "-";
+      title: "Fecha",
+      dataIndex: "acreditada_at",
+      key: "fecha",
+      render: (fecha, r) => {
+        const d = dayjs(fecha || r.created_at);
         return (
-          <Tooltip title={tooltipContent} placement="top">
-            <span className={styles.recursoCell}>{label}</span>
-          </Tooltip>
+          <div className={styles.celdaApilada}>
+            <strong>{d.format("DD/MM/YYYY")}</strong>
+            <span>{d.format("HH:mm")}</span>
+          </div>
         );
       },
     },
     {
-      title: "Concepto",
-      key: "clasificacion",
-      width: 128,
-      render: (_, r) => {
-        const c = r.ClasificacionPago;
-        if (c === "reserva_fija") {
-          return (
-            <Tag color="cyan" title="Monto paquete 4 semanas (incluye promoción)">
-              Reserva fija
-            </Tag>
-          );
-        }
-        if (c === "multirecurso") {
-          return (
-            <Tag color="geekblue" title="Un pago por varios lugares el mismo turno">
-              Varios lugares
-            </Tag>
-          );
-        }
-        if (c === "extension") {
-          const min = r.extension_minutos;
-          const detalle =
-            r.extension_fin_anterior && r.extension_fin_nuevo
-              ? `Extensión del turno #${r.idReserva}: ${r.extension_fin_anterior} → ${r.extension_fin_nuevo}`
-              : "Cobro de extensión de turno";
-          return (
-            <Tag color="gold" title={detalle}>
-              Extensión{min ? ` +${min}m` : ""}
-            </Tag>
-          );
-        }
-        return <span style={{ fontSize: 12, color: "#94a3b8" }}>Turno</span>;
-      },
-    },
-    {
-      title: "Fecha",
-      dataIndex: "DiaReserva",
-      key: "fecha",
-      sorter: (a, b) => new Date(a.DiaReserva || 0) - new Date(b.DiaReserva || 0),
-      render: (v, r) => (
-        <div>
-          <div style={{ fontSize: 13 }}>{v ? dayjs(v).format("DD/MM/YYYY") : "-"}</div>
-          {r.HorarioReserva && (
-            <div style={{ fontSize: 11, color: "#999" }}>
-              {r.HorarioReserva}{r.HorarioFin ? ` – ${r.HorarioFin}` : ""}
-            </div>
-          )}
+      title: "Usuario",
+      dataIndex: "cliente_nombre",
+      key: "usuario",
+      render: (nombre, r) => (
+        <div className={styles.celdaApilada}>
+          <strong>{nombre || "Sin nombre"}</strong>
+          <span>{r.cliente_dni ? `DNI ${r.cliente_dni}` : r.cliente_email}</span>
         </div>
       ),
     },
     {
-      title: "Monto",
-      dataIndex: "Monto",
-      key: "monto",
-      align: "right",
-      className: "col-money",
-      sorter: (a, b) => (parseFloat(a.Monto) || 0) - (parseFloat(b.Monto) || 0),
-      render: (v) => (
-        <span style={{ fontWeight: 600, color: "#1a1a2e", fontVariantNumeric: "tabular-nums" }}>
-          ${parseFloat(v || 0).toLocaleString("es-AR", { minimumFractionDigits: 2 })}
-        </span>
+      title: "Paquete",
+      dataIndex: "paquete_nombre",
+      key: "paquete",
+      render: (nombre, r) => (
+        <div className={styles.celdaApilada}>
+          <strong>{nombre || "Paquete eliminado"}</strong>
+          <span>{etiquetaCreditos(r.creditos)}</span>
+        </div>
       ),
     },
     {
       title: "Método",
-      dataIndex: "MetodoPago",
       key: "metodo",
-      render: (v, r) => (
-        <div>
-          <span className={`${styles.metodoBadge} ${METODO_STYLES[v] || styles.metodoOtro}`}>
-            <CreditCardOutlined /> {v || "-"}
-          </span>
-          <div style={{ marginTop: 4 }}>
-            <Tag
-              icon={r.TipoPago === "online" ? <GlobalOutlined /> : <ShopOutlined />}
-              color={r.TipoPago === "online" ? "blue" : "default"}
-              style={{ fontSize: 10 }}
-            >
-              {r.TipoPago === "online" ? "Online" : "Presencial"}
-            </Tag>
-          </div>
-        </div>
-      ),
-    },
-    {
-      title: "Estado de pago",
-      dataIndex: "EstadoPago",
-      key: "estado",
-      render: (estado) => estadoPagoCell(styles, estado),
-    },
-    {
-      title: "",
-      key: "action",
-      width: 130,
-      render: (_, record) => {
-        const pendiente = String(record.EstadoPago || "").trim().toLowerCase() === "pendiente";
-        if (pendiente) {
+      render: (_, r) => {
+        if (r.origen === "presencial") {
+          const metodo = r.metodo_pago || "Presencial";
           return (
-            <Button
-              type="primary"
-              size="small"
-              icon={<CheckCircleOutlined />}
-              onClick={() => {
-                setCobrarTarget(record);
-                setCobrarMetodo(null);
-              }}
-            >
-              Cobrar
-            </Button>
+            <span className={`${styles.metodoBadge} ${METODO_STYLES[metodo] || styles.metodoOtro}`}>
+              <ShopOutlined /> {metodo}
+            </span>
           );
         }
         return (
+          <span className={`${styles.metodoBadge} ${styles.metodoMercadoPago}`}>
+            <GlobalOutlined /> Mercado Pago
+          </span>
+        );
+      },
+    },
+    {
+      title: "Estado",
+      dataIndex: "estado",
+      key: "estado",
+      render: (estado) => {
+        const t = COMPRA_ESTADO[estado] ?? { color: "default", label: estado };
+        return <Tag color={t.color}>{t.label}</Tag>;
+      },
+    },
+    // El monto solo viaja al navegador si el backend habilitó puedeVerMontos.
+    ...(puedeVerMontos
+      ? [
+          {
+            title: "Monto",
+            dataIndex: "precio",
+            key: "monto",
+            align: "right",
+            render: (precio, r) => (
+              <strong className={r.estado === "acreditada" ? styles.montoOk : styles.montoGris}>
+                {formatearPrecio(precio)}
+              </strong>
+            ),
+          },
+        ]
+      : []),
+    {
+      title: "",
+      key: "action",
+      width: 120,
+      render: (_, r) => {
+        // Una compra de Mercado Pago se reembolsa en la plataforma, no acá.
+        if (r.origen !== "presencial" || r.estado !== "acreditada") return null;
+        return (
           <Popconfirm
-            title="Revertir esta transacción?"
-            description="Solo se anula el registro de cobro; el estado del turno (activa, recepción, etc.) no cambia."
-            onConfirm={() => revertirPago(record.idTransaccion)}
+            title="Revertir este cobro?"
+            description="Se anula la compra y se descuentan los créditos entregados al usuario."
+            onConfirm={() => revertirCompra(r.id)}
             okText="Revertir"
             cancelText="Cancelar"
             okButtonProps={{ danger: true }}
@@ -531,7 +396,7 @@ export default function GestionFinanciera() {
             eyebrow="Tesorería"
             icon={<DollarOutlined />}
             title="Gestión Financiera"
-            description="Revisá pagos confirmados, transacciones y pendientes de cobro."
+            description="Ingresos por venta de paquetes de créditos y cobros presenciales."
           />
           <div style={{ textAlign: "center", padding: "4rem" }}><Spin size="large" /></div>
         </Content>
@@ -547,25 +412,15 @@ export default function GestionFinanciera() {
           eyebrow="Tesorería"
           icon={<DollarOutlined />}
           title="Gestión Financiera"
-          description="Revisá pagos confirmados, transacciones y pendientes de cobro."
+          description="Ingresos por venta de paquetes de créditos y cobros presenciales."
         />
 
-        {/* Métricas */}
+        {/* Ingresos reales: compras de paquetes de créditos */}
+        <IngresosCreditosPanel />
+
+        {/* Operación de reservas: no representa ingreso de dinero nuevo */}
+        <h2 className={styles.seccionTitulo}>Cobros y transacciones de reservas</h2>
         <div className={styles.statsRow}>
-          <StatCard
-            icon={<DollarOutlined />}
-            label="Ingresos Hoy"
-            value={`$${stats.ingresosHoy.toLocaleString("es-AR", { minimumFractionDigits: 2 })}`}
-            sub={dayjs().format("DD/MM/YYYY")}
-            color={{ bg: "var(--color-success-soft)", icon: "var(--color-success-text)" }}
-          />
-          <StatCard
-            icon={<DollarOutlined />}
-            label="Total Ingresos"
-            value={`$${stats.totalIngresos.toLocaleString("es-AR", { minimumFractionDigits: 2 })}`}
-            sub="pagos confirmados"
-            color={{ bg: "var(--color-brand-primary-soft)", icon: "var(--color-brand-primary)" }}
-          />
           <StatCard
             icon={<WalletOutlined />}
             label="Pendientes de Cobro"
@@ -580,6 +435,20 @@ export default function GestionFinanciera() {
             sub="registradas"
             color={{ bg: "var(--color-info-soft)", icon: "var(--color-info)" }}
           />
+          <StatCard
+            icon={<ShopOutlined />}
+            label="Pagos presenciales"
+            value={stats.pagosPresencial}
+            sub="cobrados en el coworking"
+            color={{ bg: "var(--color-neutral-100)", icon: "var(--color-text-secondary)" }}
+          />
+          <StatCard
+            icon={<GlobalOutlined />}
+            label="Pagos online"
+            value={stats.pagosOnline}
+            sub="cobrados por la web"
+            color={{ bg: "var(--color-info-soft)", icon: "var(--color-info)" }}
+          />
         </div>
 
         {/* Grilla principal */}
@@ -587,22 +456,27 @@ export default function GestionFinanciera() {
           {/* Tabla */}
           <div className={styles.tableCard}>
             <div className={styles.tableHeader}>
-              <h2 className={styles.tableTitle}>Transacciones</h2>
+              <h2 className={styles.tableTitle}>Compras de paquetes</h2>
               <div className={styles.tableControls}>
                 <Input
-                  placeholder="Buscar cliente, DNI, espacio..."
+                  placeholder="Buscar usuario, DNI, email, paquete..."
                   prefix={<SearchOutlined />}
                   className={styles.searchInput}
                   allowClear
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                 />
-                <Select value={filtroMetodo} className={styles.filterSelect} onChange={setFiltroMetodo}>
-                  <Option value="Todos">Todos los métodos</Option>
-                  {METODOS_FILTRO.map((m) => (
-                    <Option key={m} value={m}>{m}</Option>
-                  ))}
-                </Select>
+                <Select
+                  className={styles.filterSelect}
+                  placeholder="Todos los estados"
+                  value={filtroEstado}
+                  onChange={setFiltroEstado}
+                  allowClear
+                  options={Object.entries(COMPRA_ESTADO).map(([valor, t]) => ({
+                    value: valor,
+                    label: t.label,
+                  }))}
+                />
                 <DatePicker.RangePicker
                   format="DD/MM/YYYY"
                   placeholder={["Desde", "Hasta"]}
@@ -617,14 +491,16 @@ export default function GestionFinanciera() {
             <div className={styles.tableWrapper}>
               <Table
                 columns={columns}
-                dataSource={transacciones}
+                dataSource={compras}
+                rowKey="id"
+                loading={cargandoCompras}
                 pagination={{
                   current: tablePage,
                   pageSize,
-                  total: transaccionesTotal,
+                  total: comprasTotal,
                   showSizeChanger: false,
                   size: "small",
-                  onChange: (p) => fetchTransaccionesPage(p),
+                  onChange: setTablePage,
                   responsive: true,
                 }}
                 className={styles.table}
@@ -635,7 +511,7 @@ export default function GestionFinanciera() {
 
             <div className={styles.tableFooter}>
               <span className={styles.tableInfo}>
-                Mostrando {tableRangeStart}-{tableRangeEnd} de {transaccionesTotal} transacciones
+                Mostrando {tableRangeStart}-{tableRangeEnd} de {comprasTotal} compras
               </span>
             </div>
           </div>
@@ -643,149 +519,86 @@ export default function GestionFinanciera() {
           {/* Panel derecho */}
           <div className={styles.rightPanel}>
             {/* Registrar pago */}
-            <div className={`${styles.formCard} ${reservasPendientesVista.length > 0 ? styles.formCardPendientesHighlight : ""}`}>
+            <div className={styles.formCard}>
               <div className={styles.formTitleRow}>
                 <h3 className={styles.formTitle}>Registrar Cobro</h3>
-                <Badge count={reservasPendientesVista.length} showZero overflowCount={99}
-                  style={{ backgroundColor: reservasPendientesVista.length > 0 ? "var(--color-warning)" : "var(--color-text-tertiary)" }} />
+                <Tag color="green">Presencial</Tag>
               </div>
 
-              {reservasPendientesVista.length === 0 ? (
-                <Empty
-                  description="No hay reservas pendientes de cobro"
-                  image={Empty.PRESENTED_IMAGE_SIMPLE}
-                  style={{ padding: "20px 0" }}
+              <p className={styles.formHint}>
+                Vendé un paquete cobrado en mostrador. Los créditos se acreditan al instante
+                y la compra queda registrada como ingreso.
+              </p>
+
+              <div className={styles.formField}>
+                <label className={styles.label}>Usuario</label>
+                <Select
+                  className={styles.select}
+                  placeholder="Buscar por nombre, DNI o email..."
+                  value={ventaCliente}
+                  onChange={setVentaCliente}
+                  showSearch
+                  filterOption={false}
+                  onSearch={setVentaBusqueda}
+                  notFoundContent={
+                    buscandoClientes
+                      ? "Buscando..."
+                      : ventaBusquedaAplicada.length < 2
+                        ? "Escribí al menos 2 letras"
+                        : "Sin resultados"
+                  }
+                  options={clientesEncontrados.map((c) => ({
+                    value: c.id,
+                    label: `${c.nombre || "Sin nombre"} · ${c.dni ? `DNI ${c.dni}` : c.email}`,
+                  }))}
                 />
-              ) : (
-                <>
-                  <div className={styles.formField}>
-                    <label className={styles.label}>Reserva pendiente</label>
-                    <Select
-                      className={styles.select}
-                      placeholder="Buscar por cliente, DNI, espacio o ID..."
-                      value={formReserva}
-                      onChange={setFormReserva}
-                      showSearch
-                      optionFilterProp="searchValue"
-                      optionLabelProp="selectedLabel"
-                      filterOption={(input, option) =>
-                        String(option?.searchValue ?? "")
-                          .toLowerCase()
-                          .includes(input.toLowerCase())
-                      }
-                      dropdownStyle={{ maxWidth: 480 }}
-                      listHeight={320}
-                    >
-                      {reservasPendientesVista.map((r) => {
-                        const fecha = r.DiaReserva ? dayjs(r.DiaReserva).format("DD/MM/YYYY") : "—";
-                        const horario = r.HorarioReserva
-                          ? `${r.HorarioReserva}${r.HorarioFin ? `–${r.HorarioFin}` : ""}`
-                          : "Todo el día";
-                        const monto = parseFloat(r.Monto || 0);
-                        const tipoBadge =
-                          r.ClasificacionPago === "reserva_fija" ? "Fijo 4 sem." :
-                          r.ClasificacionPago === "multirecurso" ? "Varios lugares" : "Turno";
-                        const idTxt = r.idSerie
-                          ? `Serie #${r.idSerie}`
-                          : r.idReservaGrupo
-                            ? `Grupo #${r.idReservaGrupo}`
-                            : `#${r.idReserva}`;
-                        const searchValue = [
-                          r.Nombre,
-                          r.cliente_dni,
-                          r.espacio_nombre,
-                          r.recurso_nombre,
-                          fecha,
-                          horario,
-                          idTxt,
-                        ].filter(Boolean).join(" ");
-                        const selectedLabel = `${r.Nombre} · ${r.espacio_nombre || "—"} · ${fecha} ${horario}`;
-                        return (
-                          <Option
-                            key={r.key || r.idReserva}
-                            value={r.idReserva}
-                            searchValue={searchValue}
-                            selectedLabel={selectedLabel}
-                          >
-                            <div className={styles.pendienteOption}>
-                              <div className={styles.pendienteOptionTop}>
-                                <span className={styles.pendienteOptionCliente}>{r.Nombre || "—"}</span>
-                                <span className={styles.pendienteOptionMonto}>
-                                  ${monto.toLocaleString("es-AR", { minimumFractionDigits: 2 })}
-                                </span>
-                              </div>
-                              <div className={styles.pendienteOptionMid}>
-                                <ShopOutlined aria-hidden style={{ marginRight: 4 }} />
-                                {r.espacio_nombre || "—"}
-                                {r.recurso_nombre ? ` · ${r.recurso_nombre}` : ""}
-                              </div>
-                              <div className={styles.pendienteOptionMeta}>
-                                <span className={styles.pendienteMetaItem}>
-                                  <ClockCircleOutlined aria-hidden /> {fecha} · {horario}
-                                </span>
-                                {r.cliente_dni && (
-                                  <span className={styles.pendienteMetaItem}>DNI {r.cliente_dni}</span>
-                                )}
-                                <Tag color={r.ClasificacionPago === "reserva_fija" ? "cyan" : r.ClasificacionPago === "multirecurso" ? "geekblue" : "default"} style={{ margin: 0, fontSize: 10 }}>
-                                  {tipoBadge}
-                                </Tag>
-                                <span className={styles.pendienteMetaId}>{idTxt}</span>
-                              </div>
-                            </div>
-                          </Option>
-                        );
-                      })}
-                    </Select>
-                  </div>
+              </div>
 
-                  <div className={styles.formField}>
-                    <label className={styles.label}>Método de pago</label>
-                    <Select
-                      className={styles.select}
-                      placeholder="¿Cómo paga el cliente?"
-                      value={formMetodo}
-                      onChange={setFormMetodo}
-                    >
-                      <Option value="Efectivo">Efectivo</Option>
-                      <Option value="Transferencia">Transferencia</Option>
-                      <Option value="Mercado Pago">Mercado Pago</Option>
-                      <Option value="QR">QR</Option>
-                      <Option value="Tarjeta">Tarjeta</Option>
-                    </Select>
-                  </div>
+              <div className={styles.formField}>
+                <label className={styles.label}>Paquete</label>
+                <Select
+                  className={styles.select}
+                  placeholder="Elegí el paquete"
+                  value={ventaPaquete}
+                  onChange={setVentaPaquete}
+                  options={paquetes.map((p) => ({
+                    value: p.id,
+                    label: `${p.nombre} · ${etiquetaCreditos(p.creditos)} · ${formatearPrecio(p.precio)}`,
+                  }))}
+                  notFoundContent="No hay paquetes activos"
+                />
+              </div>
 
-                  <Button
-                    className={styles.btnRegistrar}
-                    onClick={onRegistrar}
-                    loading={submitting}
-                    disabled={!formReserva || !formMetodo}
-                    icon={<CheckCircleOutlined />}
-                  >
-                    Cobrar y Registrar
-                  </Button>
-                </>
-              )}
+              <div className={styles.formField}>
+                <label className={styles.label}>Método de pago</label>
+                <Select
+                  className={styles.select}
+                  placeholder="Cómo pagó"
+                  value={ventaMetodo}
+                  onChange={setVentaMetodo}
+                  options={METODOS_PRESENCIALES.map((m) => ({ value: m, label: m }))}
+                />
+              </div>
+
+              <Button
+                type="primary"
+                block
+                onClick={onRegistrarVenta}
+                loading={registrarVenta.isPending}
+                disabled={!ventaCliente || !ventaPaquete || !ventaMetodo}
+                icon={<CheckCircleOutlined />}
+              >
+                Cobrar y Acreditar
+              </Button>
             </div>
 
             {/* Info rápida */}
             <div className={styles.quickInfo}>
-              <h4 className={styles.quickInfoTitle}>Resumen de Caja</h4>
-              <div className={styles.quickInfoRow}>
-                <span className={styles.quickInfoLabel}>Cobrados hoy</span>
-                <span className={styles.quickInfoValue} style={{ color: "#27ae60" }}>
-                  ${stats.ingresosHoy.toLocaleString("es-AR", { minimumFractionDigits: 2 })}
-                </span>
-              </div>
+              <h4 className={styles.quickInfoTitle}>Operación de reservas</h4>
               <div className={styles.quickInfoRow}>
                 <span className={styles.quickInfoLabel}>Reservas sin cobrar</span>
                 <span className={styles.quickInfoValue} style={{ color: "#e67e22" }}>
                   {reservasPendientes.length}
-                </span>
-              </div>
-              <div className={styles.quickInfoRow}>
-                <span className={styles.quickInfoLabel}>Total acumulado</span>
-                <span className={styles.quickInfoValue} style={{ color: "#5b6abf" }}>
-                  ${stats.totalIngresos.toLocaleString("es-AR", { minimumFractionDigits: 2 })}
                 </span>
               </div>
               <div className={styles.quickInfoRow}>
@@ -804,44 +617,6 @@ export default function GestionFinanciera() {
           </div>
         </div>
 
-        <Modal
-          title="Registrar cobro"
-          open={Boolean(cobrarTarget)}
-          onCancel={() => (cobrarSubmitting ? null : setCobrarTarget(null))}
-          onOk={cobrarPendiente}
-          okText="Cobrar"
-          cancelText="Cancelar"
-          confirmLoading={cobrarSubmitting}
-          okButtonProps={{ disabled: !cobrarMetodo }}
-          destroyOnClose
-        >
-          {cobrarTarget && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              <div style={{ fontSize: 13, color: "#555" }}>
-                <div><strong>{cobrarTarget.reserva_nombre || "-"}</strong></div>
-                <div>
-                  {cobrarTarget.ClasificacionPago === "extension"
-                    ? `Extensión${cobrarTarget.extension_minutos ? ` (+${cobrarTarget.extension_minutos} min)` : ""}`
-                    : "Cobro de reserva"}
-                  {" · "}
-                  <strong>
-                    ${parseFloat(cobrarTarget.Monto || 0).toLocaleString("es-AR", { minimumFractionDigits: 2 })}
-                  </strong>
-                </div>
-              </div>
-              <div>
-                <label className={styles.label}>Método de pago</label>
-                <Select
-                  style={{ width: "100%" }}
-                  placeholder="¿Cómo paga el cliente?"
-                  value={cobrarMetodo}
-                  onChange={setCobrarMetodo}
-                  options={METODOS_FILTRO.map((m) => ({ label: m, value: m }))}
-                />
-              </div>
-            </div>
-          )}
-        </Modal>
       </Content>
     </Layout>
   );

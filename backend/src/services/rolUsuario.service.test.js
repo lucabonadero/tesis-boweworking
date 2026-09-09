@@ -20,12 +20,20 @@ test("admin no recibe filas de permisos: los tiene implícitos", () => {
   assert.deepEqual(permisosParaRol("admin"), []);
 });
 
-test("staff recibe el conjunto por defecto y nunca el módulo financiero", () => {
+test("staff recibe el conjunto por defecto: operación completa, sin administración", () => {
   const permisos = permisosParaRol("staff");
   assert.ok(permisos.includes("ver_reservas"));
   assert.ok(permisos.includes("altas_clientes"));
-  assert.ok(!permisos.includes("ver_financiero"));
+  // El módulo financiero se ve por defecto: el backend le oculta los montos
+  // totales a quien no es admin, así que el staff solo accede a conteos.
+  assert.ok(permisos.includes("ver_financiero"));
+  assert.ok(permisos.includes("registrar_pagos"));
+  // Lo que sigue reservado al admin o se otorga caso por caso.
+  assert.ok(!permisos.includes("gestionar_pagos"));
   assert.ok(!permisos.includes("gestionar_usuarios"));
+  assert.ok(!permisos.includes("gestionar_estructura"));
+  assert.ok(!permisos.includes("reordenar_estructura"));
+  assert.ok(!permisos.includes("gestionar_creditos"));
 });
 
 test("permisosParaRol devuelve una copia, no la constante compartida", () => {

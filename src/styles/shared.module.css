@@ -125,7 +125,7 @@
 }
 
 .btnDanger:hover {
-  background: #c43d3d;
+  background: var(--color-danger-dark);
   transform: translateY(-1px);
 }
 
@@ -330,7 +330,7 @@
 
 .badgeBrand {
   background: var(--color-brand-primary-soft);
-  color: #1a7a55;
+  color: var(--color-brand-primary-text);
   border-color: var(--color-brand-primary-glow);
 }
 

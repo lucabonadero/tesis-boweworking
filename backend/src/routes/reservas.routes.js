@@ -12,8 +12,15 @@ import {
   obtenerMisReservas,
   cotizarSerieMensual,
   crearSerieMensual,
+  previsualizarCancelacionReserva,
+  cancelarReserva,
 } from "../controllers/reservas.controller.js";
-import { verificarToken, verificarStaff } from "../middleware/auth.middleware.js";
+import {
+  verificarToken,
+  verificarStaff,
+  verificarCuentaActiva,
+} from "../middleware/auth.middleware.js";
+import { reservaEscrituraLimiter } from "../middleware/rateLimit.middleware.js";
 import { validateBody, validateCrearReservaBody, validateQuery } from "../middleware/validate.middleware.js";
 import {
   crearReservasMultiplesSchema,
@@ -23,17 +30,28 @@ import {
 
 const router = Router();
 
-router.get("/serie-mensual/cotizar", validateQuery(serieMensualCotizarQuerySchema), cotizarSerieMensual);
-router.post("/serie-mensual", verificarToken, validateBody(serieMensualCrearBodySchema), crearSerieMensual);
-router.get("/mis-reservas", verificarToken, obtenerMisReservas);
+// Toda la sección exige token. `verificarCuentaActiva` relee el estado de la
+// cuenta en cada operación: el bloqueo de un usuario debe cortarle el acceso
+// aunque su token siga vigente (RF01). Para el staff es un no-op.
+router.get(
+  "/serie-mensual/cotizar",
+  verificarToken,
+  verificarCuentaActiva,
+  validateQuery(serieMensualCotizarQuerySchema),
+  cotizarSerieMensual
+);
+router.post("/serie-mensual", verificarToken, verificarCuentaActiva, reservaEscrituraLimiter, validateBody(serieMensualCrearBodySchema), crearSerieMensual);
+router.get("/mis-reservas", verificarToken, verificarCuentaActiva, obtenerMisReservas);
 router.get("/ocupacion-dia", verificarToken, verificarStaff, obtenerReservasOcupacionDia);
 router.get("/", verificarToken, verificarStaff, obtenerReservas);
-router.get("/:id", verificarToken, obtenerReservaPorId);
-router.post("/", verificarToken, validateCrearReservaBody, crearReserva);
-router.post("/multiples", verificarToken, validateBody(crearReservasMultiplesSchema), crearReservasMultiples);
-router.put("/:id", verificarToken, actualizarReserva);
+router.get("/:id", verificarToken, verificarCuentaActiva, obtenerReservaPorId);
+router.post("/", verificarToken, verificarCuentaActiva, reservaEscrituraLimiter, validateCrearReservaBody, crearReserva);
+router.post("/multiples", verificarToken, verificarCuentaActiva, reservaEscrituraLimiter, validateBody(crearReservasMultiplesSchema), crearReservasMultiples);
+router.put("/:id", verificarToken, verificarCuentaActiva, actualizarReserva);
 router.patch("/:id/estado", verificarToken, verificarStaff, cambiarEstadoReserva);
+router.get("/:id/cancelacion-preview", verificarToken, verificarCuentaActiva, previsualizarCancelacionReserva);
+router.post("/:id/cancelar", verificarToken, verificarCuentaActiva, cancelarReserva);
 router.post("/:id/extender", verificarToken, verificarStaff, extenderReserva);
-router.delete("/:id", verificarToken, eliminarReserva);
+router.delete("/:id", verificarToken, verificarCuentaActiva, eliminarReserva);
 
 export default router;

@@ -86,17 +86,6 @@ export const crearReservasMultiplesSchema = z.object({
   Nombre: z.string().max(300).optional(),
 });
 
-export const crearPreferenciaSchema = z
-  .object({
-    idReserva: z.coerce.number().int().positive().optional(),
-    idSerie: z.coerce.number().int().positive().optional(),
-    idReservaGrupo: z.coerce.number().int().positive().optional(),
-  })
-  .refine(
-    (b) => [b.idReserva != null, b.idSerie != null, b.idReservaGrupo != null].filter(Boolean).length === 1,
-    { message: "Enviá exactamente uno: idReserva, idSerie o idReservaGrupo." }
-  );
-
 /** GET /api/reservas/serie-mensual/cotizar */
 export const serieMensualCotizarQuerySchema = z.object({
   fechaInicio: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -205,4 +194,122 @@ export const adminResolverEstudianteSchema = z
 export const clienteSolicitarEstudianteSchema = z.object({
   institucion: z.string().min(2).max(160).trim(),
   comprobante: z.string().max(2_000_000).optional(),
+});
+
+// Sistema de créditos (RF06 - RF10).
+
+export const creditosMovimientosQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  offset: z.coerce.number().int().min(0).default(0),
+});
+
+/** Id en la ruta: usuario o paquete. */
+export const creditosIdParamSchema = z.object({
+  id: z.coerce.number().int().positive(),
+});
+
+/** Cotización previa: cuántos créditos cuesta la selección actual. */
+export const creditosCotizarSchema = z.object({
+  items: z.array(z.object({ idRecurso: z.coerce.number().int().positive() })).min(1).max(24),
+  DiaReserva: z.string().min(1).max(32),
+  HorarioReserva: z.string().max(16).optional().nullable(),
+  HorarioFin: z.string().max(16).optional().nullable(),
+  TipoReserva: z.enum(["turno", "semanal", "mensual"]).default("turno"),
+});
+
+/** El cliente elige un paquete; el precio lo pone el servidor. */
+export const creditosComprarSchema = z.object({
+  paqueteId: z.coerce.number().int().positive(),
+});
+
+/**
+ * `z.coerce.boolean()` convierte cualquier texto no vacio en `true`, incluido
+ * "false". Estos flags autorizan operaciones sensibles: se leen de forma
+ * explicita.
+ */
+const flagBooleano = z.union([
+  z.boolean(),
+  z.enum(["true", "false"]).transform((v) => v === "true"),
+]);
+
+/**
+ * Ajuste manual (RF08). `permitirNegativo` es la autorización explícita para
+ * dejar el saldo bajo cero.
+ */
+export const adminAjusteCreditosSchema = z.object({
+  cantidad: z.coerce
+    .number()
+    .int({ message: "Los créditos son enteros" })
+    .refine((n) => n !== 0, { message: "La cantidad no puede ser cero" }),
+  motivo: z.string().trim().min(3).max(500),
+  permitirNegativo: flagBooleano.default(false),
+});
+
+export const adminCrearPaqueteSchema = z.object({
+  nombre: z.string().trim().min(1).max(120),
+  creditos: z.coerce.number().int().positive(),
+  precio: z.coerce.number().nonnegative(),
+  descripcion: z.string().trim().max(1000).optional().nullable(),
+});
+
+export const adminActualizarPaqueteSchema = adminCrearPaqueteSchema.extend({
+  activo: flagBooleano.optional(),
+});
+
+const HORA_HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
+const FECHA_YMD = /^\d{4}-\d{2}-\d{2}$/;
+
+export const crearBloqueoSchema = z
+  .object({
+    idRecurso: z.coerce.number().int().positive(),
+    fechaInicio: z.string().min(10),
+    fechaFin: z.string().min(10),
+    motivo: z.string().trim().max(300).optional().nullable(),
+  })
+  .refine((v) => new Date(v.fechaInicio) < new Date(v.fechaFin), {
+    message: "La fecha de fin debe ser posterior a la de inicio.",
+    path: ["fechaFin"],
+  });
+
+export const actualizarBloqueoSchema = z
+  .object({
+    fechaInicio: z.string().min(10),
+    fechaFin: z.string().min(10),
+    motivo: z.string().trim().max(300).optional().nullable(),
+  })
+  .refine((v) => new Date(v.fechaInicio) < new Date(v.fechaFin), {
+    message: "La fecha de fin debe ser posterior a la de inicio.",
+    path: ["fechaFin"],
+  });
+
+export const beneficioEstudianteSchema = z.object({
+  habilitado: z.boolean(),
+});
+
+export const guardarDisponibilidadSchema = z.object({
+  franjas: z
+    .array(
+      z
+        .object({
+          diaSemana: z.coerce.number().int().min(0).max(6),
+          horaInicio: z.string().regex(HORA_HHMM, "Formato de hora inválido (HH:MM)."),
+          horaFin: z.string().regex(HORA_HHMM, "Formato de hora inválido (HH:MM)."),
+        })
+        .refine((f) => f.horaInicio < f.horaFin, {
+          message: "La hora de fin debe ser posterior a la de inicio.",
+          path: ["horaFin"],
+        })
+    )
+    .max(70),
+});
+
+export const slotsQuerySchema = z.object({
+  idRecurso: z.coerce.number().int().positive(),
+  fecha: z.string().regex(FECHA_YMD, "La fecha debe tener formato YYYY-MM-DD."),
+});
+
+export const bloqueosQuerySchema = z.object({
+  idRecurso: z.coerce.number().int().positive().optional(),
+  desde: z.string().regex(FECHA_YMD).optional(),
+  hasta: z.string().regex(FECHA_YMD).optional(),
 });

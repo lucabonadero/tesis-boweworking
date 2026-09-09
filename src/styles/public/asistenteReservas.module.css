@@ -1,8 +1,8 @@
 .panelInner {
-  --asistente-mint: #34c08f;
-  --asistente-mint-dark: #2aad7e;
-  --asistente-mint-soft: rgba(52, 192, 143, 0.12);
-  --asistente-mint-glow: rgba(52, 192, 143, 0.35);
+  --asistente-mint: var(--color-brand-primary);
+  --asistente-mint-dark: var(--color-brand-primary-dark);
+  --asistente-mint-soft: var(--color-brand-primary-soft);
+  --asistente-mint-glow: var(--color-brand-primary-glow);
   padding-bottom: 0.5rem;
 }
 
@@ -221,7 +221,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: #888;
+  color: var(--color-text-tertiary);
   margin-bottom: 0.5rem;
 }
 
@@ -239,8 +239,8 @@
   font-size: 12px !important;
   line-height: 1.35 !important;
   border: 1px solid #e8e8e8 !important;
-  background: #fafafa !important;
-  color: #444 !important;
+  background: var(--color-neutral-100) !important;
+  color: var(--color-text-secondary) !important;
   transition:
     background 0.2s,
     border-color 0.2s,
@@ -296,7 +296,7 @@
 .enterHint {
   margin: 0.5rem 0 0.85rem;
   font-size: 11px;
-  color: #999;
+  color: var(--color-text-tertiary);
 }
 
 .actions {
@@ -345,7 +345,7 @@
 .bubbleUser p {
   margin: 0.35rem 0 0;
   line-height: 1.5;
-  color: #333;
+  color: var(--color-text-primary);
   font-size: 14px;
 }
 
@@ -358,7 +358,7 @@
 .bubbleAssistant .mensaje {
   margin: 0.35rem 0 0;
   line-height: 1.6;
-  color: #2d2d2d;
+  color: var(--color-text-primary);
   font-size: 14px;
 }
 
@@ -370,11 +370,11 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: #888;
+  color: var(--color-text-tertiary);
 }
 
 .bubbleUser .bubbleLabel {
-  color: #666;
+  color: var(--color-text-secondary);
 }
 
 .bubbleAssistant .bubbleLabel {
@@ -446,7 +446,7 @@
 .empty {
   margin: 1.5rem 0;
   padding: 1rem;
-  background: #fafafa;
+  background: var(--color-neutral-100);
   border-radius: 12px;
 }
 
@@ -531,7 +531,7 @@
   margin: 0 0 0.5rem;
   font-weight: 600;
   font-size: 14px;
-  color: #333;
+  color: var(--color-text-primary);
 }
 
 .slotIcon {
@@ -550,7 +550,7 @@
   margin: 0 0 0.75rem;
   font-size: 12px;
   font-weight: 600;
-  color: #888;
+  color: var(--color-text-tertiary);
 }
 
 .confirmBtn {
@@ -562,7 +562,7 @@
 .hint {
   margin: 0.5rem 0 0;
   font-size: 12px;
-  color: #c45c00;
+  color: var(--color-warning-text);
 }
 
 .wrap {

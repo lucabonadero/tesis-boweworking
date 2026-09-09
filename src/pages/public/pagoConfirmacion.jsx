@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { Card, Spin, Button, Typography, Space, Tag, Result } from "antd";
 import Header from "../../components/header.jsx";
 import Footer from "../../components/footer.jsx";
 import { useAuth } from "../../context/AuthContext.jsx";
+import { useInvalidarCreditos } from "../../hooks/useCreditos.js";
 import "../../styles/global.css";
 import styles from "../../styles/public/pagoConfirmacion.module.css";
 
@@ -11,76 +12,70 @@ const { Title, Paragraph, Text } = Typography;
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 
+const MENSAJE_POR_RESULTADO = {
+  pendiente: "Tu pago está en proceso. Vas a ver los créditos en tu cuenta cuando se acredite.",
+  error: "El pago no se completó. Podés intentarlo de nuevo desde tu cuenta.",
+};
+const MENSAJE_DEFAULT = "Tu compra se acreditó. Ya podés reservar con tus créditos.";
+
 export default function PagoConfirmacion() {
-  const [searchParams] = useSearchParams();
-  const rawId = searchParams.get("idReserva");
-  const resultadoMp = searchParams.get("resultado");
-  const idReserva = rawId != null && String(rawId).trim() !== "" ? parseInt(String(rawId).trim(), 10) : NaN;
+  const [params] = useSearchParams();
+  const compraId = params.get("compra");
+  const paymentId = params.get("payment_id");
+  const resultado = params.get("resultado");
 
   const { isAuthenticated, loading: authLoading, openAuthModal, authFetch } = useAuth();
-  const [loadingTx, setLoadingTx] = useState(false);
-  const [tx, setTx] = useState(null);
-  const [error, setError] = useState(null);
-
-  const obtenerEstado = useCallback(async () => {
-    if (!Number.isFinite(idReserva) || idReserva <= 0) return;
-    setLoadingTx(true);
-    setError(null);
-    try {
-      const res = await authFetch(`${API_URL}/api/pagos/estado/${idReserva}`);
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setTx(null);
-        setError(data.message || "No se pudo obtener el estado del pago.");
-        return;
-      }
-      setTx(data);
-    } catch {
-      setTx(null);
-      setError("Error de red al consultar el pago.");
-    } finally {
-      setLoadingTx(false);
-    }
-  }, [authFetch, idReserva]);
+  const invalidarCreditos = useInvalidarCreditos();
+  const [verificacion, setVerificacion] = useState(null);
 
   useEffect(() => {
-    if (authLoading) return;
-    if (!isAuthenticated) {
-      openAuthModal("login");
-      return;
-    }
-    if (Number.isFinite(idReserva) && idReserva > 0) obtenerEstado();
-  }, [authLoading, isAuthenticated, openAuthModal, idReserva, obtenerEstado]);
+    if (!paymentId) return;
 
-  useEffect(() => {
-    if (!tx || tx.EstadoPago !== "Pendiente") return;
-    const t = setTimeout(() => obtenerEstado(), 3500);
-    return () => clearTimeout(t);
-  }, [tx, obtenerEstado]);
+    // Se verifica sin esperar al webhook, que puede demorar unos segundos.
+    authFetch(`${API_URL}/api/pagos/verificar/${paymentId}`)
+      .then((res) => (res.ok ? res.json() : Promise.reject()))
+      .then((data) => {
+        setVerificacion(data);
+        if (data.estado === "acreditada") invalidarCreditos();
+      })
+      .catch(() => {
+        /* el webhook acreditará igual: no hay nada que hacer acá */
+      });
+  }, [paymentId, authFetch, invalidarCreditos]);
 
-  const invalidId = !Number.isFinite(idReserva) || idReserva <= 0;
+  const invalidCompra = !compraId;
 
-  let titulo = "Estado de tu pago";
-  if (resultadoMp === "error") titulo = "El pago no se completó";
-  else if (resultadoMp === "pendiente") titulo = "Pago pendiente de confirmación";
+  // Un resultado explícito en la URL (falla o pendiente del checkout) siempre gana;
+  // si no hay uno, se refleja lo que verificarPago realmente confirmó.
+  const estadoEfectivo =
+    resultado === "error" || resultado === "pendiente"
+      ? resultado
+      : verificacion?.estado === "acreditada"
+      ? "ok"
+      : verificacion?.estado === "rechazada"
+      ? "error"
+      : "pendiente";
+
+  let titulo = "Estado de tu compra";
+  if (estadoEfectivo === "error") titulo = "El pago no se completó";
+  else if (estadoEfectivo === "pendiente") titulo = "Pago pendiente de confirmación";
+
+  const mensaje = MENSAJE_POR_RESULTADO[estadoEfectivo] || MENSAJE_DEFAULT;
 
   return (
     <div className={styles.page}>
       <Header />
       <main className={styles.main}>
         <Card className={styles.card} bordered={false}>
-          {invalidId ? (
+          {invalidCompra ? (
             <Result
               status="warning"
-              title="Falta el identificador de reserva"
-              subTitle="Volvé desde el flujo de pago o revisá tu historial en el perfil."
+              title="Falta el identificador de compra"
+              subTitle="Volvé desde el flujo de compra o revisá tu historial en el perfil."
               extra={
                 <Space>
                   <Link to="/perfil">
                     <Button type="primary">Ir a mi perfil</Button>
-                  </Link>
-                  <Link to="/registro">
-                    <Button>Nueva reserva</Button>
                   </Link>
                 </Space>
               }
@@ -93,7 +88,7 @@ export default function PagoConfirmacion() {
             <Result
               status="info"
               title="Iniciá sesión para ver el estado"
-              subTitle="Necesitamos tu cuenta para consultar la transacción de forma segura."
+              subTitle="Necesitamos tu cuenta para consultar la compra de forma segura."
               extra={
                 <Button type="primary" onClick={() => openAuthModal("login")}>
                   Iniciar sesión
@@ -104,70 +99,27 @@ export default function PagoConfirmacion() {
             <>
               <Title level={3}>{titulo}</Title>
               <Paragraph type="secondary">
-                Reserva <Text strong>#{idReserva}</Text>
-                {resultadoMp ? (
+                Compra <Text strong>#{compraId}</Text>
+                {resultado ? (
                   <>
                     {" "}
                     · retorno Mercado Pago:{" "}
-                    <Tag color={resultadoMp === "error" ? "red" : resultadoMp === "pendiente" ? "gold" : "blue"}>
-                      {resultadoMp}
+                    <Tag color={resultado === "error" ? "red" : resultado === "pendiente" ? "gold" : "blue"}>
+                      {resultado}
                     </Tag>
                   </>
                 ) : null}
               </Paragraph>
 
-              {loadingTx && !tx ? (
-                <div className={styles.centered}>
-                  <Spin tip="Consultando estado en el servidor…" />
-                </div>
-              ) : error ? (
-                <Result
-                  status="error"
-                  title="No pudimos cargar el estado"
-                  subTitle={error}
-                  extra={
-                    <Button type="primary" onClick={obtenerEstado} loading={loadingTx}>
-                      Reintentar
-                    </Button>
-                  }
-                />
-              ) : tx ? (
-                <Space direction="vertical" size="middle" style={{ width: "100%" }}>
-                  <div>
-                    <Text type="secondary">Estado del cobro</Text>
-                    <div>
-                      <Tag
-                        color={
-                          tx.EstadoPago === "Pagado"
-                            ? "green"
-                            : tx.EstadoPago === "Rechazado"
-                              ? "red"
-                              : "default"
-                        }
-                        style={{ marginTop: 8, fontSize: 14, padding: "4px 12px" }}
-                      >
-                        {tx.EstadoPago || "—"}
-                      </Tag>
-                    </div>
-                  </div>
-                  {tx.MetodoPago ? (
-                    <div>
-                      <Text type="secondary">Método</Text>
-                      <div>
-                        <Text>{tx.MetodoPago}</Text>
-                      </div>
-                    </div>
-                  ) : null}
-                  <Space wrap>
-                    <Button onClick={obtenerEstado} loading={loadingTx}>
-                      Actualizar estado
-                    </Button>
-                    <Link to="/perfil">
-                      <Button type="primary">Ir a mi perfil</Button>
-                    </Link>
-                  </Space>
-                </Space>
-              ) : null}
+              <Result
+                status={estadoEfectivo === "error" ? "error" : estadoEfectivo === "pendiente" ? "info" : "success"}
+                title={mensaje}
+                extra={
+                  <Link to="/perfil">
+                    <Button type="primary">Ir a mi perfil</Button>
+                  </Link>
+                }
+              />
             </>
           )}
         </Card>

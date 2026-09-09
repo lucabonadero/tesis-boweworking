@@ -569,7 +569,7 @@ export default function AltaClientes() {
               {extPreview && (
                 <div
                   style={{
-                    background: "var(--color-surface-2, #f6f8fa)",
+                    background: "var(--color-surface-2)",
                     borderRadius: 8,
                     padding: "12px 14px",
                     fontSize: 13,
