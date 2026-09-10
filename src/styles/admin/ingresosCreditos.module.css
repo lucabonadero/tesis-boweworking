@@ -38,6 +38,12 @@
   background: var(--color-neutral-100);
 }
 
+/* Reverso de un cobro: no es un error, pero tiene que saltar a la vista. */
+.statAnulada {
+  border-color: var(--color-warning);
+  background: var(--color-warning-soft);
+}
+
 .statIcono {
   display: flex;
   align-items: center;
@@ -58,6 +64,11 @@
 
 .statBloqueada .statIcono {
   color: var(--color-text-tertiary);
+}
+
+.statAnulada .statIcono {
+  color: var(--color-warning-text);
+  background: var(--color-warning-soft);
 }
 
 .statLabel {

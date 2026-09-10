@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { Cascader, Tabs, DatePicker, Input, Button, List, Popconfirm, message, Empty, Badge } from "antd";
 import { useQuery } from "@tanstack/react-query";
 import AdminPageHeader from "../../components/AdminPageHeader.jsx";
@@ -75,15 +75,19 @@ export default function GestionDisponibilidad() {
   );
 
   // La página no arranca vacía: al cargar la estructura se abre el primer
-  // recurso disponible. Solo corre mientras no haya nada elegido.
+  // recurso disponible. Corre UNA sola vez; si no, al deseleccionar el recurso
+  // (por ejemplo al cambiar de espacio en el Cascader) volvería a forzar el
+  // primer nodo y dejaría la selección trabada.
+  const autoseleccionHecha = useRef(false);
   useEffect(() => {
-    if (idRecurso || !opcionesCascader.length) return;
+    if (autoseleccionHecha.current || !opcionesCascader.length) return;
     const inicial = primerNodoConRecursos(opcionesCascader);
     if (!inicial) return;
+    autoseleccionHecha.current = true;
     setRutaEspacio(inicial.ruta);
     setNodoSeleccionado(inicial.nodo);
     setIdRecurso(inicial.nodo.recursos[0].idRecurso);
-  }, [opcionesCascader, idRecurso]);
+  }, [opcionesCascader]);
 
   const { data: franjasGuardadas } = useDisponibilidadRecurso(idRecurso, token);
   const { data: bloqueos = [] } = useBloqueos(idRecurso, token);
@@ -96,6 +100,26 @@ export default function GestionDisponibilidad() {
     setFranjas([]);
     setFranjasTocadas(false);
   };
+
+  // Recursos a mostrar para el nodo elegido: si el nodo no tiene recursos
+  // propios (ej. un piso), se baja al primer descendiente que sí tenga.
+  const nodoConRecursos = useMemo(() => {
+    if (!nodoSeleccionado) return null;
+    if ((nodoSeleccionado.recursos || []).length > 0) return nodoSeleccionado;
+    return primerNodoConRecursos(nodoSeleccionado.children)?.nodo ?? null;
+  }, [nodoSeleccionado]);
+
+  const recursosVisibles = useMemo(() => nodoConRecursos?.recursos ?? [], [nodoConRecursos]);
+
+  // Nunca quedar sin tablero: si el nodo elegido tiene recursos y ninguno está
+  // seleccionado (o el seleccionado no pertenece al nodo), se abre el primero.
+  useEffect(() => {
+    if (!recursosVisibles.length) return;
+    if (recursosVisibles.some((r) => r.idRecurso === idRecurso)) return;
+    setIdRecurso(recursosVisibles[0].idRecurso);
+    setFranjas([]);
+    setFranjasTocadas(false);
+  }, [recursosVisibles, idRecurso]);
 
   // Al llegar del servidor, se normaliza { DiaSemana, HoraInicio, HoraFin } al shape de la grilla.
   // `franjasTocadas` (no franjas.length) distingue "sin editar" de "editado a vacío" (ej. Limpiar).
@@ -164,7 +188,6 @@ export default function GestionDisponibilidad() {
               onChange={(v, selectedOptions) => {
                 setRutaEspacio(v || []);
                 setNodoSeleccionado(selectedOptions?.[selectedOptions.length - 1] ?? null);
-                setIdRecurso(null);
                 setFranjas([]);
                 setFranjasTocadas(false);
               }}
@@ -174,7 +197,7 @@ export default function GestionDisponibilidad() {
             />
 
             <div className={styles.tarjetasRecurso}>
-              {(nodoSeleccionado?.recursos ?? []).map((rec) => (
+              {recursosVisibles.map((rec) => (
                 <div
                   key={rec.idRecurso}
                   className={[styles.tarjetaRecurso, idRecurso === rec.idRecurso ? styles.tarjetaActiva : ""].join(" ")}

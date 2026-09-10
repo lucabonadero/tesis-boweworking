@@ -14,7 +14,19 @@ export const TIPOS_MOVIMIENTO = [
   "reintegro_cancelacion",
 ];
 
-export const PESOS_POR_CREDITO_DEFECTO = 100;
+/**
+ * Tasa de conversión por defecto, 1:1.
+ *
+ * Los campos de precio de "Recursos" (PrecioHora/Semanal/Mensual) se cargan
+ * directamente en créditos, no en pesos: `PrecioHora = 50` significa 50
+ * créditos. La tasa existe solo como escape hatch si alguna vez se pasa a
+ * cargar precios en pesos, y debe coincidir con el DEFAULT de creditos_config.
+ *
+ * No confundir con `creditos_paquete.precio`, que sí son pesos reales: ahí el
+ * administrador fija cuánto sale comprar N créditos (ej. 100 créditos = $9000)
+ * y esta tasa no interviene.
+ */
+export const PESOS_POR_CREDITO_DEFECTO = 1;
 
 /** Distingue una compra de créditos de una referencia de reserva antigua. */
 export const PREFIJO_REFERENCIA_COMPRA = "creditos-";

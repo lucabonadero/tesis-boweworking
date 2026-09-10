@@ -41,7 +41,11 @@ test("montos negativos o inválidos se tratan como cero", () => {
 
 test("tasa inválida cae al valor por defecto en lugar de dividir por cero", () => {
   assert.equal(creditosParaMonto(2000, 0), creditosParaMonto(2000, PESOS_POR_CREDITO_DEFECTO));
-  assert.equal(creditosParaMonto(2000, null), 20);
+  assert.equal(creditosParaMonto(2000, null), creditosParaMonto(2000, PESOS_POR_CREDITO_DEFECTO));
+  // La tasa por defecto es 1:1 y debe coincidir con el DEFAULT de
+  // creditos_config: un precio de recurso ya está expresado en créditos.
+  assert.equal(PESOS_POR_CREDITO_DEFECTO, 1);
+  assert.equal(creditosParaMonto(2000, undefined), 2000);
 });
 
 test("reserva múltiple: se redondea el total, no cada renglón", () => {
