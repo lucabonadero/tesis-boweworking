@@ -1,7 +1,6 @@
 // Sugerencias sin LLM: usa solo datos reales del snapshot (catálogo + slots).
 // Sirve para desarrollo / tesis sin gastar en APIs de pago.
 export function sugerirHeuristico(snapshot, mensaje) {
-  const m = mensaje.toLowerCase();
   const numMatch = mensaje.match(/(\d+)\s*(personas?|gente|persona|people)?/i);
   let capacidadMinima = 1;
   if (numMatch) capacidadMinima = Math.max(1, parseInt(numMatch[1], 10));

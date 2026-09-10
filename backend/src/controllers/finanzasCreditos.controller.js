@@ -30,9 +30,30 @@ export async function esPropietario(usuario) {
   return rows[0]?.rol === "admin";
 }
 
-/** Se filtran acá y no en el SQL para que el monto no salga nunca del servidor. */
+/**
+ * Resuelve el rol una sola vez por request y lo deja en `req.esPropietario`.
+ *
+ * Sin esto cada handler repetía la misma consulta a `usuarios`, y los que
+ * combinan resumen y listado la hacían después de ya haber leído las compras.
+ * Se monta en el router, así que para cuando corre un handler el flag ya está.
+ */
+export const resolverPropietario = async (req, _res, next) => {
+  try {
+    req.esPropietario = await esPropietario(req.usuario);
+    next();
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Se filtran acá y no en el SQL para que el monto no salga nunca del servidor.
+ *
+ * `totalAnulado` también es plata: el staff ve cuántas compras se revirtieron,
+ * nunca por cuánto.
+ */
 function sinMontos(resumen) {
-  const { totalIngresos, ingresosHoy, ...visible } = resumen;
+  const { totalIngresos, ingresosHoy, totalAnulado, ...visible } = resumen;
   return { ...visible, montosOcultos: true };
 }
 
@@ -40,7 +61,7 @@ function sinMontos(resumen) {
 export const obtenerResumenFinanciero = async (req, res) => {
   try {
     const resumen = await resumenFinancieroCreditos(pool);
-    const propietario = await esPropietario(req.usuario);
+    const propietario = req.esPropietario;
 
     res.json({
       ...(propietario ? { ...resumen, montosOcultos: false } : sinMontos(resumen)),
@@ -55,7 +76,7 @@ export const obtenerResumenFinanciero = async (req, res) => {
 /** GET /api/finanzas/creditos/ingresos-por-dia — serie del gráfico, solo propietarios. */
 export const obtenerIngresosPorDia = async (req, res) => {
   try {
-    if (!(await esPropietario(req.usuario))) {
+    if (!req.esPropietario) {
       return res.status(403).json({
         message: "Solo los socios propietarios pueden ver los ingresos del coworking",
         codigo: "SOLO_PROPIETARIOS",
@@ -91,7 +112,7 @@ export const obtenerCompras = async (req, res) => {
       busqueda,
     });
 
-    const propietario = await esPropietario(req.usuario);
+    const propietario = req.esPropietario;
     const visibles = propietario
       ? items
       : items.map(({ precio, ...resto }) => resto);

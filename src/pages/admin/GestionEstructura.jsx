@@ -10,6 +10,7 @@ import {
   WarningOutlined, ReloadOutlined, DragOutlined,
   ThunderboltOutlined, InfoCircleOutlined, GoldOutlined, ReadOutlined,
 } from "@ant-design/icons";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { useFijarBeneficioEstudiante } from "../../hooks/useBeneficioEstudiante.js";
 import Header from "../../components/header.jsx";
@@ -282,6 +283,7 @@ function buscarNodoEn(arbolBase, tipo, id) {
 // ============================================================
 export default function GestionEstructura() {
   const { token } = useAuth();
+  const queryClient = useQueryClient();
   const [arbol, setArbol] = useState([]);              // árbol editable
   const [arbolOriginal, setArbolOriginal] = useState([]); // snapshot del servidor
   const [tiposRecurso, setTiposRecurso] = useState([]);
@@ -759,6 +761,9 @@ export default function GestionEstructura() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Error al guardar cambios");
       message.success(`Cambios guardados (${data.cambios} operación(es))`);
+      // Gestión de disponibilidad lee la estructura vía React Query: sin esto
+      // seguiría mostrando el árbol cacheado, sin los espacios recién creados.
+      queryClient.invalidateQueries({ queryKey: ["admin", "estructura"] });
       await cargarArbol();
       setSeleccion(null);
     } catch (err) {

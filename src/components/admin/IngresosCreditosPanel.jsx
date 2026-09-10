@@ -7,6 +7,7 @@ import {
   InfoCircleOutlined,
   LockOutlined,
   ClockCircleOutlined,
+  UndoOutlined,
 } from "@ant-design/icons";
 import dayjs from "dayjs";
 import {
@@ -148,6 +149,24 @@ export default function IngresosCreditosPanel() {
             <span className={styles.statSub}>checkouts no finalizados</span>
           </div>
         </div>
+
+        {/* Solo aparece si hubo reversos: en la operación normal no ocupa lugar. */}
+        {(resumen?.comprasAnuladas ?? 0) > 0 && (
+          <div className={`${styles.stat} ${styles.statAnulada}`}>
+            <div className={styles.statIcono}>
+              <UndoOutlined />
+            </div>
+            <div>
+              <span className={styles.statLabel}>Cobros revertidos</span>
+              <strong className={styles.statValor}>{resumen.comprasAnuladas}</strong>
+              <span className={styles.statSub}>
+                {puedeVerMontos
+                  ? `${formatearPrecio(resumen.totalAnulado ?? 0)} fuera del total`
+                  : `${etiquetaCreditos(resumen.creditosAnulados ?? 0)} descontados`}
+              </span>
+            </div>
+          </div>
+        )}
 
         {/* Los montos son solo para los socios propietarios. */}
         {puedeVerMontos ? (

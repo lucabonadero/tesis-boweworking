@@ -6,6 +6,8 @@
  * estas funciones dentro de su propia transacción.
  */
 
+import { PESOS_POR_CREDITO_DEFECTO } from "../services/creditos.service.js";
+
 const COLUMNAS_PAQUETE = `
   id, nombre, creditos, precio, descripcion, activo, created_at, actualizado_at
 `;
@@ -16,12 +18,19 @@ function conPrecioNumerico(fila) {
   return { ...fila, precio: Number.parseFloat(fila.precio) };
 }
 
+/**
+ * Si la fila de config no existe se cae a la misma constante que usa el
+ * servicio: un valor distinto acá haría que la reserva cueste otra cantidad de
+ * créditos que la cotización, sin que nada falle a la vista.
+ */
 export async function obtenerPesosPorCredito(db) {
   const { rows } = await db.query(
     "SELECT pesos_por_credito FROM creditos_config WHERE id = 1"
   );
-  if (rows.length === 0) return 100;
-  return Number.parseFloat(rows[0].pesos_por_credito);
+  if (rows.length === 0) return PESOS_POR_CREDITO_DEFECTO;
+
+  const tasa = Number.parseFloat(rows[0].pesos_por_credito);
+  return Number.isFinite(tasa) && tasa > 0 ? tasa : PESOS_POR_CREDITO_DEFECTO;
 }
 
 /** Un usuario sin fila todavía tiene saldo 0. */
@@ -252,6 +261,13 @@ export async function creditosConsumidosPorReserva(db, idsReserva) {
 const SQL_COMPRA_ACREDITADA = `cc.estado = 'acreditada'`;
 
 /**
+ * Un cobro presencial mal cargado se revierte a 'anulada': sale del total de
+ * ingresos, pero el panel igual lo informa para que un reverso no sea un hueco
+ * silencioso en la caja.
+ */
+const SQL_COMPRA_ANULADA = `cc.estado = 'anulada'`;
+
+/**
  * Totales del panel. `paquetesVendidos` y los conteos no son sensibles;
  * el llamador decide si expone además los montos (solo propietarios).
  */
@@ -269,7 +285,10 @@ export async function resumenFinancieroCreditos(db) {
       ), 0)::numeric AS ingresos_hoy,
       COUNT(*) FILTER (
         WHERE ${SQL_COMPRA_ACREDITADA} AND cc.acreditada_at::date = CURRENT_DATE
-      )::int AS ventas_hoy
+      )::int AS ventas_hoy,
+      COUNT(*) FILTER (WHERE ${SQL_COMPRA_ANULADA})::int AS compras_anuladas,
+      COALESCE(SUM(cc.creditos) FILTER (WHERE ${SQL_COMPRA_ANULADA}), 0)::int AS creditos_anulados,
+      COALESCE(SUM(cc.precio) FILTER (WHERE ${SQL_COMPRA_ANULADA}), 0)::numeric AS total_anulado
     FROM creditos_compra cc
   `);
 
@@ -280,8 +299,11 @@ export async function resumenFinancieroCreditos(db) {
     compradores: f.compradores ?? 0,
     creditosVendidos: f.creditos_vendidos ?? 0,
     ventasHoy: f.ventas_hoy ?? 0,
+    comprasAnuladas: f.compras_anuladas ?? 0,
+    creditosAnulados: f.creditos_anulados ?? 0,
     totalIngresos: Number.parseFloat(f.total_ingresos) || 0,
     ingresosHoy: Number.parseFloat(f.ingresos_hoy) || 0,
+    totalAnulado: Number.parseFloat(f.total_anulado) || 0,
   };
 }
 
