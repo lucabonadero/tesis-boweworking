@@ -327,6 +327,20 @@ export default function RegistroCliente() {
     });
   }, [turnoFecha, turnoDuracion, activeTab, slotAnchorFijo]);
 
+  // Carga el catálogo de espacios una sola vez; lo necesitan los tres flujos
+  // (turno, pack y fijo) para agrupar los recursos por piso con título e imagen.
+  const ensureEspacios = async () => {
+    if (espacios.length > 0) return;
+    const espRes = await fetch(`${API_URL}/api/espacios`);
+    const espData = await espRes.json();
+    setEspacios(
+      espData.map((e, i) => ({
+        ...e,
+        imagen: espacioImageMap[e.Nombre] || fallbackImages[i % fallbackImages.length],
+      }))
+    );
+  };
+
   const fetchDispoTurno = async () => {
     if (!turnoFecha || !turnoHora || !turnoDuracion) return;
     setLoadingDispo(true);
@@ -341,16 +355,7 @@ export default function RegistroCliente() {
       setDisponibilidad(data);
       setDispoLoaded(true);
 
-      if (espacios.length === 0) {
-        const espRes = await fetch(`${API_URL}/api/espacios`);
-        const espData = await espRes.json();
-        setEspacios(
-          espData.map((e, i) => ({
-            ...e,
-            imagen: espacioImageMap[e.Nombre] || fallbackImages[i % fallbackImages.length],
-          }))
-        );
-      }
+      await ensureEspacios();
     } catch {
       message.error("Error al consultar disponibilidad.");
     } finally {
@@ -369,6 +374,7 @@ export default function RegistroCliente() {
       const data = await res.json();
       setDisponibilidad(data);
       setDispoLoaded(true);
+      await ensureEspacios();
     } catch {
       message.error("Error al consultar disponibilidad.");
     } finally {
@@ -390,16 +396,7 @@ export default function RegistroCliente() {
       const data = await res.json();
       setDisponibilidad(data);
       setDispoLoaded(true);
-      if (espacios.length === 0) {
-        const espRes = await fetch(`${API_URL}/api/espacios`);
-        const espData = await espRes.json();
-        setEspacios(
-          espData.map((e, i) => ({
-            ...e,
-            imagen: espacioImageMap[e.Nombre] || fallbackImages[i % fallbackImages.length],
-          }))
-        );
-      }
+      await ensureEspacios();
     } catch {
       message.error("Error al consultar disponibilidad.");
     } finally {
@@ -1014,7 +1011,8 @@ export default function RegistroCliente() {
                     value={turnoFecha}
                     onChange={setTurnoFecha}
                     disabledDate={(d) => d && d.isBefore(dayjs().startOf("day"))}
-                    getPopupContainer={(n) => n.parentElement || document.body}
+                    getPopupContainer={() => document.body}
+                    popupClassName={styles.datePickerPopup}
                   />
                 </div>
               </div>
@@ -1110,7 +1108,8 @@ export default function RegistroCliente() {
                       const dow = d.day();
                       return dow === 0 || dow === 6;
                     }}
-                    getPopupContainer={(n) => n.parentElement || document.body}
+                    getPopupContainer={() => document.body}
+                    popupClassName={styles.datePickerPopup}
                   />
                 </div>
               </div>
@@ -1222,7 +1221,8 @@ export default function RegistroCliente() {
                     value={packFechaInicio}
                     onChange={setPackFechaInicio}
                     disabledDate={(d) => d && d.isBefore(dayjs().startOf("day"))}
-                    getPopupContainer={(n) => n.parentElement || document.body}
+                    getPopupContainer={() => document.body}
+                    popupClassName={styles.datePickerPopup}
                   />
                 </div>
               </div>
@@ -1253,31 +1253,21 @@ export default function RegistroCliente() {
                 </span>
               </div>
 
-              {(isTurno || isFijo) ? (
-                recursoGroupsByEspacio.map(({ espId, espData, sections }) => (
+              {recursoGroupsByEspacio.map(({ espId, espData, sections }) => {
+                const espNombre = espData?.Nombre || `Espacio ${espId}`;
+                const espImg = espData?.imagen || espacioImageMap[espNombre];
+                return (
                   <div key={espId} className={styles.espacioSection}>
                     <div className={styles.espacioSectionHeader}>
-                      {espData?.imagen && (
-                        <img src={espData.imagen} alt={espData?.Nombre} className={styles.espacioSectionImg} />
+                      {espImg && (
+                        <img src={espImg} alt={espNombre} className={styles.espacioSectionImg} />
                       )}
-                      <h3 className={styles.espacioSectionName}>{espData?.Nombre || `Espacio ${espId}`}</h3>
+                      <h3 className={styles.espacioSectionName}>{espNombre}</h3>
                     </div>
                     <div className={styles.resourcePicker}>{renderSections(sections)}</div>
                   </div>
-                ))
-              ) : (
-                <div className={styles.espacioSection}>
-                  <div className={styles.espacioSectionHeader}>
-                    <img src={img3} alt="Oficina Privada" className={styles.espacioSectionImg} />
-                    <h3 className={styles.espacioSectionName}>Oficina Privada - Primer Piso</h3>
-                  </div>
-                  <div className={styles.resourcePicker}>
-                    <div className={styles.resourceGrid}>
-                      {disponibilidad.map((r) => renderResourceCard(r))}
-                    </div>
-                  </div>
-                </div>
-              )}
+                );
+              })}
             </>
           )}
         </div>

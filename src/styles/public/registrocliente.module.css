@@ -454,6 +454,12 @@
   width: 100%;
 }
 
+/* El calendario se monta en document.body para que no lo recorte
+   ni lo tape el footer; AntD lo reposiciona solo si no entra abajo. */
+.datePickerPopup {
+  z-index: 2000;
+}
+
 .fieldHintBox {
   padding: 14px 16px;
   border-radius: 12px;

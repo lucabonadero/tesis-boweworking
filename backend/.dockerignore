@@ -1,0 +1,9 @@
+node_modules
+npm-debug.log
+
+# El .env no viaja en la imagen: las variables las inyecta docker-compose en
+# tiempo de ejecución. Meterlo acá filtraría secretos dentro de la imagen.
+.env
+
+database/init
+.impeccable
