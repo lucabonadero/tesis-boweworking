@@ -4,74 +4,526 @@
   font-family: var(--font-family);
 }
 
-/* Resource cell with tooltip-on-hover showing the parent space */
-.recursoCell {
-  font-weight: 500;
-  font-size: 13px;
-  color: var(--color-text-primary);
-  cursor: help;
-  border-bottom: 1px dotted var(--color-neutral-400);
-}
+/* ── Shell ────────────────────────────────────────────────
+   La página no scrollea: el alto se reparte entre el hero y
+   el tablero, y cada columna del tablero scrollea por dentro.
 
+   Sin `gap`: AdminPageHeader ya trae sus propios márgenes verticales y un gap
+   del contenedor se sumaría a ellos, separando el botón "Volver" del hero más
+   que en el resto de los paneles. Cada bloque declara su separación. */
 .contentWrap {
-  max-width: 1100px;
+  --header-height: 111px; /* .header: logo 90px + padding 10px×2 + borde */
+  max-width: 1600px;
+  width: 100%;
   margin: 0 auto;
+  /* Mismo padding que .contentWide de adminLayout: el encabezado tiene que
+     arrancar a la misma altura que en el resto de los paneles admin. */
   padding: 24px 32px 48px;
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
+
+/* El hero sí necesita ajuste: su margen original (--space-7) es para páginas de
+   flujo largo; acá el tablero va más cerca. */
+.contentWrap > section:first-of-type {
+  margin-bottom: var(--space-5);
+}
+
+/* ── Barra superior: KPIs + búsqueda ─────────────────────── */
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-5);
 }
 
 .counters {
   display: flex;
-  gap: 16px;
-  margin-bottom: 24px;
+  gap: var(--space-3);
   flex-wrap: wrap;
 }
 
 .counterCard {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 20px !important;
-  border-radius: var(--radius-md) !important;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-5);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  border: 1px solid var(--color-neutral-300);
+  box-shadow: var(--shadow-xs);
+  min-width: 178px;
+}
+
+.counterIcon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  background: var(--counter-soft, var(--color-neutral-200));
+  color: var(--counter-strong, var(--color-text-secondary));
+  font-size: var(--text-md);
+  flex-shrink: 0;
+}
+
+.counterBody {
+  display: flex;
+  flex-direction: column;
+  line-height: var(--leading-tight);
+  min-width: 0;
+}
+
+.counterValue {
+  font-size: var(--text-xl);
+  font-weight: var(--weight-bold);
+  color: var(--counter-strong, var(--color-text-primary));
+  font-variant-numeric: tabular-nums;
+}
+
+.counterLabel {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+  white-space: nowrap;
+}
+
+.searchBox {
+  margin-left: auto;
+  width: 320px;
+  max-width: 100%;
+}
+
+/* ── Tablero de dos columnas ─────────────────────────────── */
+.board {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-5);
+  flex: 1;
+  min-height: 0;
+}
+
+/* En desktop el tablero ocupa el alto libre que queda bajo el hero para que el
+   scroll viva dentro de cada columna y no en la página. Acotar el contentWrap
+   al viewport deja que `flex: 1` reparta el resto solo, sin estimar la altura
+   de los bloques de arriba. El mínimo evita que quede aplastado en pantallas
+   bajas (ahí vuelve el scroll de página). */
+@media (min-width: 1101px) {
+  .contentWrap {
+    min-height: calc(100dvh - var(--header-height));
+  }
+  .board {
+    min-height: 420px;
+  }
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--color-surface);
+  border: 1px solid var(--color-neutral-300);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.columnHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--color-neutral-300);
+  background: var(--color-surface-2);
+  flex-shrink: 0;
+}
+
+.columnDot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--column-accent, var(--color-neutral-400));
+  flex-shrink: 0;
+}
+
+.columnTitle {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.columnCount {
+  margin-left: auto;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  color: var(--color-text-secondary);
+  background: var(--color-neutral-200);
+  border-radius: var(--radius-full);
+  padding: 2px var(--space-2);
+  min-width: 24px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.columnBody {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.columnBody::-webkit-scrollbar {
+  width: 10px;
+}
+.columnBody::-webkit-scrollbar-thumb {
+  background: var(--color-neutral-400);
+  border-radius: var(--radius-full);
+  border: 3px solid var(--color-surface);
+}
+.columnBody::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.emptyState {
+  margin: auto;
+  padding: var(--space-8) var(--space-4);
+  text-align: center;
+  color: var(--color-text-tertiary);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.emptyIcon {
+  font-size: 32px;
+  color: var(--color-neutral-400);
+}
+
+.emptyText {
+  font-size: var(--text-sm);
+  margin: 0;
+}
+
+/* ── Tarjeta de reserva ──────────────────────────────────── */
+.reservaCard {
+  display: grid;
+  grid-template-columns: 62px minmax(0, 1fr);
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-neutral-300);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  transition: box-shadow var(--transition-fast), border-color var(--transition-fast), transform var(--transition-fast);
+}
+
+.reservaCard:hover {
+  border-color: var(--card-accent, var(--color-neutral-400));
+  box-shadow: var(--shadow-sm);
+}
+
+.reservaCard.blocked {
+  background: var(--color-neutral-100);
+}
+
+/* Columna horaria: hora de inicio grande, fin en tono menor */
+.timeRail {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2px;
+  padding-right: var(--space-3);
+  border-right: 1px solid var(--color-neutral-300);
+}
+
+.timeStart {
+  font-size: var(--text-md);
+  font-weight: var(--weight-bold);
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--leading-tight);
+}
+
+.timeEnd {
+  font-size: var(--text-xs);
+  color: var(--color-text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+.timeAllDay {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-secondary);
+  line-height: var(--leading-normal);
+}
+
+.cardMain {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.cardTop {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.cardIdentity {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.clienteNombre {
+  font-size: var(--text-base);
   font-weight: var(--weight-semibold);
   color: var(--color-text-primary);
-  background: var(--color-surface) !important;
-  border: 1px solid var(--color-neutral-300) !important;
-  box-shadow: var(--shadow-xs) !important;
+  line-height: var(--leading-tight);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.mainCard {
+.clienteDni {
+  font-size: var(--text-xs);
+  color: var(--color-text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+.cardTags {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-shrink: 0;
+}
+
+.recursoCell {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  color: var(--color-text-secondary);
+  background: var(--color-neutral-200);
+  border-radius: var(--radius-sm);
+  padding: 2px var(--space-2);
+  cursor: help;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cardActions {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.blockedNote {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--text-xs);
+  color: var(--color-warning-text);
+  background: var(--color-warning-soft);
+  border-radius: var(--radius-sm);
+  padding: var(--space-1) var(--space-2);
+}
+
+/* ── Modal de extensión ──────────────────────────────────── */
+.modalTitle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: var(--weight-semibold);
+}
+
+.modalBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  padding-top: var(--space-2);
+}
+
+.modalTarget {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
-  border: 1px solid var(--color-neutral-300) !important;
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-neutral-300);
 }
 
-.sectionHeader {
+.modalTargetName {
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.modalTargetMeta {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.modalNextHint {
+  color: var(--color-warning-text);
+  background: var(--color-warning-soft);
+  border-radius: var(--radius-sm);
+  padding: 1px var(--space-2);
+  font-size: var(--text-xs);
+}
+
+.fieldLabel {
+  display: block;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+  margin-bottom: var(--space-2);
+}
+
+.preview {
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-neutral-300);
+  background: var(--color-surface-2);
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.previewRow {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-  flex-wrap: wrap;
-  gap: 12px;
+  align-items: baseline;
+  gap: var(--space-4);
+  padding: 3px 0;
+  font-size: var(--text-sm);
 }
 
-.sectionTitle {
-  font-size: var(--text-md);
-  font-weight: var(--weight-semibold);
+.previewRowStrong {
+  border-top: 1px solid var(--color-neutral-300);
+  margin-top: var(--space-2);
+  padding-top: var(--space-3);
+}
+
+.previewLabel {
+  color: var(--color-text-tertiary);
+}
+
+.previewValue {
+  font-weight: var(--weight-medium);
   color: var(--color-text-primary);
-  margin: 0;
-  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+.previewValueStrong {
+  font-size: var(--text-md);
+  font-weight: var(--weight-bold);
+}
+
+.creditosValor {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-brand-primary-text);
+}
+
+.previewNote {
+  font-size: var(--text-xs);
+  line-height: var(--leading-normal);
+  color: var(--color-text-tertiary);
+  margin-top: var(--space-2);
+}
+
+.previewWarning {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--color-warning-text);
+  background: var(--color-warning-soft);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.previewError {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--color-danger-text);
+  background: var(--color-danger-soft);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.loadingWrap {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  padding: var(--space-16) 0;
+}
+
+/* ── Responsive ──────────────────────────────────────────── */
+@media (max-width: 1100px) {
+  .board {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  /* Con una sola columna deja de tener sentido el alto fijo:
+     vuelve el scroll de página y las columnas crecen con su contenido. */
+  .columnBody {
+    overflow-y: visible;
+    max-height: none;
+  }
 }
 
 @media (max-width: 768px) {
   .contentWrap {
-    padding: 16px 16px 32px;
+    padding: var(--space-4) var(--space-4) var(--space-6);
   }
-  .counters {
+  .searchBox {
+    margin-left: 0;
+    width: 100%;
+  }
+  .counterCard {
+    flex: 1 1 150px;
+    min-width: 0;
+  }
+  .reservaCard {
+    grid-template-columns: 54px minmax(0, 1fr);
+    gap: var(--space-3);
+  }
+  .cardTags {
+    margin-left: 0;
+  }
+  .cardTop {
     flex-wrap: wrap;
-  }
-  .sectionHeader {
-    flex-direction: column;
-    align-items: stretch;
   }
 }

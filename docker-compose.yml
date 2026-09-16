@@ -1,0 +1,69 @@
+# Levanta backend + PostgreSQL. El frontend sigue corriendo nativo con
+# `npm run dev` para no perder el hot-reload de Vite.
+#
+#   docker compose up -d      levanta todo
+#   docker compose down       apaga (los datos sobreviven en el volumen)
+#   docker compose logs -f backend
+#
+# Los secretos se leen de backend/.env, que no se versiona.
+
+services:
+  db:
+    image: postgres:18
+    container_name: bowe-db
+    restart: unless-stopped
+    environment:
+      # Estos valores se declaran acá y no vía backend/.env: la interpolación
+      # ${...} de Compose lee el .env de la raíz (que es del frontend), no el
+      # de env_file, así que tomarlos de ahí los dejaría vacíos.
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: local
+    ports:
+      # Se publica en 5433 para no chocar con el PostgreSQL que ya corre en
+      # 5432 en la máquina. Desde el anfitrión: localhost:5433.
+      - "5433:5432"
+    volumes:
+      # En postgres:18+ el mount va en /var/lib/postgresql (no en .../data):
+      # la imagen guarda los datos en un subdirectorio por versión mayor.
+      - pgdata:/var/lib/postgresql
+      # Los .sql de esta carpeta corren una única vez, cuando el volumen está
+      # vacío. Si ya hay datos, Postgres los ignora por completo.
+      - ./backend/database/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      # El backend valida la config y sale con exit 1 si no puede trabajar, así
+      # que conviene no arrancarlo hasta que la base acepte conexiones.
+      test: ["CMD-SHELL", "pg_isready -U postgres -d local"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ./backend
+    container_name: bowe-backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      # Toma JWT_SECRET, credenciales de Mercado Pago, SMTP, etc. del mismo
+      # archivo que usa la ejecución nativa: un solo lugar para los secretos.
+      - backend/.env
+    environment:
+      # Dentro de la red de Compose el host de la base es el nombre del
+      # servicio (`db`), no localhost: localhost sería el propio contenedor.
+      # Estas dos pisan lo que venga del .env.
+      DB_HOST: db
+      DB_PORT: 5432
+    ports:
+      - "3001:3001"
+    volumes:
+      # Monta el código para que nodemon vea los cambios sin rebuild. El
+      # volumen anónimo sobre node_modules evita que la carpeta de Windows
+      # pise la que se instaló dentro de la imagen (binarios de Alpine).
+      - ./backend:/app
+      - /app/node_modules
+    command: npm run dev
+
+volumes:
+  pgdata:

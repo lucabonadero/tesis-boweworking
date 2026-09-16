@@ -443,26 +443,42 @@
   box-shadow: var(--focus-ring) !important;
 }
 
-/* Ant Design buttons */
-:global(.ant-btn-primary) {
+/* Ant Design buttons
+   La forma y la tipografía valen para TODOS los botones —incluidos los
+   dangerous—, si no los rojos conservan el radio por defecto de antd y
+   conviven con los verdes teniendo esquinas distintas. */
+:global(.ant-btn) {
+  border-radius: var(--radius-md) !important;
+  font-family: var(--font-family) !important;
+}
+
+/* El color de marca aplica solo al primary que no es de peligro: un botón
+   dangerous debe conservar su rojo aunque también sea primary. */
+:global(.ant-btn-primary:not(.ant-btn-dangerous)) {
   background: var(--color-brand-primary) !important;
   border-color: var(--color-brand-primary) !important;
   color: #fff !important;
-  border-radius: var(--radius-md) !important;
-  font-family: var(--font-family) !important;
   font-weight: var(--weight-semibold) !important;
   box-shadow: none !important;
   transition: background var(--transition-fast) !important, border-color var(--transition-fast) !important;
 }
 
-:global(.ant-btn-primary:hover) {
+:global(.ant-btn-primary:not(.ant-btn-dangerous):hover) {
   background: var(--color-brand-primary-dark) !important;
   border-color: var(--color-brand-primary-dark) !important;
 }
 
-:global(.ant-btn:not(.ant-btn-primary):not(.ant-btn-dangerous)) {
-  border-radius: var(--radius-md) !important;
-  font-family: var(--font-family) !important;
+/* El primary "ghost" (Extender) es transparente con borde: el fondo sólido de
+   la regla anterior lo dejaría verde lleno, perdiendo la jerarquía secundaria. */
+:global(.ant-btn-primary.ant-btn-background-ghost:not(.ant-btn-dangerous)) {
+  background: transparent !important;
+  color: var(--color-brand-primary-text) !important;
+}
+
+:global(.ant-btn-primary.ant-btn-background-ghost:not(.ant-btn-dangerous):hover) {
+  background: var(--color-brand-primary-soft) !important;
+  border-color: var(--color-brand-primary-dark) !important;
+  color: var(--color-brand-primary-text) !important;
 }
 
 /* Ant Design Card */

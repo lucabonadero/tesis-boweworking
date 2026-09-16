@@ -32,7 +32,7 @@ import {
   minutosAHora,
 } from "../services/extensionReserva.service.js";
 import { lateralUltimaTransaccion } from "../services/transaccionUltimaJoin.service.js";
-import { evaluarDescuentoReserva } from "../services/creditos.service.js";
+import { evaluarDescuentoReserva, creditosParaMonto } from "../services/creditos.service.js";
 import { esEstudianteElegible, tipoAplicaBeneficio, aplicarBeneficioAMontos } from "../services/beneficioEstudiante.service.js";
 import { idsConBeneficio, rolClienteUsuario, esBeneficioEstudiante } from "../repositories/beneficioEstudiante.repository.js";
 import { evaluarCancelacion, inicioReservaEnMs } from "../services/cancelacionReserva.service.js";
@@ -143,6 +143,49 @@ async function evaluarPagoConCreditos(client, usuario, montoTotal) {
   return {
     ...evaluarDescuentoReserva({ saldoActual, montoEnPesos: montoTotal, pesosPorCredito }),
     saldoActual,
+  };
+}
+
+/**
+ * Evalúa el pago en créditos del TITULAR de una reserva, identificado por DNI.
+ *
+ * A diferencia de `evaluarPagoConCreditos`, no mira al usuario autenticado: una
+ * extensión la carga el staff desde recepción, pero los créditos los pone el
+ * cliente dueño de la reserva.
+ *
+ * Devuelve `{ ok: false, codigo: "SIN_CUENTA" }` si el DNI no tiene cuenta:
+ * sin cuenta no hay saldo posible y la extensión no puede cobrarse.
+ *
+ * Mismas precondiciones de locking que `evaluarPagoConCreditos`.
+ */
+async function evaluarPagoCreditosTitular(client, dni, montoTotal) {
+  const dniLimpio = dni != null ? String(dni).trim() : "";
+  if (!dniLimpio) {
+    return { ok: false, codigo: "SIN_CUENTA", mensaje: "La reserva no tiene DNI de titular." };
+  }
+
+  const { rows } = await client.query(
+    'SELECT id FROM "ClienteUsuario" WHERE dni = $1 ORDER BY id LIMIT 1',
+    [dniLimpio]
+  );
+  if (rows.length === 0) {
+    return {
+      ok: false,
+      codigo: "SIN_CUENTA",
+      mensaje:
+        "El titular no tiene cuenta con saldo de créditos, así que la extensión no puede cobrarse.",
+    };
+  }
+
+  const clienteUsuarioId = rows[0].id;
+  const pesosPorCredito = await obtenerPesosPorCredito(client);
+  const saldoActual = await bloquearSaldo(client, clienteUsuarioId);
+
+  return {
+    ...evaluarDescuentoReserva({ saldoActual, montoEnPesos: montoTotal, pesosPorCredito }),
+    saldoActual,
+    clienteUsuarioId,
+    pesosPorCredito,
   };
 }
 
@@ -733,11 +776,7 @@ async function adjuntarConteoExtensiones(items) {
   try {
     const { rows } = await pool.query(
       `SELECT e."idReserva", e."Veces"::int AS veces, e."MinutosExtension"::int AS min,
-              e."Monto"::numeric AS monto, e."Finalizada" AS finalizada,
-              EXISTS (
-                SELECT 1 FROM "Transaccion" t
-                WHERE t."idExtension" = e."idExtension" AND t."EstadoPago" = 'Pagado'
-              ) AS pagada
+              e."CreditosDescontados"::int AS creditos, e."Finalizada" AS finalizada
        FROM "ReservaExtension" e
        WHERE e."idReserva" = ANY($1::int[])`,
       [ids]
@@ -747,16 +786,15 @@ async function adjuntarConteoExtensiones(items) {
       const m = byId.get(it.idReserva);
       it.extensionesCount = m ? m.veces : 0;
       it.extensionesMinutos = m ? m.min : 0;
-      it.extensionMonto = m ? parseFloat(m.monto) || 0 : 0;
-      it.extensionPendiente = m ? !m.pagada : false;
+      // La extensión se cobra en créditos al extender: no queda nada pendiente.
+      it.extensionCreditos = m ? m.creditos : 0;
     }
   } catch (e) {
-    if (e.code !== "42P01") throw e;
+    if (e.code !== "42P01" && e.code !== "42703") throw e;
     for (const it of items) {
       it.extensionesCount = 0;
       it.extensionesMinutos = 0;
-      it.extensionMonto = 0;
-      it.extensionPendiente = false;
+      it.extensionCreditos = 0;
     }
   }
   return items;
@@ -809,7 +847,10 @@ export const obtenerReservas = async (req, res) => {
       })
     );
     await adjuntarConteoExtensiones(items);
-    res.json({ items, total, limit, offset });
+    // La tasa viaja con el listado para que el panel de asistencia pueda
+    // previsualizar el costo en créditos de una extensión sin pedirla aparte.
+    const pesosPorCredito = await obtenerPesosPorCredito(pool);
+    res.json({ items, total, limit, offset, pesosPorCredito });
   } catch (error) {
     console.error("Error al obtener reservas:", error);
     res.status(500).json({ message: "Error interno del servidor" });
@@ -1522,8 +1563,12 @@ export const cambiarEstadoReserva = async (req, res) => {
  * sobre el tiempo realmente usado (fracciones de 30 min, redondeo hacia arriba),
  * encoge "HorarioFin" al fin real y marca la extensión como Finalizada.
  *
- * No toca extensiones ya pagadas (el cliente pagó la ventana reservada) ni las
- * ya finalizadas. Debe correr dentro de una transacción (recibe el client).
+ * La extensión se cobró en créditos al momento de extender, sobre la ventana
+ * solicitada. Si el cliente se retiró antes, acá se le REINTEGRAN los créditos
+ * que no llegó a usar. Nunca cobra de más: el fin real está acotado al fin ya
+ * cobrado, así que la diferencia solo puede ser a favor del cliente.
+ *
+ * No toca extensiones ya finalizadas. Debe correr dentro de una transacción.
  */
 async function liquidarExtensionAlFinalizar(client, idReserva, now = new Date()) {
   const { rows } = await client.query(
@@ -1533,26 +1578,14 @@ async function liquidarExtensionAlFinalizar(client, idReserva, now = new Date())
   if (rows.length === 0) return;
   const ext = rows[0];
 
-  // Si el cargo ya está pagado, no recalcular (se cobró lo reservado).
-  const { rows: pagadas } = await client.query(
-    `SELECT 1 FROM "Transaccion" WHERE "idExtension" = $1 AND "EstadoPago" = 'Pagado' LIMIT 1`,
-    [ext.idExtension]
-  );
-
   const { rows: rsv } = await client.query(
-    'SELECT "DiaReserva" FROM "Reservas" WHERE "idReserva" = $1',
+    'SELECT "DiaReserva","DNI" FROM "Reservas" WHERE "idReserva" = $1',
     [idReserva]
   );
   const diaYmd = rsv.length ? pgDateToYmd(rsv[0].DiaReserva) : null;
 
   const finOriginal = formatearHoraParaApi(ext.HorarioFinOriginal) || String(ext.HorarioFinOriginal).slice(0, 5);
   const finActual = formatearHoraParaApi(ext.HorarioFinActual) || String(ext.HorarioFinActual).slice(0, 5);
-
-  if (pagadas.length > 0) {
-    // Pagada: sólo marcar finalizada, sin cambiar montos ni horario.
-    await client.query('UPDATE "ReservaExtension" SET "Finalizada" = true, "ActualizadaEn" = now() WHERE "idExtension" = $1', [ext.idExtension]);
-    return;
-  }
 
   const mismoDia = diaYmd != null && diaYmd === ymdEnZona(now);
   const finRealMin = minutoFinReal({
@@ -1567,35 +1600,58 @@ async function liquidarExtensionAlFinalizar(client, idReserva, now = new Date())
   const precioFraccion = parseFloat(ext.PrecioFraccion) || 0;
   const monto = Math.round(precioFraccion * fracciones * 100) / 100;
 
+  // Créditos que corresponden al tiempo realmente usado, con la misma regla de
+  // redondeo que el cobro inicial.
+  const pesosPorCredito = await obtenerPesosPorCredito(client);
+  const creditosReales = creditosParaMonto(monto, pesosPorCredito);
+  const creditosCobrados = Number(ext.CreditosDescontados) || 0;
+  const creditosAReintegrar = creditosCobrados - creditosReales;
+
   // Encoger el fin de la reserva al fin real usado.
   await client.query('UPDATE "Reservas" SET "HorarioFin" = $1 WHERE "idReserva" = $2', [finReal, idReserva]);
   await client.query(
     `UPDATE "ReservaExtension"
      SET "HorarioFinActual" = $1::time, "MinutosExtension" = $2, "Fracciones" = $3, "Monto" = $4,
-         "Finalizada" = true, "ActualizadaEn" = now()
-     WHERE "idExtension" = $5`,
-    [finReal, minutosReales, fracciones, monto, ext.idExtension]
+         "CreditosDescontados" = $5, "Finalizada" = true, "ActualizadaEn" = now()
+     WHERE "idExtension" = $6`,
+    [finReal, minutosReales, fracciones, monto, creditosReales, ext.idExtension]
   );
 
-  // Si la extensión real quedó en 0 (se fue antes/justo en el fin original),
-  // descartar el cargo pendiente para no dejar una transacción en $0.
-  if (fracciones === 0) {
-    await client.query(
-      `DELETE FROM "Transaccion" WHERE "idExtension" = $1 AND "EstadoPago" <> 'Pagado'`,
-      [ext.idExtension]
+  if (creditosAReintegrar > 0) {
+    const dni = rsv.length && rsv[0].DNI != null ? String(rsv[0].DNI).trim() : "";
+    const { rows: cu } = await client.query(
+      'SELECT id FROM "ClienteUsuario" WHERE dni = $1 ORDER BY id LIMIT 1',
+      [dni]
     );
+    // Sin cuenta no hay saldo al que devolver: la extensión no pudo haberse
+    // cobrado en créditos, así que no hay nada que reintegrar.
+    if (cu.length > 0) {
+      const clienteUsuarioId = cu[0].id;
+      const saldoActual = await bloquearSaldo(client, clienteUsuarioId);
+      await aplicarMovimiento(client, {
+        clienteUsuarioId,
+        tipo: "reintegro_cancelacion",
+        cantidad: creditosAReintegrar,
+        saldoPosterior: saldoActual + creditosAReintegrar,
+        motivo: `Extensión de reserva #${idReserva}: se usó menos tiempo del extendido`,
+        idReserva,
+      });
+    }
   }
 }
 
 /**
  * Extiende una reserva EN CURSO modificando su HorarioFin (la misma reserva, no se
- * duplica). NO cobra en el momento: deja un cargo PENDIENTE de pago que se registra
- * después. La facturación es por fracciones de 30 minutos (redondeo hacia arriba) y
- * se calcula sobre el total extendido respecto del fin ORIGINAL; al cerrar el turno
- * se recalcula sobre el tiempo realmente usado.
+ * duplica). Se cobra en el momento con los CRÉDITOS del titular de la reserva —no
+ * los del staff que la carga— y se rechaza si el saldo no alcanza.
  *
- * Estado acumulado por reserva en "ReservaExtension" (1:1) + una "Transaccion"
- * Pendiente con ClasificacionPago='extension'.
+ * La facturación es por fracciones de 30 minutos (redondeo hacia arriba) sobre el
+ * total extendido respecto del fin ORIGINAL, convertido a créditos con la tasa de
+ * `creditos_config`. Al re-extender se cobra solo la diferencia contra lo ya
+ * descontado; al cerrar el turno se recalcula por el tiempo real y se reintegra
+ * lo que el cliente no usó.
+ *
+ * Estado acumulado por reserva en "ReservaExtension" (1:1).
  */
 export const extenderReserva = async (req, res) => {
   try {
@@ -1719,6 +1775,34 @@ export const extenderReserva = async (req, res) => {
       const fracciones = calcularFracciones(minutosTotal);
       const monto = Math.round(precioFraccion * fracciones * 100) / 100;
 
+      // La extensión se paga con los créditos del titular. `monto` acumula el
+      // total extendido desde el fin original, así que se descuenta solo la
+      // diferencia contra lo ya cobrado en extensiones previas: el saldo tiene
+      // que cubrir ese incremento, no el total otra vez.
+      const creditosYaDescontados = prev ? Number(prev.CreditosDescontados) || 0 : 0;
+      const decisionCreditos = await evaluarPagoCreditosTitular(client, reserva.DNI, monto);
+      if (decisionCreditos.codigo === "SIN_CUENTA") {
+        await client.query("ROLLBACK");
+        return res.status(409).json({
+          message: decisionCreditos.mensaje,
+          codigo: decisionCreditos.codigo,
+        });
+      }
+
+      const creditosTotales = decisionCreditos.creditosNecesarios ?? 0;
+      const creditosADescontar = creditosTotales - creditosYaDescontados;
+
+      if (creditosADescontar > decisionCreditos.saldoActual) {
+        await client.query("ROLLBACK");
+        return res.status(409).json({
+          message: `Créditos insuficientes: la extensión cuesta ${creditosADescontar} y el titular tiene ${decisionCreditos.saldoActual}.`,
+          codigo: "SALDO_INSUFICIENTE",
+          creditosNecesarios: creditosADescontar,
+          creditosFaltantes: creditosADescontar - decisionCreditos.saldoActual,
+          saldoActual: decisionCreditos.saldoActual,
+        });
+      }
+
       // Extender la MISMA reserva; preservar el fin original en la primera extensión.
       await client.query(
         `UPDATE "Reservas"
@@ -1733,56 +1817,58 @@ export const extenderReserva = async (req, res) => {
         const upd = await client.query(
           `UPDATE "ReservaExtension"
            SET "Veces" = "Veces" + 1, "HorarioFinActual" = $1::time, "MinutosExtension" = $2,
-               "Fracciones" = $3, "PrecioFraccion" = $4, "Monto" = $5, "ActualizadaEn" = now()
-           WHERE "idReserva" = $6 RETURNING *`,
-          [nuevoFin, minutosTotal, fracciones, precioFraccion, monto, idReserva]
+               "Fracciones" = $3, "PrecioFraccion" = $4, "Monto" = $5,
+               "CreditosDescontados" = $6, "ActualizadaEn" = now()
+           WHERE "idReserva" = $7 RETURNING *`,
+          [nuevoFin, minutosTotal, fracciones, precioFraccion, monto, creditosTotales, idReserva]
         );
         extension = upd.rows[0];
       } else {
         const ins = await client.query(
           `INSERT INTO "ReservaExtension"
-             ("idReserva","Veces","HorarioFinOriginal","HorarioFinActual","MinutosExtension","Fracciones","PrecioFraccion","Monto","CreadaPor")
-           VALUES ($1,1,$2::time,$3::time,$4,$5,$6,$7,$8) RETURNING *`,
-          [idReserva, finOriginal, nuevoFin, minutosTotal, fracciones, precioFraccion, monto, creadaPor]
+             ("idReserva","Veces","HorarioFinOriginal","HorarioFinActual","MinutosExtension","Fracciones","PrecioFraccion","Monto","CreditosDescontados","CreadaPor")
+           VALUES ($1,1,$2::time,$3::time,$4,$5,$6,$7,$8,$9) RETURNING *`,
+          [idReserva, finOriginal, nuevoFin, minutosTotal, fracciones, precioFraccion, monto, creditosTotales, creadaPor]
         );
         extension = ins.rows[0];
       }
 
-      // Asegurar UNA transacción PENDIENTE para el cargo de la extensión.
-      const { rows: txExist } = await client.query(
-        'SELECT "idTransaccion" FROM "Transaccion" WHERE "idExtension" = $1 ORDER BY "idTransaccion" DESC LIMIT 1',
-        [extension.idExtension]
-      );
-      let idTransaccion;
-      if (txExist.length === 0) {
-        const insTx = await client.query(
-          `INSERT INTO "Transaccion" ("idReserva","MetodoPago","EstadoPago","TipoPago","ClasificacionPago","idExtension")
-           VALUES ($1,NULL,'Pendiente','presencial','extension',$2) RETURNING "idTransaccion"`,
-          [idReserva, extension.idExtension]
-        );
-        idTransaccion = insTx.rows[0].idTransaccion;
-      } else {
-        idTransaccion = txExist[0].idTransaccion;
+      // La extensión se cobra acá mismo con los créditos del titular: no queda
+      // cargo pendiente en pesos. `cantidad <> 0` es constraint del libro, así
+      // que un incremento de 0 créditos no genera movimiento.
+      let saldoPosterior = decisionCreditos.saldoActual;
+      if (creditosADescontar > 0) {
+        saldoPosterior = decisionCreditos.saldoActual - creditosADescontar;
+        await aplicarMovimiento(client, {
+          clienteUsuarioId: decisionCreditos.clienteUsuarioId,
+          tipo: "descuento_reserva",
+          cantidad: -creditosADescontar,
+          saldoPosterior,
+          motivo: `Extensión de reserva #${idReserva} (+${minutos} min)`,
+          idReserva,
+        });
       }
 
       await client.query("COMMIT");
 
       const { rows: updated } = await pool.query('SELECT * FROM "Reservas" WHERE "idReserva" = $1', [idReserva]);
       return res.status(201).json({
-        message: "Reserva extendida — el cargo queda pendiente de pago",
+        message: `Reserva extendida — se descontaron ${creditosADescontar} crédito(s)`,
         reserva: serializarHorariosReservaEnFila(updated[0]),
         extension: {
           idExtension: extension.idExtension,
           veces: extension.Veces,
           minutos: minutosTotal,
           fracciones,
-          precioFraccion,
-          monto,
           horarioFinOriginal: finOriginal,
           horarioFinActual: nuevoFin,
-          pendiente: true,
+          creditos: creditosADescontar,
+          creditosTotales,
         },
-        idTransaccion,
+        creditos: {
+          descontados: creditosADescontar,
+          saldo: saldoPosterior,
+        },
       });
     } catch (err) {
       try {
