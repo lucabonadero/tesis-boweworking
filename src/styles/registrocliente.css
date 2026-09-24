@@ -1,0 +1,298 @@
+/******************************************** General ********************************************/
+
+
+/****************************************************************************************
+****************************************************************************************
+****************************************************************************************
+******************************************** Header ********************************************/
+
+.header{
+    display: flex;
+    justify-content: space-between;
+}
+
+.logo{
+    height: 90px;
+    /* alineacion sobre eje secundario dado por flex-align */
+    align-items: center;
+    margin: 15px 0 0 10px;
+}
+
+.header .header__links {
+    display: flex;
+    font-size: 20px;
+}
+
+.header__links li {
+    list-style: none;
+}
+
+.header__links a {
+    float: left;
+    color: #1a1a1a;
+    text-align: center;
+    padding: 40px 20px;
+    text-decoration: none;
+    font-size: 20px;
+}
+
+.header__links a:hover {
+    background-color: #ddd;
+    color: black;
+}
+
+.header .toggle__btn {
+    font-size: 2.5rem;
+    cursor: pointer;
+    display: none;
+    padding: 20px 20px;
+}
+
+/****************************************************************************************
+****************************************************************************************
+****************************************************************************************
+******************************************** Main ********************************************/
+
+.main{
+
+    display: flex;
+    flex-direction: column;
+    flex-wrap: wrap;
+    flex-grow: 1;
+    align-items: center;
+    margin: 0 auto;
+    width: 100%;
+    margin-bottom: 100px;
+} 
+
+/****************************************************************************************
+****************************************************************************************
+****************************************************************************************
+******************************************** Footer ********************************************/
+
+.footer {
+    background-color: #77C38C;
+    color: white;
+    padding: 40px 60px;
+    font-family: 'Urbanist', sans-serif;
+}
+
+.footer__top {
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    margin-bottom: 30px;
+  }
+  
+.footer__info {
+    display: flex;
+    flex-direction: column;
+    width: 1000px;
+}
+
+.footer__bo {
+    max-width: 400px;
+    margin-bottom: 50px;
+}
+
+.footer__contacts {
+    display: flex;
+    justify-content: space-between; /* Espacio entre social y links */
+    align-items: center; /* Centra verticalmente si hay diferencia de altura */
+    width: 1250px;
+  }
+  
+  .footer__social i {
+    margin-right: 10px;
+    font-size: 1.2rem;
+    color: white;
+    background-color: rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    padding: 10px;
+    transition: background-color 0.3s;
+  }
+  
+  .footer__social i:hover {
+    background-color: rgba(255, 255, 255, 0.4);
+  }
+  
+  .footer__links {
+    display: flex;
+    gap: 1.5rem;
+  }
+  
+  .footer__links a {
+    color: white;
+    text-decoration: none;
+    transition: color 0.3s;
+  }
+  
+  .footer__links a:hover {
+    color: #ffd;
+  }
+  
+.footer__cards {
+    display: flex;
+    gap: 20px;
+}
+  
+.footer__card {
+    background-color: #f9bebe;
+    padding: 20px;
+    border-radius: 8px;
+    width: 200px;
+    color: #444;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+  
+.footer__card h4 {
+    margin-bottom: 8px;
+    color: #ffffff;
+}
+  
+.footer__card a {
+    margin-top: auto;
+    text-decoration: none;
+    font-weight: bold;
+    color: #ffffff;
+}
+
+.footer__card p {
+    color: #ffffff;
+}
+  
+
+
+/****************************************************************************************
+****************************************************************************************
+****************************************************************************************
+******************************************** FORM ********************************************/
+
+.main__header {
+    display: flex;
+    color: #000000;
+    padding: 25px;
+    font-size: 60px;
+    font-weight: 600;
+    font-family: 'Urbanist', sans-serif;
+    line-height: 1;
+    margin: 0 auto; /* Centra el encabezado en la página */
+    max-width: 80%; /* Limita el ancho del encabezado */
+}
+
+.form__group {
+    margin-bottom: 20px;
+    margin-top: 20px;
+    padding: 3px;
+}
+
+.form__group label {
+    margin-bottom: 6px;
+    padding-left: 5px;
+}
+  
+.form__group input,
+.form__group select {
+    margin-top: 4px;
+}
+
+input[type="text"],
+input[type="email"],
+input[type="datetime-local"] {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    font-size: 16px;
+}
+
+select {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    font-size: 16px;
+}
+
+input[type="submit"] {
+
+    background-color: #77C38C;
+    color: #fff;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    font-size: 18px;
+    cursor: pointer;
+    margin-top: 10px;
+    margin-left: 448px;
+}
+
+input[type="submit"]:hover {
+    background-color: #3e7e41;
+}
+
+input[type="number"] {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    font-size: 16px;
+}
+
+.form__group--horizontal {
+    display: flex;
+    gap: 16px;
+    justify-content: space-between;
+}
+  
+.form__group--horizontal .form__group {
+    flex: 1;
+}
+
+.form-and-carousel {
+    display: flex;
+    flex-direction: row; /* Cambia a fila para alinear el formulario y el carrusel horizontalmente */
+    gap: 16px;
+    max-width: 80%;
+    margin: 0 auto; /* Centra el contenedor en la página */
+}
+
+.container__form {
+    flex: 1;
+    display: flex; /* Allow the form to take up available space */
+    flex-direction: column;
+    box-shadow: 0 5px 50px rgba(0, 0, 0, 0.1);
+    background-color: #ffffff;
+    padding: 20px;
+    border-radius: 12px;
+}
+
+.carousel__image {
+    width: 100%;
+    object-fit: cover;
+    transition: opacity 0.5s ease-in-out;
+    flex-shrink: 0;
+}
+
+.carousel__container {
+    max-width: 900px;
+    height: 100%;
+    overflow: hidden;
+    position: relative;
+    border-radius: 12px;
+    box-shadow: 0 4px 50px rgba(0, 0, 0, 0.1);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+  
+.carousel__slider {
+    display: flex;
+    transition: transform 0.6s ease-in-out;
+}
+
+.text__espacio {
+    color: #77C38C;
+}
