@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { DatePicker } from "antd";
 import dayjs from "dayjs";
 import "dayjs/locale/es";
@@ -38,13 +39,14 @@ export default function FechaPicker({
   }, []);
 
   // Al cerrarse la hoja hay que devolver el scroll al body, incluso si el
-  // componente se desmonta con el panel todavía abierto.
+  // componente se desmonta con el panel todavía abierto. No guardamos el valor
+  // anterior a propósito: si hay dos hojas encadenadas, el "previo" de la
+  // segunda sería el "hidden" de la primera y el scroll quedaría trabado.
   useEffect(() => {
     if (!abierto) return;
-    const previo = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
-      document.body.style.overflow = previo;
+      document.body.style.overflow = "";
     };
   }, [abierto]);
 
@@ -97,7 +99,12 @@ export default function FechaPicker({
         </span>
       </button>
 
-      {abierto && (
+      {/* La hoja se monta en document.body: varios contenedores del formulario
+          animan `transform`, y un ancestro transformado crea un containing
+          block que dejaría al overlay `fixed` anclado a la tarjeta en vez de a
+          la ventana. Con el portal siempre sube desde el borde inferior de la
+          pantalla, sin importar dónde esté el scroll. */}
+      {abierto && createPortal(
         <div
           className={styles.overlay}
           role="presentation"
@@ -136,7 +143,8 @@ export default function FechaPicker({
               }}
             />
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );
