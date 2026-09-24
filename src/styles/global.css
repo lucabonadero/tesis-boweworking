@@ -249,20 +249,48 @@ body {
     .header {
         padding: 8px 16px;
     }
-    .header__brand-divider,
+    .header__brand {
+        gap: 8px;
+    }
+    .header__brand-divider {
+        height: 24px;
+    }
     .header__fundacion-logo {
-        display: none;
+        height: 28px;
+        padding: 2px;
     }
     .logo {
-        height: 52px;
+        height: 44px;
     }
     .header__logo-text {
-        font-size: 16px;
+        font-size: 15px;
         margin-left: 8px;
     }
     .header__logo-sub {
         font-size: 9px;
         letter-spacing: 0.04em;
+    }
+}
+
+@media (max-width: 420px) {
+    .header__brand {
+        gap: 6px;
+    }
+    .header__brand-divider {
+        height: 20px;
+    }
+    .header__fundacion-logo {
+        height: 24px;
+    }
+    .logo {
+        height: 36px;
+    }
+    .header__logo-text {
+        font-size: 13px;
+        margin-left: 6px;
+    }
+    .header__logo-sub {
+        display: none;
     }
 }
 

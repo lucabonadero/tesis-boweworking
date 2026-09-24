@@ -8,13 +8,13 @@ import { useAuth } from "../../context/AuthContext.jsx";
 import {
   Steps,
   Button,
-  DatePicker,
   Modal,
   message,
   Result,
   Empty,
   Spin,
 } from "antd";
+import FechaPicker from "../../components/FechaPicker.jsx";
 import ReservaModificacionAviso from "../../components/ReservaModificacionAviso.jsx";
 import {
   duracionesValidasParaCalendario,
@@ -1003,16 +1003,12 @@ export default function RegistroCliente() {
                   <label className={styles.fieldLabel} htmlFor="reserva-fecha">Fecha</label>
                 </div>
                 <div className={styles.dateInputShell}>
-                  <DatePicker
+                  <FechaPicker
                     id="reserva-fecha"
-                    format="DD/MM/YYYY"
-                    className={styles.datePickerFull}
                     placeholder="Seleccioná el día"
                     value={turnoFecha}
                     onChange={setTurnoFecha}
                     disabledDate={(d) => d && d.isBefore(dayjs().startOf("day"))}
-                    getPopupContainer={() => document.body}
-                    popupClassName={styles.datePickerPopup}
                   />
                 </div>
               </div>
@@ -1095,10 +1091,8 @@ export default function RegistroCliente() {
                   <label className={styles.fieldLabel} htmlFor="fijo-inicio">Fecha del primer turno</label>
                 </div>
                 <div className={styles.dateInputShell}>
-                  <DatePicker
+                  <FechaPicker
                     id="fijo-inicio"
-                    format="DD/MM/YYYY"
-                    className={styles.datePickerFull}
                     placeholder="Desde qué día"
                     value={fijoFechaInicio}
                     onChange={setFijoFechaInicio}
@@ -1108,8 +1102,6 @@ export default function RegistroCliente() {
                       const dow = d.day();
                       return dow === 0 || dow === 6;
                     }}
-                    getPopupContainer={() => document.body}
-                    popupClassName={styles.datePickerPopup}
                   />
                 </div>
               </div>
@@ -1213,16 +1205,12 @@ export default function RegistroCliente() {
                   <label className={styles.fieldLabel} htmlFor="pack-fecha-inicio">Fecha de inicio</label>
                 </div>
                 <div className={styles.dateInputShell}>
-                  <DatePicker
+                  <FechaPicker
                     id="pack-fecha-inicio"
-                    format="DD/MM/YYYY"
-                    className={styles.datePickerFull}
                     placeholder="¿Desde cuándo?"
                     value={packFechaInicio}
                     onChange={setPackFechaInicio}
                     disabledDate={(d) => d && d.isBefore(dayjs().startOf("day"))}
-                    getPopupContainer={() => document.body}
-                    popupClassName={styles.datePickerPopup}
                   />
                 </div>
               </div>
