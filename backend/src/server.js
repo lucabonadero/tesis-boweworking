@@ -5,9 +5,20 @@ import path from "path";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.resolve(__dirname, "../.env") });
 
+import {
+  normalizarUrlsDeEntorno,
+  normalizarListaUrls,
+} from "./utils/urlBase.js";
+
+// Antes de que los controladores lean FRONTEND_URL o BACKEND_URL: Render las
+// entrega sin esquema y así quedan listas para usar en enlaces y CORS.
+normalizarUrlsDeEntorno();
+
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
+
+import pool from "./config/db.js";
 
 import authRoutes from "./routes/auth.routes.js";
 import clienteAuthRoutes from "./routes/clienteAuth.routes.js";
@@ -35,14 +46,21 @@ import beneficioEstudianteRoutes from "./routes/beneficioEstudiante.routes.js";
  * Mejor no levantar y decirlo claro.
  */
 function verificarConfiguracion() {
-  const faltantes = ["JWT_SECRET", "DB_HOST", "DB_USER", "DB_NAME"].filter(
+  // Los Postgres gestionados (Render, Neon, Railway) dan un solo DATABASE_URL
+  // en vez de las variables sueltas. Si está presente, exigir DB_HOST y
+  // compañía rechazaría un deploy que en realidad está bien configurado.
+  const clavesBase = process.env.DATABASE_URL?.trim()
+    ? []
+    : ["DB_HOST", "DB_USER", "DB_NAME"];
+
+  const faltantes = ["JWT_SECRET", ...clavesBase].filter(
     (clave) => !process.env[clave]?.trim()
   );
 
   if (faltantes.length > 0) {
     console.error(
       `[config] Faltan variables de entorno obligatorias: ${faltantes.join(", ")}.\n` +
-      `Definilas en backend/.env antes de iniciar el servidor.`
+      `Definilas en backend/.env (local) o en las variables del proveedor (produccion).`
     );
     process.exit(1);
   }
@@ -70,12 +88,10 @@ if (process.env.TRUST_PROXY === "1") {
 }
 
 function parseCorsOrigins() {
+  // Ya pasaron por normalizarUrlsDeEntorno: llegan con esquema y sin barra final.
   const raw =
     process.env.CORS_ORIGINS?.trim() || process.env.FRONTEND_URL?.trim() || "http://localhost:5173";
-  return raw
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
+  return normalizarListaUrls(raw);
 }
 
 const corsOrigins = parseCorsOrigins();
@@ -117,11 +133,95 @@ app.use("/api/admin/clientes-usuarios", adminClientesRoutes);
 app.use("/api/admin", adminUsuariosRoutes);
 app.use("/api/pisos/publicos", pisosPublicoRoutes);
 
-// Ruta de prueba
-app.get("/api/health", (_req, res) => {
-  res.json({ status: "ok", message: "Bo WeWorking API funcionando" });
+/**
+ * Render consulta esta ruta para decidir si el servicio está sano y reiniciarlo
+ * si no responde. Por eso toca la base: un proceso que sigue en pie pero perdió
+ * la conexión está caído a efectos prácticos, y conviene que Render lo sepa.
+ */
+app.get("/api/health", async (_req, res) => {
+  try {
+    await pool.query("SELECT 1");
+    res.json({ status: "ok", message: "Bo WeWorking API funcionando", db: "ok" });
+  } catch (error) {
+    console.error("[health] La base no responde:", error.message);
+    res.status(503).json({ status: "error", db: "unreachable" });
+  }
 });
 
-app.listen(PORT, () => {
-  console.log(`Servidor corriendo en http://localhost:${PORT}`);
+// Una ruta mal escrita devolvía el HTML de error de Express, que el frontend no
+// puede parsear como JSON y termina mostrando "Unexpected token <".
+app.use("/api", (_req, res) => {
+  res.status(404).json({ error: "Ruta no encontrada" });
+});
+
+/**
+ * Sin este middleware, un throw dentro de un handler deja la petición colgada
+ * hasta que el cliente corta: el usuario ve un spinner infinito en vez de un
+ * error. Además evita filtrar el stack trace al navegador en producción.
+ */
+// Express distingue el manejador de errores por su aridad de 4 argumentos:
+// quitar `next` lo convertiria en un middleware normal y dejaria de capturar.
+app.use((err, _req, res, next) => {
+  console.error("[error]", err.stack || err.message);
+
+  if (res.headersSent) return next(err);
+
+  const esProduccion = process.env.NODE_ENV === "production";
+  res.status(err.status || 500).json({
+    error: esProduccion ? "Error interno del servidor" : err.message,
+  });
+});
+
+// 0.0.0.0 y no el loopback: en un contenedor (Render, Docker) el healthcheck
+// llega desde fuera del contenedor y un server atado a localhost no lo ve.
+const server = app.listen(PORT, "0.0.0.0", () => {
+  console.log(`Servidor escuchando en el puerto ${PORT}`);
+  console.log(`[cors] Origenes permitidos: ${corsOrigins.join(", ")}`);
+});
+
+/**
+ * En cada deploy Render manda SIGTERM y espera. Sin esto el proceso muere de
+ * golpe: las peticiones en vuelo se cortan a mitad de camino y las conexiones
+ * a la base quedan abiertas del lado del servidor hasta que expiran. Con una
+ * reserva o un pago en curso, eso es una operación perdida.
+ */
+function apagarOrdenadamente(senal) {
+  console.log(`[shutdown] ${senal} recibido: cerrando.`);
+
+  // Deja de aceptar conexiones nuevas y espera a que terminen las abiertas.
+  server.close(async () => {
+    try {
+      await pool.end();
+      console.log("[shutdown] Conexiones cerradas.");
+    } catch (error) {
+      console.error("[shutdown] Error al cerrar el pool:", error.message);
+    }
+    process.exit(0);
+  });
+
+  // Si algo queda colgado, Render igual mata el proceso: mejor rendirse antes
+  // y con un mensaje en el log que quedar esperando sin explicación.
+  setTimeout(() => {
+    console.error("[shutdown] Cierre forzado tras 10s de espera.");
+    process.exit(1);
+  }, 10_000).unref();
+}
+
+process.on("SIGTERM", () => apagarOrdenadamente("SIGTERM"));
+process.on("SIGINT", () => apagarOrdenadamente("SIGINT"));
+
+/**
+ * Una promesa rechazada sin catch tumba el proceso entero en Node 15+. Un
+ * bug en una ruta secundaria no debería sacar de servicio toda la aplicación:
+ * se registra y se sigue.
+ */
+process.on("unhandledRejection", (motivo) => {
+  console.error("[unhandledRejection]", motivo);
+});
+
+process.on("uncaughtException", (error) => {
+  console.error("[uncaughtException]", error.stack || error.message);
+  // Acá sí conviene salir: el estado del proceso ya no es confiable. Render
+  // lo reinicia solo.
+  apagarOrdenadamente("uncaughtException");
 });

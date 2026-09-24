@@ -1,0 +1,140 @@
+# Infraestructura del backend en Render (Blueprint).
+#
+# Render > New > Blueprint > apuntar a este repositorio. Crea la base y el
+# servicio web juntos y conecta DATABASE_URL sin copiar y pegar nada.
+#
+# Las claves marcadas `sync: false` NO se versionan: Render las pide una vez
+# en el panel al crear el blueprint. Ahí van los secretos.
+
+databases:
+  - name: bowe-db
+    databaseName: bowe
+    user: bowe
+    # basic-256mb es el plan pago mas chico (~US$ 6/mes). NO usar `free`: esa
+    # base se borra 30 dias despues de crearse, con todos los datos adentro.
+    plan: basic-256mb
+
+services:
+  # ----------------------------------------------------------------------
+  # Frontend: sitio estatico. Render lo sirve gratis y sin las restricciones
+  # de uso comercial del plan Hobby de Vercel.
+  # ----------------------------------------------------------------------
+  - type: web
+    name: bowe-frontend
+    runtime: static
+    # Vite deja el build en dist/ (ver vite.config.js).
+    # BACKEND_HOST llega sin esquema (Render no sabe entregar la URL completa
+    # desde fromService), asi que el https:// se antepone aca antes de que Vite
+    # congele el valor en el bundle.
+    buildCommand: npm ci && VITE_API_URL="https://$BACKEND_HOST" npm run build
+    staticPublishPath: ./dist
+    routes:
+      # BrowserRouter maneja las rutas del lado del cliente: sin esto, entrar
+      # directo a /admin/altas o recargar esa pagina devuelve 404.
+      # Render no aplica la regla cuando existe un archivo real en la ruta,
+      # asi que los assets de dist/ se siguen sirviendo normalmente.
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      # Vite congela estas variables durante el build: si cambian, hay que
+      # volver a deployar para que tengan efecto.
+      - key: BACKEND_HOST
+        # Render resuelve el host del backend solo: no hay que copiar y pegar
+        # la URL, ni actualizarla si el servicio se recrea.
+        fromService:
+          name: bowe-backend
+          type: web
+          property: host
+      - key: VITE_GOOGLE_CLIENT_ID
+        sync: false
+
+  # ----------------------------------------------------------------------
+  # Backend: proceso Node persistente (Express + pool de conexiones).
+  # ----------------------------------------------------------------------
+  - type: web
+    name: bowe-backend
+    runtime: node
+    # starter (~US$ 7/mes) mantiene el servicio despierto. En `free` se suspende
+    # a los 15 minutos sin trafico y el request siguiente tarda ~50 segundos.
+    plan: starter
+    # El backend vive en backend/, no en la raíz: sin esto Render instala el
+    # package.json del frontend.
+    rootDir: backend
+    buildCommand: npm ci
+    startCommand: npm start
+    # Render reinicia el servicio si esta ruta deja de responder.
+    healthCheckPath: /api/health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: bowe-db
+          property: connectionString
+      - key: NODE_ENV
+        value: production
+      # Render termina TLS en su proxy: sin trust proxy, express-rate-limit ve
+      # la IP del balanceador y limita a todos los usuarios como si fueran uno.
+      - key: TRUST_PROXY
+        value: "1"
+      - key: JWT_EXPIRES_IN
+        value: 8h
+      - key: ASISTENTE_IA_MODO
+        value: heuristico
+      # Las tres variables de zona horaria se fijan explicitamente: el codigo
+      # trae defaults distintos entre si (Cordoba en una, Buenos_Aires en las
+      # otras) y en produccion los horarios de reserva deben coincidir.
+      - key: COWORKING_TZ
+        value: America/Argentina/Buenos_Aires
+      - key: COWORKING_TIMEZONE
+        value: America/Argentina/Buenos_Aires
+      - key: APP_TIMEZONE
+        value: America/Argentina/Buenos_Aires
+      - key: MAIL_FROM_NAME
+        value: Bo WeWorking
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_SECURE
+        value: "false"
+      - key: SMTP_HOST
+        value: smtp.gmail.com
+      # Secretos y URLs que dependen del dominio final: se cargan en el panel.
+      - key: JWT_SECRET
+        sync: false
+      # Las tres URLs las resuelve Render sola. Llegan sin esquema y el backend
+      # les antepone https:// (ver normalizarOrigen en server.js).
+      - key: CORS_ORIGINS
+        fromService:
+          name: bowe-frontend
+          type: web
+          property: host
+      - key: FRONTEND_URL
+        fromService:
+          name: bowe-frontend
+          type: web
+          property: host
+      - key: BACKEND_URL
+        fromService:
+          name: bowe-backend
+          type: web
+          property: host
+      - key: MP_ACCESS_TOKEN
+        sync: false
+      # Obligatorio en produccion: el webhook valida la firma HMAC de cada
+      # notificacion y rechaza todo si este secreto falta. Sin el, ningun pago
+      # se acredita. Se copia del panel de Mercado Pago, en la config del webhook.
+      - key: MP_WEBHOOK_SECRET
+        sync: false
+      # Se usa en los enlaces de los mails (recuperar contrasena, confirmaciones).
+      - key: PUBLIC_APP_URL
+        fromService:
+          name: bowe-frontend
+          type: web
+          property: host
+      - key: MAIL_FROM
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false

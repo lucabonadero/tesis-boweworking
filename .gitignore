@@ -27,3 +27,7 @@ dist-ssr
 *.sln
 *.sw?
 .impeccable
+# Backups de variables de entorno (nunca versionar)
+*.env.bak
+backend/.env
+backend/.env.bak
