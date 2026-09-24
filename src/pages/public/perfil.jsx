@@ -634,27 +634,31 @@ export default function Perfil() {
           </Card>
           </div>
 
-          <HistorialCreditos />
+          <div className={styles.rightCol}>
+            <div className={styles.creditosSlot}>
+              <HistorialCreditos />
+            </div>
 
-          <Card className={`${styles.reservasCard} ${styles.reservasCardTable}`} title="Mis Reservas">
-            {loadingReservas ? (
-              <div style={{ textAlign: "center", padding: "2rem" }}><Spin /></div>
-            ) : reservas.length === 0 ? (
-              <Empty description="No tenes reservas aun" />
-            ) : (
-              <div className={styles.tableScrollWrap}>
-                <Table
-                  className={styles.reservasTable}
-                  columns={reservaCols}
-                  dataSource={reservasVista}
-                  pagination={{ pageSize: 5, size: "small", responsive: true }}
-                  size="small"
-                  scroll={{ x: "max-content" }}
-                  tableLayout="fixed"
-                />
-              </div>
-            )}
-          </Card>
+            <Card className={`${styles.reservasCard} ${styles.reservasCardTable}`} title="Mis Reservas">
+              {loadingReservas ? (
+                <div style={{ textAlign: "center", padding: "2rem" }}><Spin /></div>
+              ) : reservas.length === 0 ? (
+                <Empty description="No tenes reservas aun" />
+              ) : (
+                <div className={styles.tableScrollWrap}>
+                  <Table
+                    className={styles.reservasTable}
+                    columns={reservaCols}
+                    dataSource={reservasVista}
+                    pagination={{ pageSize: 5, size: "small", responsive: true }}
+                    size="small"
+                    scroll={{ x: "max-content" }}
+                    tableLayout="fixed"
+                  />
+                </div>
+              )}
+            </Card>
+          </div>
         </div>
       </main>
 

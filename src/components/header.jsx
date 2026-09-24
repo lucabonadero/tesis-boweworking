@@ -11,7 +11,6 @@ import {
   AppstoreOutlined,
   InfoCircleOutlined,
   SettingOutlined,
-  RobotOutlined,
   DashboardOutlined,
 } from "@ant-design/icons";
 import SaldoCreditosWidget from "./SaldoCreditosWidget.jsx";
@@ -36,12 +35,6 @@ export default function Header() {
 
   const menuUsuario = {
     items: [
-      {
-        key: "asistente",
-        icon: <RobotOutlined />,
-        label: "Asistente de reservas",
-        onClick: () => navigate("/asistente"),
-      },
       {
         key: "perfil",
         icon: <UserOutlined />,

@@ -88,6 +88,7 @@ export DB="<External Database URL>"
 
 psql "$DB" -v ON_ERROR_STOP=1 -f init/01_schema.sql
 psql "$DB" -v ON_ERROR_STOP=1 -f migration_permisos_staff_v2.sql
+psql "$DB" -v ON_ERROR_STOP=1 -f migration_password_reset_columnas.sql
 psql "$DB" -v ON_ERROR_STOP=1 -f migration_indice_password_reset.sql
 ```
 

@@ -1,0 +1,53 @@
+.fab {
+  position: fixed;
+  right: max(16px, env(safe-area-inset-right));
+  bottom: max(20px, env(safe-area-inset-bottom));
+  /* Por debajo de modales/drawers de Ant Design (~1000+) para no tapar login */
+  z-index: 900;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(145deg, #25d366 0%, #128c7e 100%);
+  color: #fff;
+  box-shadow:
+    0 4px 14px rgba(18, 140, 126, 0.45),
+    0 2px 4px rgba(0, 0, 0, 0.12);
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.fab:hover {
+  color: #fff;
+  transform: scale(1.06);
+  box-shadow:
+    0 6px 20px rgba(18, 140, 126, 0.5),
+    0 2px 6px rgba(0, 0, 0, 0.14);
+}
+
+.fab:active {
+  transform: scale(0.98);
+}
+
+.fab:focus-visible {
+  outline: 3px solid rgba(37, 211, 102, 0.55);
+  outline-offset: 3px;
+}
+
+.fabIcon {
+  font-size: 28px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fab,
+  .fab:hover,
+  .fab:active {
+    transition: none;
+    transform: none;
+  }
+}
