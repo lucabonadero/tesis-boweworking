@@ -6,11 +6,10 @@ import Index from "./pages/public/index.jsx";
 import Espacios from "./pages/public/espacios.jsx";
 import Perfil from "./pages/public/perfil.jsx";
 import PagoConfirmacion from "./pages/public/pagoConfirmacion.jsx";
-import AsistenteReservas from "./pages/public/asistenteReservas.jsx";
 import ProtectedRoute from "./components/rutasprotegidas.jsx";
 import AuthModal from "./components/AuthModal.jsx";
 import AuthRedirectHandler from "./components/AuthRedirectHandler.jsx";
-import AsistenteReservasFab from "./components/AsistenteReservasFab.jsx";
+import WhatsAppFab from "./components/WhatsAppFab.jsx";
 import { AuthProvider } from "./context/AuthContext.jsx";
 import { usePrecargaPanel } from "./hooks/usePrecargaPanel.js";
 import { RUTAS_ADMIN } from "./rutasAdmin.js";
@@ -80,7 +79,6 @@ function Rutas() {
         <Route path="/espacios" element={<Espacios />} />
         <Route path="/perfil" element={<Perfil />} />
         <Route path="/pago/confirmacion" element={<PagoConfirmacion />} />
-        <Route path="/asistente" element={<AsistenteReservas />} />
         <Route path="/panel" element={
           <ProtectedRoute><PanelAdmin /></ProtectedRoute>
         } />
@@ -122,7 +120,7 @@ function App() {
           <Rutas />
           <AuthRedirectHandler />
           <AuthModal />
-          <AsistenteReservasFab />
+          <WhatsAppFab />
         </BrowserRouter>
       </AuthProvider>
     </GoogleOAuthProvider>

@@ -474,9 +474,14 @@ export default function Espacios() {
               <Link to="/registro" className={styles.ctaBtnPrimary}>
                 Reservar ahora
               </Link>
-              <Link to="/asistente" className={styles.ctaBtnSecondary}>
-                Consultar con asistente
-              </Link>
+              <a
+                href="https://api.whatsapp.com/send/?phone=5493518522482&text&type=phone_number&app_absent=0"
+                target="_blank"
+                rel="noopener noreferrer"
+                className={styles.ctaBtnSecondary}
+              >
+                Consultar por WhatsApp
+              </a>
             </div>
           </div>
         </section>
