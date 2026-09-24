@@ -1060,12 +1060,14 @@
   box-shadow: var(--shadow-xs);
 }
 
-.durationChip:hover {
-  border-color: #34c08f;
-  color: #1a7f5a;
-  background: #f8fdfb;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(52, 192, 143, 0.12);
+@media (hover: hover) and (pointer: fine) {
+  .durationChip:hover {
+    border-color: #34c08f;
+    color: #1a7f5a;
+    background: #f8fdfb;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(52, 192, 143, 0.12);
+  }
 }
 
 .durationChipActive {
@@ -1075,9 +1077,11 @@
   box-shadow: 0 4px 16px rgba(52, 192, 143, 0.35);
 }
 
-.durationChipActive:hover {
-  color: #fff;
-  background: linear-gradient(160deg, #3acb98 0%, #34c08f 100%);
+@media (hover: hover) and (pointer: fine) {
+  .durationChipActive:hover {
+    color: #fff;
+    background: linear-gradient(160deg, #3acb98 0%, #34c08f 100%);
+  }
 }
 
 .timeSlotGrid {
@@ -1102,12 +1106,14 @@
   box-shadow: var(--shadow-xs);
 }
 
-.timeSlot:hover {
-  border-color: #34c08f;
-  color: #1a7f5a;
-  background: #f8fdfb;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(52, 192, 143, 0.1);
+@media (hover: hover) and (pointer: fine) {
+  .timeSlot:hover {
+    border-color: #34c08f;
+    color: #1a7f5a;
+    background: #f8fdfb;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(52, 192, 143, 0.1);
+  }
 }
 
 .timeSlotActive {
@@ -1117,9 +1123,12 @@
   box-shadow: 0 4px 14px rgba(52, 192, 143, 0.35);
 }
 
-.timeSlotActive:hover {
-  color: #fff;
-  border-color: #2aad7e;
+@media (hover: hover) and (pointer: fine) {
+  .timeSlotActive:hover {
+    color: #fff;
+    border-color: #2aad7e;
+    background: linear-gradient(165deg, #3acb98 0%, #2aad7e 100%);
+  }
 }
 
 .fieldHint {

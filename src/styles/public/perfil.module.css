@@ -1,67 +1,172 @@
+/* Mi Perfil — bandas apiladas a ancho completo.
+   Identidad (sin contenedor) · Créditos · Reservas · Cuenta. */
+
 .wrapper {
-  max-width: 1240px;
+  max-width: 1080px;
   margin: 0 auto;
-  padding: 2rem 1.5rem 4rem;
+  padding: var(--space-8) var(--space-6) var(--space-16);
   box-sizing: border-box;
   width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
 }
 
 .pageTitle {
   font-size: 2rem;
   font-weight: var(--weight-bold);
   color: var(--color-text-primary);
-  margin-bottom: 28px;
+  margin: 0;
   letter-spacing: -0.02em;
 }
 
-.grid {
-  display: grid;
-  grid-template-columns: 340px minmax(0, 1fr);
-  gap: 24px;
-  align-items: start;
+/* ── Identidad ────────────────────────────────────────────────── */
+/* Contexto, no tarea: sin tarjeta, apoyado sobre el fondo de página. */
+
+.identidad {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-6);
+  padding-bottom: var(--space-7);
+  border-bottom: 1px solid var(--color-neutral-300);
 }
 
-.leftCol,
-.rightCol {
+.avatar {
+  flex: none;
+  width: 76px;
+  height: 76px;
+  background: linear-gradient(135deg, var(--color-brand-primary), var(--color-brand-primary-dark));
+  color: var(--color-text-inverse);
+  font-size: 32px;
+  border-radius: var(--radius-full);
   display: flex;
-  flex-direction: column;
-  gap: 24px;
+  align-items: center;
+  justify-content: center;
+}
+
+.identidadCuerpo {
+  flex: 1;
   min-width: 0;
 }
 
-/* Sidebar sticky en pantallas anchas: la columna derecha es mucho más alta. */
-@media (min-width: 1100px) {
-  .leftCol {
-    position: sticky;
-    top: 24px;
-  }
+.identidadEncabezado {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
 }
 
-.profileCard,
+.userName {
+  font-size: 1.375rem;
+  font-weight: var(--weight-bold);
+  color: var(--color-text-primary);
+  margin: 0 0 var(--space-1);
+  letter-spacing: -0.01em;
+}
+
+.userEmail {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.editBtn {
+  border-color: var(--color-brand-primary);
+  color: var(--color-brand-primary-text);
+  font-weight: 600;
+}
+
+.editBtn:hover {
+  background: var(--color-brand-primary-soft);
+  border-color: var(--color-brand-primary-dark);
+  color: var(--color-brand-primary-text);
+}
+
+/* Datos en fila: tres campos cortos, no merecen apilarse. */
+.datosFila {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--space-3) var(--space-8);
+  margin: var(--space-6) 0 0;
+}
+
+.datoItem {
+  min-width: 0;
+}
+
+.infoLabel {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  color: var(--color-text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 0 0 var(--space-1);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.infoValue {
+  font-size: var(--text-base);
+  font-weight: var(--weight-medium);
+  color: var(--color-text-primary);
+  margin: 0;
+  word-break: break-word;
+}
+
+.editFormCampos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0 var(--space-4);
+  margin-top: var(--space-5);
+}
+
+.accionesFila {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.btnPrimario {
+  background: var(--color-brand-primary);
+  border-color: var(--color-brand-primary);
+}
+
+.btnPrimario:hover:not(:disabled) {
+  background: var(--color-brand-primary-dark);
+  border-color: var(--color-brand-primary-dark);
+}
+
+/* ── Paneles (Créditos · Reservas · Cuenta) ───────────────────── */
+
+.panel,
 .creditosSlot > :global(.ant-card) {
   border-radius: var(--radius-lg);
-  overflow: hidden;
-  box-shadow: var(--shadow-xs);
-}
-
-.creditosSlot > :global(.ant-card) {
   border: 1px solid var(--color-neutral-300);
+  box-shadow: var(--shadow-xs);
+  width: 100%;
+  min-width: 0;
 }
 
-/* Créditos + Reservas comparten el encabezado de tarjeta del perfil. */
-.creditosSlot :global(.ant-card-head),
-.reservasCard :global(.ant-card-head),
-.profileCard :global(.ant-card-head) {
+.panel :global(.ant-card-head),
+.creditosSlot :global(.ant-card-head) {
   border-bottom: 1px solid var(--color-neutral-300);
-  min-height: 52px;
+  min-height: 56px;
+  padding-inline: var(--space-6);
 }
 
-.creditosSlot :global(.ant-card-head-title),
-.reservasCard :global(.ant-card-head-title),
-.profileCard :global(.ant-card-head-title) {
+.panel :global(.ant-card-head-title),
+.creditosSlot :global(.ant-card-head-title) {
   font-size: var(--text-base);
   font-weight: var(--weight-bold);
   color: var(--color-text-primary);
+}
+
+.panel :global(.ant-card-body),
+.creditosSlot :global(.ant-card-body) {
+  padding: var(--space-6);
 }
 
 .creditosSlot :global(.ant-statistic-title) {
@@ -72,98 +177,84 @@
   color: var(--color-text-tertiary);
 }
 
-.avatarSection {
+.cargando {
   text-align: center;
-  padding-bottom: 20px;
-  border-bottom: 1px solid var(--color-neutral-300);
-  margin-bottom: 20px;
+  padding: var(--space-8) 0;
 }
 
-.avatar {
-  width: 72px;
-  height: 72px;
-  margin: 0 auto 12px;
-  background: linear-gradient(135deg, var(--color-brand-primary), var(--color-brand-primary-dark));
-  color: #fff;
-  font-size: 30px;
-  border-radius: 50%;
+.estadoPagina {
+  text-align: center;
+  padding: var(--space-16) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.estadoPagina p {
+  margin: 0;
+  color: var(--color-text-secondary);
+}
+
+/* ── Panel "Tu cuenta": dos bloques, un solo contenedor ───────── */
+
+.cuentaGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: var(--space-8);
+}
+
+/* Separador entre bloques solo cuando van lado a lado. */
+@media (min-width: 720px) {
+  .cuentaBloque + .cuentaBloque {
+    padding-left: var(--space-8);
+    border-left: 1px solid var(--color-neutral-300);
+  }
+}
+
+.bloqueTitulo {
   display: flex;
   align-items: center;
-  justify-content: center;
-}
-
-.userName {
-  font-size: 18px;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
   font-weight: var(--weight-bold);
   color: var(--color-text-primary);
-  margin-bottom: 4px;
-}
-
-.userEmail {
-  font-size: var(--text-sm);
-  color: var(--color-text-secondary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-}
-
-.infoGrid {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.infoItem {
-  display: flex;
-  flex-direction: column;
-}
-
-.infoLabel {
-  font-size: var(--text-xs);
-  font-weight: var(--weight-bold);
-  color: var(--color-text-tertiary);
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  margin-bottom: 2px;
+  margin: 0 0 var(--space-3);
+}
+
+.bloqueTexto {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+  margin: 0 0 var(--space-5);
+  max-width: 60ch;
+}
+
+.textoError {
+  color: var(--color-error-text, #cf1322);
+}
+
+.textoExito {
+  color: var(--color-brand-primary-text);
+}
+
+.estadoFila {
   display: flex;
-  align-items: center;
-  gap: 6px;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
 }
 
-.infoValue {
-  font-size: var(--text-base);
-  font-weight: var(--weight-medium);
-  color: var(--color-text-primary);
+.formEstudiante {
+  margin-top: var(--space-4);
 }
 
-.editBtn {
-  margin-top: 8px;
-  width: 100%;
-  border-color: var(--color-brand-primary);
-  color: var(--color-brand-primary);
-  font-weight: 600;
-}
-
-.editBtn:hover {
-  background: #f0faf5;
-  border-color: var(--color-brand-primary-dark);
-  color: var(--color-brand-primary-dark);
-}
-
-.editForm {
-  margin-top: 4px;
-}
-
-.reservasCard {
-  border-radius: var(--radius-lg);
-  min-width: 0;
-  max-width: 100%;
-  box-shadow: var(--shadow-xs);
-}
+/* ── Tabla de reservas ────────────────────────────────────────── */
 
 .reservasCardTable :global(.ant-card-body) {
-  padding: 16px;
+  padding: var(--space-4);
 }
 
 .tableScrollWrap {
@@ -199,10 +290,10 @@
   color: var(--color-text-primary);
 }
 
-/* Solid hover bg — avoids translucent overlay showing rows underneath
-   on fixed columns (Fecha / Pago). */
+/* Fondo sólido en hover — evita que el overlay translúcido deje ver
+   filas de abajo en las columnas fijas (Fecha / Pago). */
 .reservasTable :global(.ant-table-tbody > tr > td) {
-  background: #ffffff;
+  background: var(--color-surface);
   transition: background-color var(--transition-fast);
 }
 
@@ -215,12 +306,12 @@
 
 .reservasTable :global(.ant-table-tbody > tr > td.ant-table-cell-fix-left),
 .reservasTable :global(.ant-table-tbody > tr > td.ant-table-cell-fix-right) {
-  background: #ffffff;
+  background: var(--color-surface);
 }
 
 .recursoSub {
   font-size: 12px;
-  color: #888;
+  color: var(--color-text-tertiary);
   line-height: 1.35;
   word-break: break-word;
 }
@@ -264,26 +355,63 @@
 
 .cellMuted {
   font-size: 13px;
-  color: #bfbfbf;
+  color: var(--color-text-tertiary);
 }
+
+/* ── Adaptación ───────────────────────────────────────────────── */
 
 @media (max-width: 768px) {
   .wrapper {
-    padding: 1.25rem 1rem 3rem;
+    padding: var(--space-5) var(--space-4) var(--space-12);
+    gap: var(--space-5);
   }
 
   .pageTitle {
     font-size: 1.5rem;
-    margin-bottom: 20px;
   }
 
-  .grid {
-    grid-template-columns: 1fr;
-    gap: 20px;
+  .identidad {
+    gap: var(--space-4);
+    padding-bottom: var(--space-6);
   }
 
-  .reservasCardTable :global(.ant-card-body) {
-    padding: 12px;
+  .avatar {
+    width: 60px;
+    height: 60px;
+    font-size: 26px;
+  }
+
+  .identidadEncabezado {
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  .editBtn {
+    width: 100%;
+  }
+
+  .datosFila {
+    gap: var(--space-4);
+    margin-top: var(--space-5);
+  }
+
+  .panel :global(.ant-card-body),
+  .creditosSlot :global(.ant-card-body) {
+    padding: var(--space-4);
+  }
+
+  .panel :global(.ant-card-head),
+  .creditosSlot :global(.ant-card-head) {
+    padding-inline: var(--space-4);
+  }
+
+  .cuentaGrid {
+    gap: var(--space-6);
+  }
+
+  .cuentaBloque + .cuentaBloque {
+    padding-top: var(--space-6);
+    border-top: 1px solid var(--color-neutral-300);
   }
 
   .reservasTable :global(.ant-table) {
@@ -302,7 +430,12 @@
 
 @media (max-width: 480px) {
   .wrapper {
-    padding: 1rem 0.75rem 2.5rem;
+    padding: var(--space-4) var(--space-3) var(--space-10);
+  }
+
+  .identidad {
+    flex-direction: column;
+    align-items: stretch;
   }
 
   .reservasTable :global(.ant-table-thead > tr > th),

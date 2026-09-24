@@ -402,7 +402,7 @@ export default function Perfil() {
       <div>
         <Header />
         <main className={styles.wrapper}>
-          <div style={{ textAlign: "center", padding: "4rem" }}><Spin size="large" /></div>
+          <div className={styles.estadoPagina}><Spin size="large" /></div>
         </main>
         <Footer />
       </div>
@@ -414,9 +414,9 @@ export default function Perfil() {
       <div>
         <Header />
         <main className={styles.wrapper}>
-          <div style={{ textAlign: "center", padding: "4rem" }}>
-            <p>Inicia sesion para ver tu perfil.</p>
-            <Button type="primary" onClick={() => openAuthModal("login")}>Iniciar sesion</Button>
+          <div className={styles.estadoPagina}>
+            <p>Iniciá sesión para ver tu perfil.</p>
+            <Button type="primary" onClick={() => openAuthModal("login")}>Iniciar sesión</Button>
           </div>
         </main>
         <Footer />
@@ -430,236 +430,240 @@ export default function Perfil() {
       <main className={styles.wrapper}>
         <h1 className={styles.pageTitle}>Mi Perfil</h1>
 
-        <ReservaModificacionAviso style={{ marginBottom: 20 }} />
+        <ReservaModificacionAviso />
 
-        <div className={styles.grid}>
-          <div className={styles.leftCol}>
-          <Card className={styles.profileCard}>
-            <div className={styles.avatarSection}>
-              <div className={styles.avatar}>
-                <UserOutlined />
-              </div>
-              <h2 className={styles.userName}>{user?.nombre} {user?.apellido}</h2>
-              <span className={styles.userEmail}><MailOutlined /> {user?.email}</span>
-            </div>
+        <section className={styles.identidad}>
+          <div className={styles.avatar}>
+            <UserOutlined />
+          </div>
 
+          <div className={styles.identidadCuerpo}>
             {!editing ? (
-              <div className={styles.infoGrid}>
-                <div className={styles.infoItem}>
-                  <span className={styles.infoLabel}><IdcardOutlined /> DNI</span>
-                  <span className={styles.infoValue}>{user?.dni || "-"}</span>
+              <>
+                <div className={styles.identidadEncabezado}>
+                  <div>
+                    <h2 className={styles.userName}>{user?.nombre} {user?.apellido}</h2>
+                    <span className={styles.userEmail}><MailOutlined /> {user?.email}</span>
+                  </div>
+                  <Button
+                    icon={<EditOutlined />}
+                    className={styles.editBtn}
+                    onClick={() => setEditing(true)}
+                  >
+                    Editar perfil
+                  </Button>
                 </div>
-                <div className={styles.infoItem}>
-                  <span className={styles.infoLabel}><PhoneOutlined /> Telefono</span>
-                  <span className={styles.infoValue}>{user?.telefono || "-"}</span>
-                </div>
-                <div className={styles.infoItem}>
-                  <span className={styles.infoLabel}><MailOutlined /> Email</span>
-                  <span className={styles.infoValue}>{user?.email}</span>
-                </div>
-                <Button
-                  icon={<EditOutlined />}
-                  className={styles.editBtn}
-                  onClick={() => setEditing(true)}
-                >
-                  Editar perfil
-                </Button>
-              </div>
+
+                <dl className={styles.datosFila}>
+                  <div className={styles.datoItem}>
+                    <dt className={styles.infoLabel}><IdcardOutlined /> DNI</dt>
+                    <dd className={styles.infoValue}>{user?.dni || "—"}</dd>
+                  </div>
+                  <div className={styles.datoItem}>
+                    <dt className={styles.infoLabel}><PhoneOutlined /> Teléfono</dt>
+                    <dd className={styles.infoValue}>{user?.telefono || "—"}</dd>
+                  </div>
+                  <div className={styles.datoItem}>
+                    <dt className={styles.infoLabel}><MailOutlined /> Email</dt>
+                    <dd className={styles.infoValue}>{user?.email}</dd>
+                  </div>
+                </dl>
+              </>
             ) : (
               <Form form={form} layout="vertical" onFinish={onSave} className={styles.editForm}>
-                <Form.Item name="nombre" label="Nombre" rules={[{ required: true, message: "Requerido" }]}>
-                  <Input />
-                </Form.Item>
-                <Form.Item name="apellido" label="Apellido" rules={[{ required: true, message: "Requerido" }]}>
-                  <Input />
-                </Form.Item>
-                <Form.Item name="telefono" label="Telefono">
-                  <Input />
-                </Form.Item>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <Button type="primary" htmlType="submit" loading={saving} style={{ background: "#34c08f", borderColor: "#34c08f" }}>
-                    Guardar
+                <div className={styles.editFormCampos}>
+                  <Form.Item name="nombre" label="Nombre" rules={[{ required: true, message: "Requerido" }]}>
+                    <Input />
+                  </Form.Item>
+                  <Form.Item name="apellido" label="Apellido" rules={[{ required: true, message: "Requerido" }]}>
+                    <Input />
+                  </Form.Item>
+                  <Form.Item name="telefono" label="Teléfono">
+                    <Input />
+                  </Form.Item>
+                </div>
+                <div className={styles.accionesFila}>
+                  <Button type="primary" htmlType="submit" loading={saving} className={styles.btnPrimario}>
+                    Guardar cambios
                   </Button>
                   <Button onClick={() => setEditing(false)}>Cancelar</Button>
                 </div>
               </Form>
             )}
-          </Card>
+          </div>
+        </section>
 
-          {user?.tiene_password === true && (
-            <Card
-              className={styles.profileCard}
-              title={
-                <span>
-                  <LockOutlined style={{ marginRight: 8 }} />
-                  Seguridad
-                </span>
-              }
-            >
-              <p style={{ fontSize: 13, color: "#666", marginBottom: 16 }}>
-                Cambiá tu contraseña ingresando la actual y una nueva (mínimo 8 caracteres).
-              </p>
-              <Form form={passwordForm} layout="vertical" onFinish={onPasswordChange}>
-                <Form.Item
-                  name="passwordActual"
-                  label="Contraseña actual"
-                  rules={[{ required: true, message: "Requerido" }]}
-                >
-                  <Input.Password />
-                </Form.Item>
-                <Form.Item
-                  name="passwordNueva"
-                  label="Nueva contraseña"
-                  rules={[{ required: true, min: 8, message: "Mínimo 8 caracteres" }]}
-                >
-                  <Input.Password />
-                </Form.Item>
-                <Form.Item
-                  name="passwordNueva2"
-                  label="Confirmar nueva contraseña"
-                  rules={[{ required: true, message: "Confirmá la contraseña" }]}
-                >
-                  <Input.Password />
-                </Form.Item>
-                <Button type="primary" htmlType="submit" loading={passwordSaving} style={{ background: "#34c08f", borderColor: "#34c08f" }}>
-                  Actualizar contraseña
-                </Button>
-              </Form>
-            </Card>
+        <div className={styles.creditosSlot}>
+          <HistorialCreditos />
+        </div>
+
+        <Card className={`${styles.panel} ${styles.reservasCardTable}`} title="Mis reservas">
+          {loadingReservas ? (
+            <div className={styles.cargando}><Spin /></div>
+          ) : reservas.length === 0 ? (
+            <Empty description="No tenés reservas aún" />
+          ) : (
+            <div className={styles.tableScrollWrap}>
+              <Table
+                className={styles.reservasTable}
+                columns={reservaCols}
+                dataSource={reservasVista}
+                pagination={{ pageSize: 5, size: "small", responsive: true }}
+                size="small"
+                scroll={{ x: "max-content" }}
+                tableLayout="fixed"
+              />
+            </div>
           )}
-          {user?.tiene_password === false && (
-            <Card className={styles.profileCard} size="small">
-              <p style={{ margin: 0, fontSize: 13, color: "#666" }}>
-                <LockOutlined style={{ marginRight: 6 }} />
-                Tu cuenta usa inicio de sesión con Google. No hay contraseña local para cambiar desde aquí.
-              </p>
-            </Card>
-          )}
+        </Card>
 
-          <Card
-            className={styles.profileCard}
-            title={
-              <span>
-                <ReadOutlined style={{ marginRight: 8 }} />
-                Verificación de Estudiante
-              </span>
-            }
-          >
-            {loadingEstudiante ? (
-              <div style={{ textAlign: "center", padding: "1rem" }}><Spin /></div>
-            ) : !estadoEstudiante ? (
-              <Text type="secondary">No se pudo cargar el estado de la solicitud.</Text>
-            ) : (
-              <>
-                <div style={{ marginBottom: 16 }}>
-                  <Tag color={VERIFICACION_ESTUDIANTE_COLOR[estadoEstudiante.estado_verificacion_estudiante] || "default"}>
-                    {VERIFICACION_ESTUDIANTE_LABEL[estadoEstudiante.estado_verificacion_estudiante] || estadoEstudiante.estado_verificacion_estudiante}
-                  </Tag>
-                  {estadoEstudiante.rol === "estudiante" && (
-                    <Tag color="purple" style={{ marginLeft: 8 }}>Rol actual: Estudiante</Tag>
-                  )}
-                </div>
+        <Card className={styles.panel} title="Tu cuenta">
+          <div className={styles.cuentaGrid}>
+            <section className={styles.cuentaBloque}>
+              <h3 className={styles.bloqueTitulo}>
+                <LockOutlined /> Contraseña
+              </h3>
 
-                {estadoEstudiante.estado_verificacion_estudiante === "rechazado" && estadoEstudiante.motivo_rechazo_estudiante && (
-                  <p style={{ fontSize: 13, color: "#cf1322", marginBottom: 16 }}>
-                    Motivo del rechazo: {estadoEstudiante.motivo_rechazo_estudiante}
+              {user?.tiene_password === true ? (
+                <>
+                  <p className={styles.bloqueTexto}>
+                    Ingresá tu contraseña actual y una nueva de al menos 8 caracteres.
                   </p>
-                )}
-
-                {estadoEstudiante.estado_verificacion_estudiante === "pendiente" && (
-                  <p style={{ fontSize: 13, color: "#666", marginBottom: 0 }}>
-                    Tu solicitud está en revisión. Institución informada: {estadoEstudiante.institucion_estudiante || "—"}.
-                  </p>
-                )}
-
-                {estadoEstudiante.estado_verificacion_estudiante === "aprobado" && (
-                  <p style={{ fontSize: 13, color: "#389e0d", marginBottom: 0 }}>
-                    Ya tenés el rol Estudiante y accedés a los beneficios diferenciados.
-                  </p>
-                )}
-
-                {estadoEstudiante.puede_solicitar && (
-                  <Form
-                    form={estudianteForm}
-                    layout="vertical"
-                    onFinish={onSolicitarEstudiante}
-                    style={{ marginTop: 16 }}
-                  >
+                  <Form form={passwordForm} layout="vertical" onFinish={onPasswordChange}>
                     <Form.Item
-                      name="institucion"
-                      label="Institución educativa"
+                      name="passwordActual"
+                      label="Contraseña actual"
                       rules={[{ required: true, message: "Requerido" }]}
                     >
-                      <Input placeholder="Ej: Universidad de Buenos Aires" />
+                      <Input.Password />
                     </Form.Item>
                     <Form.Item
-                      label="Certificado de alumno regular"
-                      required
-                      tooltip="Imagen (JPG o PNG), hasta 1.4 MB"
+                      name="passwordNueva"
+                      label="Nueva contraseña"
+                      rules={[{ required: true, min: 8, message: "Mínimo 8 caracteres" }]}
                     >
-                      <Upload
-                        accept="image/png,image/jpeg"
-                        maxCount={1}
-                        beforeUpload={(file) => {
-                          const esImagen = file.type === "image/png" || file.type === "image/jpeg";
-                          if (!esImagen) {
-                            message.error("Solo se aceptan imágenes JPG o PNG");
-                            return Upload.LIST_IGNORE;
-                          }
-                          if (file.size > COMPROBANTE_MAX_BYTES) {
-                            message.error("La imagen no puede superar 1.4 MB");
-                            return Upload.LIST_IGNORE;
-                          }
-                          setComprobanteFile(file);
-                          return false;
-                        }}
-                        onRemove={() => setComprobanteFile(null)}
-                      >
-                        <Button icon={<UploadOutlined />}>Elegir imagen</Button>
-                      </Upload>
+                      <Input.Password />
+                    </Form.Item>
+                    <Form.Item
+                      name="passwordNueva2"
+                      label="Confirmar nueva contraseña"
+                      rules={[{ required: true, message: "Confirmá la contraseña" }]}
+                    >
+                      <Input.Password />
                     </Form.Item>
                     <Button
                       type="primary"
                       htmlType="submit"
-                      loading={enviandoEstudiante}
-                      disabled={!comprobanteFile}
-                      style={{ background: "#34c08f", borderColor: "#34c08f" }}
+                      loading={passwordSaving}
+                      className={styles.btnPrimario}
                     >
-                      Enviar solicitud
+                      Actualizar contraseña
                     </Button>
                   </Form>
-                )}
-              </>
-            )}
-          </Card>
-          </div>
-
-          <div className={styles.rightCol}>
-            <div className={styles.creditosSlot}>
-              <HistorialCreditos />
-            </div>
-
-            <Card className={`${styles.reservasCard} ${styles.reservasCardTable}`} title="Mis Reservas">
-              {loadingReservas ? (
-                <div style={{ textAlign: "center", padding: "2rem" }}><Spin /></div>
-              ) : reservas.length === 0 ? (
-                <Empty description="No tenes reservas aun" />
+                </>
               ) : (
-                <div className={styles.tableScrollWrap}>
-                  <Table
-                    className={styles.reservasTable}
-                    columns={reservaCols}
-                    dataSource={reservasVista}
-                    pagination={{ pageSize: 5, size: "small", responsive: true }}
-                    size="small"
-                    scroll={{ x: "max-content" }}
-                    tableLayout="fixed"
-                  />
-                </div>
+                <p className={styles.bloqueTexto}>
+                  Tu cuenta usa inicio de sesión con Google. No hay contraseña local para cambiar
+                  desde acá.
+                </p>
               )}
-            </Card>
+            </section>
+
+            <section className={styles.cuentaBloque}>
+              <h3 className={styles.bloqueTitulo}>
+                <ReadOutlined /> Verificación de estudiante
+              </h3>
+
+              {loadingEstudiante ? (
+                <div className={styles.cargando}><Spin /></div>
+              ) : !estadoEstudiante ? (
+                <Text type="secondary">No se pudo cargar el estado de la solicitud.</Text>
+              ) : (
+                <>
+                  <div className={styles.estadoFila}>
+                    <Tag color={VERIFICACION_ESTUDIANTE_COLOR[estadoEstudiante.estado_verificacion_estudiante] || "default"}>
+                      {VERIFICACION_ESTUDIANTE_LABEL[estadoEstudiante.estado_verificacion_estudiante] || estadoEstudiante.estado_verificacion_estudiante}
+                    </Tag>
+                    {estadoEstudiante.rol === "estudiante" && (
+                      <Tag color="purple">Rol actual: Estudiante</Tag>
+                    )}
+                  </div>
+
+                  {estadoEstudiante.estado_verificacion_estudiante === "rechazado" && estadoEstudiante.motivo_rechazo_estudiante && (
+                    <p className={`${styles.bloqueTexto} ${styles.textoError}`}>
+                      Motivo del rechazo: {estadoEstudiante.motivo_rechazo_estudiante}
+                    </p>
+                  )}
+
+                  {estadoEstudiante.estado_verificacion_estudiante === "pendiente" && (
+                    <p className={styles.bloqueTexto}>
+                      Tu solicitud está en revisión. Institución informada:{" "}
+                      {estadoEstudiante.institucion_estudiante || "—"}.
+                    </p>
+                  )}
+
+                  {estadoEstudiante.estado_verificacion_estudiante === "aprobado" && (
+                    <p className={`${styles.bloqueTexto} ${styles.textoExito}`}>
+                      Ya tenés el rol Estudiante y accedés a los beneficios diferenciados.
+                    </p>
+                  )}
+
+                  {estadoEstudiante.puede_solicitar && (
+                    <Form
+                      form={estudianteForm}
+                      layout="vertical"
+                      onFinish={onSolicitarEstudiante}
+                      className={styles.formEstudiante}
+                    >
+                      <Form.Item
+                        name="institucion"
+                        label="Institución educativa"
+                        rules={[{ required: true, message: "Requerido" }]}
+                      >
+                        <Input placeholder="Ej: Universidad de Buenos Aires" />
+                      </Form.Item>
+                      <Form.Item
+                        label="Certificado de alumno regular"
+                        required
+                        tooltip="Imagen (JPG o PNG), hasta 1.4 MB"
+                      >
+                        <Upload
+                          accept="image/png,image/jpeg"
+                          maxCount={1}
+                          beforeUpload={(file) => {
+                            const esImagen = file.type === "image/png" || file.type === "image/jpeg";
+                            if (!esImagen) {
+                              message.error("Solo se aceptan imágenes JPG o PNG");
+                              return Upload.LIST_IGNORE;
+                            }
+                            if (file.size > COMPROBANTE_MAX_BYTES) {
+                              message.error("La imagen no puede superar 1.4 MB");
+                              return Upload.LIST_IGNORE;
+                            }
+                            setComprobanteFile(file);
+                            return false;
+                          }}
+                          onRemove={() => setComprobanteFile(null)}
+                        >
+                          <Button icon={<UploadOutlined />}>Elegir imagen</Button>
+                        </Upload>
+                      </Form.Item>
+                      <Button
+                        type="primary"
+                        htmlType="submit"
+                        loading={enviandoEstudiante}
+                        disabled={!comprobanteFile}
+                        className={styles.btnPrimario}
+                      >
+                        Enviar solicitud
+                      </Button>
+                    </Form>
+                  )}
+                </>
+              )}
+            </section>
           </div>
-        </div>
+        </Card>
       </main>
 
       <CancelarReservaModal
